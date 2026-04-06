@@ -11,17 +11,18 @@
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
       body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow: hidden; }
       
-      /* ESTO OBLIGA AL MAPA A SER CLARO SIEMPRE */
-      .leaflet-container, 
-      .leaflet-tile, 
-      .leaflet-tile-pane,
-      .leaflet-layer { 
-        filter: none !important; 
-        -webkit-filter: none !important;
+      /* MAPA SIEMPRE CLARO Y SIN RECORTES (REGLAS DE ORO) */
+      .leaflet-container { 
+        width: 100% !important; 
+        height: 100% !important; 
+        filter: none !important; /* Quitar cualquier filtro de oscuridad */
+        background: #f8fafc !important; /* Fondo blanco para el mapa */
       }
-      
-      /* Fondo de seguridad blanco */
-      .map-wrapper { background: white !important; }
+      .dark .leaflet-tile-pane, 
+      .dark .leaflet-layer, 
+      .dark .leaflet-control-zoom {
+        filter: none !important; /* Bloquear filtros de modo oscuro a todos los elementos del mapa */
+      }
     </style>
   </head>
   <body>
