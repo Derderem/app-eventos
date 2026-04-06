@@ -4,7 +4,6 @@ import {
   Heart, MapPin, Calendar, LogIn, Sun, Moon, PlusCircle, X, Trash2, Map as MapIcon, Camera, Sparkles, Send, CheckCircle
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
 // Arreglo para los iconos de Leaflet que a veces desaparecen
