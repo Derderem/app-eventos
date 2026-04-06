@@ -181,25 +181,36 @@ function App() {
           )}
 
           {/* PERFIL / FAVORITOS */}
-          {view === 'profile' && (
-            <div className="max-w-xl mx-auto py-10">
-               <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm mb-8 text-center border dark:border-slate-800">
-                  <div className="w-20 h-20 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl font-black text-white">{user?.email[0].toUpperCase()}</div>
-                  <p className="font-bold text-slate-500 mb-6">{user?.email}</p>
-                  <button onClick={() => supabase.auth.signOut()} className="text-red-500 font-bold text-xs flex items-center gap-2 mx-auto"><Trash2 size={14}/> Cerrar Sesión</button>
-               </div>
-               <h3 className="text-xl font-black mb-6">MIS FAVORITOS ❤️</h3>
-               <div className="space-y-3">
-                  {events.filter(e => favorites.includes(e.id)).map(event => (
-                    <div key={event.id} className="bg-white dark:bg-slate-900 p-4 rounded-3xl border dark:border-slate-800 flex justify-between items-center shadow-sm">
-                       <span className="font-bold px-4">{event.title}</span>
-                       <button onClick={() => toggleFavorite(event)} className="p-2 text-slate-300 hover:text-red-500 transition" title="ELIMINAR EVENTO 🤍"><Trash2 size={20} /></button>
-                    </div>
+          {/* VISTA MAPA MEJORADA */}
+          {view === 'map' && (
+            <div className="fixed inset-0 z-0 top-[80px] bottom-[90px]">
+              <div className="h-full w-full">
+                <MapContainer 
+                  center={[40.41, -3.70]} 
+                  zoom={6} 
+                  style={{ height: '100%', width: '100%' }}
+                  scrollWheelZoom={true}
+                >
+                  <TileLayer 
+                    url={isDark 
+                      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
+                      : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    } 
+                  />
+                  {events.map(event => event.lat && (
+                    <Marker key={event.id} position={[event.lat, event.lng]}>
+                      <Popup>
+                        <div className="text-slate-900 p-1">
+                          <strong className="block">{event.title}</strong>
+                          <span className="text-xs">{event.city}</span>
+                        </div>
+                      </Popup>
+                    </Marker>
                   ))}
-               </div>
+                </MapContainer>
+              </div>
             </div>
           )}
-        </main>
 
         {/* MODAL DETALLES */}
         {selectedEvent && (
