@@ -9,15 +9,24 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-      body { font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
+      body { font-family: 'Inter', sans-serif; margin: 0; overflow: hidden; background-color: #0f172a; }
+      
+      /* FORZAR MAPA CLARO Y TAMAÑO COMPLETO */
       .leaflet-container { 
         width: 100% !important; 
         height: 100% !important; 
-        background-color: #f1f5f9 !important; /* Fondo claro por si tarda en cargar */
+        background: #ffffff !important; /* Fondo blanco siempre */
+      }
+      /* Bloquear filtros de modo oscuro para el mapa */
+      .dark .leaflet-tile-pane { 
+        filter: none !important; 
+      }
+      .leaflet-layer, .leaflet-control-zoom {
+        filter: none !important;
       }
     </style>
   </head>
-  <body class="bg-slate-50 dark:bg-slate-950">
+  <body>
     <div id="root"></div>
   </body>
 </html>
