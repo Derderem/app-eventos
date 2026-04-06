@@ -1,5 +1,28 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <title>EVENTOS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+      body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow: hidden; }
+      
+      /* MAPA SIEMPRE CLARO Y SIN RECORTES */
+      .leaflet-container { 
+        width: 100% !important; 
+        height: 100% !important; 
+        filter: none !important;
+        background: #f8fafc !important;
+      }
+      .dark .leaflet-tile-pane { filter: none !important; }
+      .leaflet-layer, .leaflet-control-zoom { filter: none !important; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
