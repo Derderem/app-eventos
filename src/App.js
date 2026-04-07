@@ -7,7 +7,7 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// Solución para iconos de marcadores en Leaflet
+// Fix para iconos de marcadores en Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -73,19 +73,19 @@ function App() {
     setFavorites(data ? data.map(f => f.event_id) : []);
   };
 
-  // FUNCIÓN DE LOGIN CORREGIDA
+  // FUNCIÓN DE LOGIN CONFIGURADA PARA TU URL REAL
   const handleLogin = async () => {
     const email = window.prompt("Introduce tu email para entrar:");
     if (!email) return;
     const { error } = await supabase.auth.signInWithOtp({ 
       email,
       options: {
-        // Esto redirige al usuario de vuelta a la App tras pulsar el botón del email
-        emailRedirectTo: window.location.origin 
+        // Obligamos a Supabase a volver a tu dirección limpia
+        emailRedirectTo: 'https://app-eventos-pro-final.vercel.app' 
       }
     });
     if (error) alert("Error: " + error.message);
-    else alert("¡Email enviado! Revisa tu bandeja de entrada o SPAM.");
+    else alert("¡Enlace enviado! Revisa tu bandeja de entrada o SPAM.");
   };
 
   const toggleFavorite = async (event) => {
@@ -118,7 +118,7 @@ function App() {
         
         {/* CABECERA */}
         <nav className="h-[70px] bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b dark:border-slate-800 flex justify-between items-center px-6 z-[2000] shrink-0">
-          <div className="flex items-center gap-2" onClick={() => setView('home')}>
+          <div className="flex items-center gap-2" onClick={() => {setView('home'); setActiveDay(null);}}>
             <div className="bg-indigo-600 p-2 rounded-xl text-white font-bold shadow-lg">E</div>
             <h1 className="text-xl font-black uppercase italic tracking-tighter">Eventos</h1>
           </div>
@@ -131,7 +131,7 @@ function App() {
                 {user.email[0].toUpperCase()}
               </div>
             ) : (
-              <button onClick={handleLogin} className="bg-indigo-600 text-white px-5 py-2 rounded-2xl font-bold text-sm shadow-lg active:scale-95 transition">ENTRAR</button>
+              <button onClick={handleLogin} className="bg-indigo-600 text-white px-5 py-2 rounded-2xl font-bold text-sm shadow-lg active:scale-95 transition tracking-widest">ENTRAR</button>
             )}
           </div>
         </nav>
@@ -139,7 +139,7 @@ function App() {
         {/* CONTENIDO PRINCIPAL */}
         <main className="flex-1 relative overflow-y-auto">
           
-          {/* VISTA HOME: LISTADO CRONOLÓGICO CON CATEGORÍAS */}
+          {/* HOME: LISTADO CRONOLÓGICO CON CATEGORÍAS */}
           {view === 'home' && (
             <div className="p-4 pb-32 animate-in fade-in duration-500">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar">
@@ -257,10 +257,10 @@ function App() {
           )}
         </main>
 
-        {/* MODAL DETALLES */}
+        {/* MODAL DETALLES CON DIRECCIÓN */}
         {selectedEvent && (
-          <div className="fixed inset-0 z-[3000] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[3.5rem] overflow-hidden relative shadow-2xl border dark:border-slate-800">
+          <div className="fixed inset-0 z-[3000] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[3.5rem] overflow-hidden relative shadow-2xl border dark:border-slate-800 animate-in zoom-in duration-200">
               <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-4 z-10 p-2 bg-black/50 text-white rounded-full"><X/></button>
               <img src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30'} className="w-full h-64 object-cover" alt="hero" />
               <div className="p-8 text-left">
@@ -279,14 +279,14 @@ function App() {
                 </div>
                 <div className="grid grid-cols-1 gap-3">
                   <button onClick={() => alert("¡Guardado!")} className="w-full bg-indigo-600 text-white py-5 rounded-[2rem] font-black text-xl shadow-xl shadow-indigo-500/20 active:scale-95 transition tracking-tighter uppercase">¡VOY A IR!</button>
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.city)}`} target="_blank" rel="noreferrer" className="w-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-white py-4 rounded-[2rem] font-bold text-center flex items-center justify-center gap-2 active:scale-95 transition tracking-widest text-xs">CÓMO LLEGAR</a>
+                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.city)}`} target="_blank" rel="noreferrer" className="w-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-white py-4 rounded-[2rem] font-bold text-center flex items-center justify-center gap-2 active:scale-95 transition tracking-widest text-xs uppercase">CÓMO LLEGAR</a>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* BARRA INFERIOR (5 ICONOS) */}
+        {/* BARRA INFERIOR (LOS 5 ICONOS) */}
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 w-[94%] max-w-[440px] bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border dark:border-slate-800 h-[75px] rounded-full shadow-2xl flex items-center justify-around z-[2000] px-4 border-b-4 border-b-indigo-500/20 transition-all">
           <button onClick={() => {setView('home'); setSelectedEvent(null)}} className={`p-2 transition-all ${view === 'home' ? "text-indigo-600 scale-125" : "text-slate-400"}`}><LayoutList size={26}/></button>
           <button onClick={() => setView('calendar')} className={`p-2 transition-all ${view === 'calendar' ? "text-indigo-600 scale-125" : "text-slate-400"}`}><Calendar size={26}/></button>
