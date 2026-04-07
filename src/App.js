@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { 
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, X, Trash2, Map as MapIcon, 
-  Navigation, Clock, ChevronLeft, ChevronRight, LayoutList, ShieldCheck, Star, DollarSign, Sparkles
+  Navigation, Clock, ChevronLeft, ChevronRight, LayoutList, ShieldCheck, Star, DollarSign, Sparkles, CheckCircle, XCircle
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -40,10 +40,7 @@ function App() {
   useEffect(() => {
     fetchEvents();
     checkUser();
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) checkUser();
-      else { setUser(null); setProfile(null); }
-    });
+    const { data: authListener } = supabase.auth.onAuthStateChange(() => checkUser());
     return () => authListener.subscription.unsubscribe();
   }, []);
 
@@ -64,11 +61,8 @@ function App() {
   };
 
   const handleLogin = async () => {
-    const email = window.prompt("Email:");
-    if (!email) return;
-    alert("Enviando enlace... mira tu correo en unos segundos.");
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
-    if (error) alert("Error: " + error.message);
+    const email = window.prompt("Introduce tu email:");
+    if (email) await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
   };
 
   const generateAIImage = () => {
@@ -84,36 +78,21 @@ function App() {
     e.preventDefault();
     if (!form.image_url) return alert("Genera una foto IA primero ✨");
     setIsSubmitting(true);
-    
-    // INTENTO DE GUARDADO CON ALERTA DE ERROR
-    const { error } = await supabase.from('events').insert([{ 
-      title: form.title,
-      category: form.category,
-      city: form.city,
-      address: form.address,
-      date: form.date,
-      time: form.time,
-      image_url: form.image_url,
-      status: 'pending',
-      organizer_id: user?.id 
-    }]);
-
-    if (error) {
-      alert("ERROR TÉCNICO: " + error.message);
-      setIsSubmitting(false);
-    } else {
-      alert("¡RECIBIDO! Ahora pulsa el ESCUDO 🛡️ para aprobarlo.");
+    const { error } = await supabase.from('events').insert([{ ...form, status: 'pending', organizer_id: user?.id }]);
+    if (error) alert("Error: " + error.message);
+    else {
+      alert("¡Enviado! Ve al Escudo para aprobarlo 🛡️");
       setForm({ title: '', category: 'MUSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
-      setIsSubmitting(false);
       setView('home');
       fetchEvents();
     }
+    setIsSubmitting(false);
   };
 
   const updateStatus = async (id, status) => {
     await supabase.from('events').update({ status }).eq('id', id);
     fetchEvents();
-    alert("¡Hecho!");
+    alert(status === 'approved' ? "¡EVENTO PUBLICADO!" : "Evento rechazado");
   };
 
   const toggleFavorite = async (event) => {
@@ -140,13 +119,9 @@ function App() {
             <h1 className="text-xl font-black uppercase italic tracking-tighter">Eventos</h1>
           </div>
           <div className="flex items-center gap-4">
-            {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && <button onClick={() => setView('admin')} className="text-amber-500 hover:scale-125 transition-transform animate-pulse"><ShieldCheck size={28}/></button>}
+            {profile?.role === 'admin' && <button onClick={() => setView('admin')} className="text-amber-500 hover:scale-110 transition"><ShieldCheck size={28}/></button>}
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">{isDark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-indigo-600" />}</button>
-            {user ? (
-              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-md cursor-pointer" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div>
-            ) : (
-              <button onClick={handleLogin} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-black text-xs uppercase shadow-lg tracking-widest">Entrar</button>
-            )}
+            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-md cursor-pointer" onClick={() => setView('profile')}>{user ? user.email[0].toUpperCase() : '?'}</div>
           </div>
         </nav>
 
@@ -164,10 +139,10 @@ function App() {
                     <div className="relative h-60 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                       <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-110 transition duration-1000" alt="img" />
                       <div className="absolute top-5 left-5 bg-indigo-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase shadow-lg">{ev.category}</div>
-                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-5 right-5 p-3 bg-white/90 dark:bg-slate-900/90 rounded-full text-red-500 shadow-xl active:scale-75 transition"><Heart size={20} fill={favorites.includes(ev.id) ? "red" : "none"} /></button>
+                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-5 right-5 p-3 bg-white/90 dark:bg-slate-900/90 rounded-full text-red-500 shadow-xl"><Heart size={20} fill={favorites.includes(ev.id) ? "red" : "none"} /></button>
                     </div>
                     <div className="p-8 flex flex-col flex-1 text-center"><h3 className="text-2xl font-black mb-6 leading-tight">{ev.title}</h3>
-                    <button onClick={() => setSelectedEvent(ev)} className="mt-auto w-full bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-3xl font-black uppercase text-[11px] transition tracking-widest">Ver Detalles</button></div>
+                    <button onClick={() => setSelectedEvent(ev)} className="mt-auto w-full bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-3xl font-black uppercase text-[11px] transition">Ver Detalles</button></div>
                   </div>
                 ))}
               </div>
@@ -186,39 +161,46 @@ function App() {
                   <input required placeholder="Ciudad" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none" value={form.city} onChange={e => setForm({...form, city: e.target.value})} />
                   <input required placeholder="Dirección" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
                   <input required type="date" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none font-bold" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
-                  
-                  <div className="p-6 border-4 border-dashed border-slate-100 dark:border-slate-800 rounded-[2.5rem] text-center bg-slate-50/50 dark:bg-slate-800/50 relative overflow-hidden min-h-[150px] flex flex-col justify-center items-center">
-                    {isGeneratingIA ? <Sparkles className="animate-spin text-indigo-500" /> : form.image_url ? <img src={form.image_url} className="w-full h-full object-cover rounded-2xl" alt="AI" /> : <p className="text-[10px] uppercase font-black text-slate-400">Imagen</p>}
-                  </div>
                   <button type="button" onClick={generateAIImage} className="w-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 p-4 rounded-2xl font-black text-[11px] flex items-center justify-center gap-2 uppercase active:scale-95 transition"><Sparkles size={16}/> GENERAR CON IA</button>
-                  <button type="submit" disabled={isSubmitting || isGeneratingIA} className="w-full bg-indigo-600 text-white p-6 rounded-3xl font-black shadow-xl uppercase active:scale-95 transition tracking-widest text-sm mt-4">
-                    {isSubmitting ? "ENVIANDO..." : "PUBLICAR AHORA"}
-                  </button>
+                  {form.image_url && <img src={form.image_url} className="h-32 mx-auto rounded-2xl shadow-md border-4 border-white" alt="AI" />}
+                  <button type="submit" disabled={isSubmitting || isGeneratingIA} className="w-full bg-indigo-600 text-white p-6 rounded-3xl font-black shadow-xl uppercase active:scale-95 transition tracking-widest text-sm mt-4 disabled:opacity-50">PUBLICAR AHORA</button>
                 </form>
               </div>
             </div>
           )}
 
+          {/* VISTA ADMIN MEJORADA: CON VISTA PREVIA DE IMAGEN */}
           {view === 'admin' && (
-            <div className="max-w-2xl mx-auto p-6 pb-40">
+            <div className="max-w-2xl mx-auto p-6 pb-40 animate-in slide-in-from-top">
               <h2 className="text-3xl font-black mb-8 text-amber-500 italic tracking-tighter text-center">MODERACIÓN 🛡️</h2>
               {events.filter(e => e.status === 'pending').map(ev => (
-                <div key={ev.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] mb-6 border-2 border-amber-500/20 shadow-xl overflow-hidden animate-in slide-in-from-top">
-                  <h4 className="font-black text-xl mb-2">{ev.title}</h4>
-                  <p className="text-sm text-slate-500 mb-6 uppercase tracking-widest font-bold">{ev.city} • {ev.date}</p>
-                  <div className="flex gap-3">
-                    <button onClick={() => updateStatus(ev.id, 'approved')} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg">Aprobar</button>
-                    <button onClick={() => updateStatus(ev.id, 'rejected')} className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-xs opacity-60">Rechazar</button>
+                <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[3rem] mb-8 border-2 border-amber-500/20 shadow-2xl overflow-hidden flex flex-col">
+                  {/* Vista previa de la imagen en moderación */}
+                  <div className="h-52 w-full relative">
+                    <img src={ev.image_url} className="w-full h-full object-cover" alt="preview" />
+                    <div className="absolute top-4 left-4 bg-amber-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase">PENDIENTE</div>
+                  </div>
+                  <div className="p-8">
+                    <h4 className="font-black text-2xl mb-2">{ev.title}</h4>
+                    <div className="space-y-1 mb-6 text-slate-500 font-bold text-sm uppercase tracking-widest">
+                       <p className="flex items-center gap-2"><MapPin size={14} className="text-amber-500"/> {ev.city} • {ev.address}</p>
+                       <p className="flex items-center gap-2"><Calendar size={14} className="text-amber-500"/> {ev.date} • {ev.time}</p>
+                    </div>
+                    <div className="flex gap-4">
+                      <button onClick={() => updateStatus(ev.id, 'approved')} className="flex-1 bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 shadow-lg shadow-green-500/20"><CheckCircle size={18}/> APROBAR</button>
+                      <button onClick={() => updateStatus(ev.id, 'rejected')} className="flex-1 bg-red-500 hover:bg-red-600 text-white py-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-500/20"><XCircle size={18}/> RECHAZAR</button>
+                    </div>
                   </div>
                 </div>
               ))}
+              {events.filter(e => e.status === 'pending').length === 0 && <p className="text-center py-20 text-slate-500 font-bold uppercase opacity-50">Nada que revisar ☕</p>}
             </div>
           )}
 
-          {/* MAPA Y CALENDARIO (Mantenidos) */}
+          {/* OTRAS VISTAS (MAPA, CALENDARIO, PERFIL) SE MANTIENEN IGUAL... */}
+          {view === 'calendar' && ( <div className="max-w-xl mx-auto p-4 pb-40 animate-in slide-in-from-right duration-500"> <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 border dark:border-slate-800 shadow-2xl"> <div className="flex justify-between items-center mb-8 text-indigo-500 font-black italic uppercase tracking-tighter"> <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><ChevronLeft/></button> <h2>{currentMonth.toLocaleString('es-ES', { month: 'long' })}</h2> <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><ChevronRight/></button> </div> <div className="grid grid-cols-7 gap-2 text-center text-[10px] font-black text-slate-400 mb-4 uppercase tracking-widest"> <span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span><span>Do</span> </div> <div className="grid grid-cols-7 gap-2 text-center"> {[...Array(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay() === 0 ? 6 : new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay() - 1)].map((_, i) => <div key={i}></div>)} {[...Array(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate())].map((_, i) => { const day = i + 1; const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; const hasEvents = events.some(e => e.date === dateStr && e.status === 'approved'); return ( <button key={day} onClick={() => setActiveDay(dateStr === activeDay ? null : dateStr)} className={`aspect-square rounded-2xl flex items-center justify-center text-sm font-black transition-all border-2 ${hasEvents ? 'bg-green-500 border-green-400 text-white shadow-lg shadow-green-500/20' : 'border-transparent text-slate-400'} ${activeDay === dateStr ? 'bg-indigo-600 !border-indigo-400 text-white scale-110 shadow-lg' : ''}`}> {day} </button> ); })} </div> </div> {activeDay && ( <div className="mt-8 animate-in fade-in"> {events.filter(e => e.date === activeDay && e.status === 'approved').map(ev => ( <div key={ev.id} className="bg-white dark:bg-slate-900 p-5 rounded-[2.5rem] flex justify-between items-center mb-4 border dark:border-slate-800 shadow-sm active:scale-95 transition" onClick={() => setSelectedEvent(ev)}> <span className="font-black px-4">{ev.title}</span> <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-500/20"><ChevronRight size={18}/></div> </div> ))} </div> )} </div> )}
           {view === 'map' && ( <div className="absolute inset-0 z-0 bg-white"> <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full"> <MapResizer /><TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" /> {events.filter(e => e.status === 'approved').map(ev => ev.lat && (<Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><div className="p-2 font-black text-indigo-600">{ev.title}</div></Popup></Marker>))} </MapContainer> </div> )}
-          {view === 'calendar' && ( <div className="max-w-xl mx-auto p-4 pb-40 animate-in slide-in-from-right duration-500"> <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 border dark:border-slate-800 shadow-2xl"> <div className="flex justify-between items-center mb-8 text-indigo-500 font-black"> <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><ChevronLeft/></button> <h2>{currentMonth.toLocaleString('es-ES', { month: 'long' })}</h2> <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><ChevronRight/></button> </div> <div className="grid grid-cols-7 gap-2 text-center text-[10px] font-black text-slate-400 mb-4 uppercase tracking-widest"> <span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span><span>Do</span> </div> <div className="grid grid-cols-7 gap-2 text-center"> {[...Array(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay() === 0 ? 6 : new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay() - 1)].map((_, i) => <div key={i}></div>)} {[...Array(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate())].map((_, i) => { const day = i + 1; const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; const hasEvents = events.some(e => e.date === dateStr && e.status === 'approved'); return ( <button key={day} onClick={() => setActiveDay(dateStr === activeDay ? null : dateStr)} className={`aspect-square rounded-2xl flex items-center justify-center text-sm font-black transition-all border-2 ${hasEvents ? 'bg-green-500 border-green-400 text-white shadow-lg shadow-green-500/20' : 'border-transparent text-slate-400'} ${activeDay === dateStr ? 'bg-indigo-600 !border-indigo-400 text-white scale-110 shadow-lg' : ''}`}> {day} </button> ); })} </div> </div> {activeDay && ( <div className="mt-8 animate-in fade-in"> {events.filter(e => e.date === activeDay && e.status === 'approved').map(ev => ( <div key={ev.id} className="bg-white dark:bg-slate-900 p-5 rounded-[2.5rem] flex justify-between items-center mb-4 border dark:border-slate-800 shadow-sm active:scale-95 transition" onClick={() => setSelectedEvent(ev)}> <span className="font-black px-4">{ev.title}</span> <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-500/20"><ChevronRight size={18}/></div> </div> ))} </div> )} </div> )}
-          {view === 'profile' && ( <div className="max-w-2xl mx-auto p-6 pb-40 text-center"> <h3 className="text-3xl font-black mb-12 uppercase italic text-indigo-500 underline decoration-4 underline-offset-8 tracking-tighter">Mi Perfil</h3> <p className="mb-10 text-slate-400 font-bold tracking-widest">{user?.email}</p> <div className="flex justify-center mb-10"><a href="https://ko-fi.com" target="_blank" rel="noreferrer" className="bg-[#FF5E5B] text-white px-6 py-3 rounded-2xl font-black text-[10px] flex items-center gap-1 shadow-lg shadow-red-500/20 transition hover:scale-105 active:scale-95 uppercase tracking-widest"><DollarSign size={16}/> APOYAR EL PROYECTO</a></div> <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-500 text-white p-5 rounded-3xl font-black uppercase tracking-widest active:scale-95 transition shadow-lg shadow-red-500/20">Cerrar Sesión</button> </div> )}
+          {view === 'profile' && ( <div className="max-w-2xl mx-auto p-6 pb-40 text-center"> <h3 className="text-3xl font-black mb-12 uppercase italic text-indigo-500">Mi Perfil</h3> <p className="mb-10 text-slate-400 font-bold tracking-widest">{user?.email}</p> <div className="flex justify-center mb-10"><a href="https://ko-fi.com" target="_blank" rel="noreferrer" className="bg-[#FF5E5B] text-white px-6 py-3 rounded-2xl font-black text-[10px] flex items-center gap-1 shadow-lg shadow-red-500/20 transition hover:scale-105 active:scale-95 uppercase tracking-widest"><DollarSign size={16}/> APOYAR EL PROYECTO</a></div> <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-500 text-white p-5 rounded-3xl font-black uppercase tracking-widest active:scale-95 transition shadow-lg shadow-red-500/20">Cerrar Sesión</button> </div> )}
         </main>
 
         {/* MODAL DETALLES */}
@@ -240,7 +222,6 @@ function App() {
           </div>
         )}
 
-        {/* BARRA INFERIOR */}
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 w-[94%] max-w-[460px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border dark:border-slate-800 h-[80px] rounded-full shadow-2xl flex items-center justify-around z-[2000] px-6 border-b-4 border-b-indigo-500/20 transition-all border-indigo-500/10">
           <button onClick={() => {setView('home'); setSelectedEvent(null)}} className={`p-3 transition-all ${view === 'home' ? "text-indigo-600 scale-125 drop-shadow-xl" : "text-slate-400 opacity-40"}`}><LayoutList size={28}/></button>
           <button onClick={() => setView('calendar')} className={`p-3 transition-all ${view === 'calendar' ? "text-indigo-600 scale-125 drop-shadow-xl" : "text-slate-400 opacity-40"}`}><Calendar size={28}/></button>
