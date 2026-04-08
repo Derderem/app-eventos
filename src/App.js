@@ -7,7 +7,6 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// Fix Marcadores
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -31,7 +30,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [events, setEvents] = useState([]);
-  const [favorites, setFavorites] = useState([]);
+  const [favorites, setFavorites] = useState([]); // Memoria de corazones
   const [isDark, setIsDark] = useState(true);
   const [view, setView] = useState('home'); 
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -51,7 +50,7 @@ function App() {
   useEffect(() => {
     fetchEvents();
     checkUser();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) { setUser(session.user); loadUserData(session.user.id); }
       else { setUser(null); setProfile(null); setFavorites([]); }
     });
@@ -64,8 +63,12 @@ function App() {
   };
 
   const loadUserData = async (userId) => {
+    // Cargar Perfil (Admin Check)
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (prof) setProfile(prof);
+    else if (userId === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
+
+    // CARGAR FAVORITOS (Para que el corazón se quede rojo)
     const { data: f } = await supabase.from('favorites').select('event_id').eq('user_id', userId);
     if (f) setFavorites(f.map(item => Number(item.event_id)));
   };
@@ -76,11 +79,10 @@ function App() {
   };
 
   const handleLogin = async () => {
-    const email = window.prompt("Introduce tu email:");
+    const email = window.prompt("Email:");
     if (!email) return;
-    alert("Enviando email... Si no llega en 1 min, mira en SPAM.");
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: 'https://app-eventos-pro-final.vercel.app' } });
-    if (error) alert("Error: " + error.message);
+    alert("Enviando enlace...");
+    await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: 'https://app-eventos-pro-final.vercel.app' } });
   };
 
   const toggleFavorite = async (event) => {
@@ -98,7 +100,7 @@ function App() {
   };
 
   const handleImGoing = async () => {
-    if (!user) return showNotification("Inicia sesión ❤️");
+    if (!user) return showNotification("Inicia sesión primero ❤️");
     const eventId = Number(selectedEvent.id);
     if (!favorites.includes(eventId)) {
       setFavorites(prev => [...prev, eventId]);
@@ -110,18 +112,37 @@ function App() {
   const generateAIImage = () => {
     if (!form.title) return showNotification("Escribe un título ✨");
     setIsProcessingImg(true);
-    const query = encodeURIComponent(form.title + " " + form.category.toLowerCase());
-    const url = `https://image.pollinations.ai/prompt/${query}?width=800&height=1000&nologo=true&seed=${Math.floor(Math.random()*1000)}`;
+    const prompt = encodeURIComponent(`${form.title} high quality photography`);
+    const aiUrl = `https://image.pollinations.ai/prompt/${prompt}?width=800&height=1000&nologo=true&seed=${Math.floor(Math.random()*1000)}`;
     const img = new Image();
-    img.src = url;
-    img.onload = () => { setForm({ ...form, image_url: url }); setIsProcessingImg(false); };
+    img.src = aiUrl;
+    img.onload = () => { setForm({ ...form, image_url: aiUrl }); setIsProcessingImg(false); };
+  };
+
+  const uploadGalleryImage = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setIsProcessingImg(true);
+    const fileName = `${Date.now()}_${file.name}`;
+    const { error } = await supabase.storage.from('event-images').upload(fileName, file);
+    if (!error) {
+      const { data: urlData } = supabase.storage.from('event-images').getPublicUrl(fileName);
+      setForm({ ...form, image_url: urlData.publicUrl });
+      showNotification("¡Foto lista!");
+    }
+    setIsProcessingImg(false);
   };
 
   const handleCreateEvent = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    // Como eres el Admin (ID fijo), tus eventos se aprueban solos
     const isAdmin = user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9';
-    const { error } = await supabase.from('events').insert([{ ...form, status: isAdmin ? 'approved' : 'pending', organizer_id: user?.id }]);
+    const { error } = await supabase.from('events').insert([{ 
+      ...form, 
+      status: isAdmin ? 'approved' : 'pending', 
+      organizer_id: user?.id 
+    }]);
     if (!error) {
       showNotification(isAdmin ? "¡Publicado!" : "¡Enviado!");
       setForm({ title: '', category: 'MUSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
@@ -145,7 +166,7 @@ function App() {
           </div>
         )}
 
-        <nav className="h-[70px] shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b dark:border-slate-800 flex justify-between items-center px-8 z-[2000]">
+        <nav className="h-[70px] shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b dark:border-slate-800 flex justify-between items-center px-8 z-[2000] shadow-sm">
           <div className="flex items-center gap-2" onClick={() => setView('home')}>
             <div className="bg-indigo-600 p-2 rounded-xl text-white font-bold shadow-lg text-xl">E</div>
             <h1 className="text-xl font-black uppercase italic tracking-tighter">Eventos</h1>
@@ -173,16 +194,16 @@ function App() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredEvents.map(ev => (
-                  <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[2.5rem] border dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-2xl transition-all flex flex-col h-full">
-                    <div className="relative h-64 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
+                  <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[2.5rem] border dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-2xl transition-all group flex flex-col h-full">
+                    <div className="relative h-60 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                       <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-110 transition duration-1000" alt="img" />
                       <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-5 right-5 p-3 bg-white/90 dark:bg-slate-900/90 rounded-full text-red-500 shadow-xl active:scale-75 transition">
                         <Heart size={20} fill={favorites.includes(Number(ev.id)) ? "red" : "none"} />
                       </button>
                     </div>
                     <div className="p-8 flex flex-col flex-1 text-center">
-                      <h3 className="text-2xl font-black mb-6 truncate">{ev.title}</h3>
-                      <button onClick={() => setSelectedEvent(ev)} className="mt-auto w-full bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-3xl font-black uppercase text-[11px] transition">Ver Detalles</button>
+                      <h3 className="text-2xl font-black mb-6 leading-tight">{ev.title}</h3>
+                      <button onClick={() => setSelectedEvent(ev)} className="mt-auto w-full bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-3xl font-black uppercase text-[11px] transition tracking-widest">Ver Detalles</button>
                     </div>
                   </div>
                 ))}
@@ -204,7 +225,7 @@ function App() {
                     {isProcessingImg ? <Loader2 className="animate-spin text-indigo-600" size={32}/> : form.image_url ? <img src={form.image_url} className="w-full h-full object-cover rounded-2xl" alt="P" /> : <p className="text-[10px] uppercase font-black text-slate-400">Imagen</p>}
                   </div>
                   <div className="flex gap-2">
-                    <label className="flex-1 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 p-4 rounded-2xl font-black text-[10px] flex items-center justify-center gap-2 uppercase cursor-pointer"><Camera size={16}/> GALERÍA<input type="file" className="hidden" accept="image/*" onChange={(e) => { const file = e.target.files[0]; if(!file) return; setIsProcessingImg(true); const fn = `${Date.now()}_${file.name}`; supabase.storage.from('event-images').upload(fn, file).then(() => { const {data} = supabase.storage.from('event-images').getPublicUrl(fn); setForm({...form, image_url: data.publicUrl}); setIsProcessingImg(false); }); }} /></label>
+                    <label className="flex-1 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 p-4 rounded-2xl font-black text-[10px] flex items-center justify-center gap-2 uppercase cursor-pointer"><Camera size={16}/> GALERÍA<input type="file" className="hidden" accept="image/*" onChange={uploadGalleryImage} /></label>
                     <button type="button" onClick={generateAIImage} className="flex-1 bg-white dark:bg-slate-800 p-4 rounded-2xl font-black text-[10px] flex items-center justify-center gap-2 uppercase border-2 dark:border-slate-700 active:scale-95 transition"><Sparkles size={16} className="text-indigo-500"/> IA</button>
                   </div>
                   <button type="submit" disabled={isSubmitting || isProcessingImg} className="w-full bg-indigo-600 text-white p-6 rounded-3xl font-black shadow-xl uppercase active:scale-95 transition tracking-widest text-sm mt-4">PUBLICAR AHORA</button>
@@ -213,17 +234,17 @@ function App() {
             </div>
           )}
 
-          {/* ADMIN, CALENDARIO, FAVORITOS, PERFIL Y MAPA SE MANTIENEN IGUAL... */}
-          {view === 'admin' && ( <div className="max-w-2xl mx-auto p-6 pb-40 animate-in slide-in-from-top"> <h2 className="text-3xl font-black mb-8 text-amber-500 italic text-center uppercase tracking-tighter">Moderación 🛡️</h2> {events.filter(e => e.status === 'pending').map(ev => ( <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[3rem] mb-8 border-2 border-amber-500/20 shadow-2xl overflow-hidden flex flex-col"> <img src={ev.image_url} className="h-52 w-full object-cover" alt="p"/> <div className="p-8"> <h4 className="font-black text-xl mb-2">{ev.title}</h4> <p className="text-sm text-slate-500 mb-6 uppercase">{ev.city} • {ev.address}</p> <div className="flex gap-4"> <button onClick={() => { supabase.from('events').update({ status: 'approved' }).eq('id', ev.id).then(() => fetchEvents()); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg">Aprobar</button> <button onClick={() => { supabase.from('events').update({ status: 'rejected' }).eq('id', ev.id).then(() => fetchEvents()); showNotification("Rechazado"); }} className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-xs opacity-60">Rechazar</button> </div> </div> </div> ))} </div> )}
+          {/* VISTAS RESTANTES MANTENIDAS */}
+          {view === 'admin' && ( <div className="max-w-2xl mx-auto p-6 pb-40 animate-in slide-in-from-top"> <h2 className="text-3xl font-black mb-8 text-amber-500 italic text-center uppercase tracking-tighter">Moderación 🛡️</h2> {events.filter(e => e.status === 'pending').map(ev => ( <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[3rem] mb-8 border-2 border-amber-500/20 shadow-xl overflow-hidden flex flex-col"> <img src={ev.image_url} className="h-52 w-full object-cover" alt="p"/> <div className="p-8"> <h4 className="font-black text-xl mb-2">{ev.title}</h4> <p className="text-sm text-slate-500 mb-6 uppercase">{ev.city} • {ev.address}</p> <div className="flex gap-3"> <button onClick={() => { supabase.from('events').update({ status: 'approved' }).eq('id', ev.id).then(() => fetchEvents()); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg">Aprobar</button> <button onClick={() => { supabase.from('events').update({ status: 'rejected' }).eq('id', ev.id).then(() => fetchEvents()); showNotification("Rechazado"); }} className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-xs opacity-60">Rechazar</button> </div> </div> </div> ))} </div> )}
           {view === 'calendar' && ( <div className="max-w-xl mx-auto p-4 pb-40 animate-in slide-in-from-right duration-500"> <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 border dark:border-slate-800 shadow-2xl"> <div className="flex justify-between items-center mb-8 text-indigo-500 font-black italic uppercase tracking-tighter"> <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><ChevronLeft/></button> <h2>{currentMonth.toLocaleString('es-ES', { month: 'long' })}</h2> <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><ChevronRight/></button> </div> <div className="grid grid-cols-7 gap-2 text-center text-[10px] font-black text-slate-400 mb-4 uppercase tracking-widest"> <span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span><span>Do</span> </div> <div className="grid grid-cols-7 gap-2 text-center"> {[...Array(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay() === 0 ? 6 : new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay() - 1)].map((_, i) => <div key={i}></div>)} {[...Array(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate())].map((_, i) => { const day = i + 1; const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; const hasEvents = events.some(e => e.date === dateStr && e.status === 'approved'); return ( <button key={day} onClick={() => setActiveDay(dateStr === activeDay ? null : dateStr)} className={`aspect-square rounded-2xl flex items-center justify-center text-sm font-black transition-all border-2 ${hasEvents ? 'bg-green-500 border-green-400 text-white shadow-lg shadow-green-500/20' : 'border-transparent text-slate-400'} ${activeDay === dateStr ? 'bg-indigo-600 !border-indigo-400 text-white scale-110 shadow-lg' : ''}`}> {day} </button> ); })} </div> </div> {activeDay && ( <div className="mt-8 animate-in fade-in"> {events.filter(e => e.date === activeDay && e.status === 'approved').map(ev => ( <div key={ev.id} className="bg-white dark:bg-slate-900 p-5 rounded-[2.5rem] flex justify-between items-center mb-4 border dark:border-slate-800 shadow-sm active:scale-95 transition" onClick={() => setSelectedEvent(ev)}> <span className="font-black px-4">{ev.title}</span> <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-500/20"><ChevronRight size={18}/></div> </div> ))} </div> )} </div> )}
-          {view === 'favorites' && ( <div className="max-w-2xl mx-auto p-6 pb-40 text-center"> <h3 className="text-3xl font-black mb-12 uppercase italic text-indigo-500 underline decoration-4 underline-offset-8 tracking-tighter">Mis Favoritos ❤️</h3> <div className="grid grid-cols-1 gap-4"> {events.filter(e => favorites.includes(Number(e.id))).map(ev => ( <div key={ev.id} className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border dark:border-slate-800 flex justify-between items-center shadow-md animate-in fade-in"> <span className="font-black text-xl px-4 truncate">{ev.title}</span> <button onClick={() => toggleFavorite(ev)} className="p-3 text-slate-300 hover:text-red-500 transition active:scale-75"><Trash2 size={28} /></button> </div> ))} </div> </div> )}
-          {view === 'profile' && ( <div className="max-w-xl mx-auto p-6 pb-40 animate-in slide-in-from-bottom duration-500"> <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 border dark:border-slate-800 shadow-2xl text-center"> <div className="w-24 h-24 bg-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center text-4xl font-black text-white shadow-xl border-4 border-white dark:border-slate-800"> {user?.email[0].toUpperCase()} </div> <h2 className="text-2xl font-black mb-10 tracking-tighter italic uppercase tracking-widest">Mi Perfil</h2> <p className="mb-10 font-bold text-slate-400">{user?.email}</p> <div className="space-y-4"> <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-500 text-white p-5 rounded-3xl font-black uppercase tracking-widest active:scale-95 transition shadow-lg shadow-red-500/20"> Cerrar Sesión </button> </div> </div> </div> )}
+          {view === 'profile' && ( <div className="max-w-xl mx-auto p-6 pb-40 animate-in slide-in-from-bottom duration-500"> <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 border dark:border-slate-800 shadow-2xl text-center"> <div className="w-24 h-24 bg-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center text-4xl font-black text-white shadow-xl border-4 border-white dark:border-slate-800"> {user?.email[0].toUpperCase()} </div> <h2 className="text-2xl font-black mb-10 tracking-tighter italic uppercase tracking-widest">Mi Perfil</h2> <p className="mb-10 font-bold text-slate-400">{user?.email}</p> <div className="space-y-4"> <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-500 text-white p-5 rounded-3xl font-black uppercase tracking-widest active:scale-95 transition shadow-lg shadow-red-500/20"> Cerrar Sesión </button> <a href="https://ko-fi.com" target="_blank" rel="noreferrer" className="w-full bg-[#FF5E5B] text-white p-5 rounded-3xl font-black uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition"> <DollarSign size={20}/> Apoyar Proyecto </a> </div> </div> </div> )}
+          {view === 'favorites' && ( <div className="max-w-2xl mx-auto p-6 pb-40 text-center"> <h3 className="text-3xl font-black mb-12 uppercase italic text-indigo-500 underline decoration-4 underline-offset-8 tracking-tighter">Mis Favoritos ❤️</h3> <div className="grid grid-cols-1 gap-4"> {events.filter(e => favorites.includes(Number(e.id))).map(ev => ( <div key={ev.id} className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border dark:border-slate-800 flex justify-between items-center shadow-md animate-in fade-in"> <span className="font-black text-xl px-4 truncate">{ev.title}</span> <button onClick={() => toggleFavorite(ev)} className="p-3 text-slate-300 hover:text-red-500 transition active:scale-75"><Trash2 size={28} /></button> </div> ))} </div> {favorites.length === 0 && <p className="text-slate-500 font-bold py-10 opacity-40">No has guardado nada todavía</p>} </div> )}
           {view === 'map' && ( <div className="absolute inset-0 z-0 bg-white"> <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full"> <MapResizer /><TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" /> {events.filter(e => e.status === 'approved').map(ev => ev.lat && (<Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><div className="p-1 font-bold">{ev.title}</div></Popup></Marker>))} </MapContainer> </div> )}
         </main>
 
-        {/* MODAL DETALLES ACTUALIZADO */}
+        {/* MODAL DETALLES */}
         {selectedEvent && (
-          <div className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center p-3 backdrop-blur-md">
+          <div className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center p-3 backdrop-blur-xl animate-in fade-in duration-300">
             <div className="bg-white dark:bg-slate-900 w-full max-w-[380px] h-[82vh] rounded-[3.5rem] overflow-hidden relative shadow-2xl border dark:border-slate-800 border-b-[8px] border-b-indigo-600 flex flex-col">
               <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-4 z-50 p-2.5 bg-black/50 text-white rounded-full active:scale-90 transition shadow-xl"><X size={20} /></button>
               <img src={selectedEvent.image_url} className="w-full h-52 object-cover shadow-inner shrink-0" alt="hero" />
@@ -236,7 +257,7 @@ function App() {
                 <div className="space-y-6 text-slate-600 dark:text-slate-300 font-black">
                    <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.city)}`} target="_blank" rel="noreferrer" className="flex items-start gap-4 p-2 -ml-2 rounded-xl active:bg-slate-50 dark:active:bg-slate-800 transition">
                       <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600"><MapPin size={22} /></div>
-                      <div className="flex-1 overflow-hidden"><p className="text-md font-black leading-tight underline decoration-indigo-500/30">{selectedEvent.address}</p><p className="text-[10px] opacity-60 uppercase">{selectedEvent.city}</p></div>
+                      <div className="flex-1 overflow-hidden"><p className="text-md font-black leading-tight underline decoration-indigo-500/30">{selectedEvent.address}</p><p className="text-[10px] opacity-60 uppercase font-black">{selectedEvent.city}</p></div>
                    </a>
                    <div className="flex items-center gap-4 px-2 -ml-2">
                       <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600"><Calendar size={22} /></div>
