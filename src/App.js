@@ -7,7 +7,6 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// Fix Marcadores
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -21,11 +20,9 @@ function MapResizer() {
   return null;
 }
 
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL, 
-  process.env.REACT_APP_SUPABASE_ANON_KEY,
-  { auth: { persistSession: true, autoRefreshToken: true } }
-);
+const supabase = createClient(process.env.REACT_APP_SUPABASE_URL, process.env.REACT_APP_SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
 
 function App() {
   const [user, setUser] = useState(null);
@@ -75,17 +72,20 @@ function App() {
 
   const handleLogin = async () => {
     const e = window.prompt("Introduce tu email:");
-    if (e) await supabase.auth.signInWithOtp({ email: e, options: { emailRedirectTo: window.location.origin } });
+    if (e) {
+      alert("Enviando enlace...");
+      await supabase.auth.signInWithOtp({ email: e, options: { emailRedirectTo: 'https://app-eventos-pro-final.vercel.app' } });
+    }
   };
 
   const generateIA = () => {
-    if (!form.title) return showNotification("Pon un título ✨");
+    if (!form.title) return showNotification("Pon un título primero ✨");
     setIsProcessing(true);
     const q = encodeURIComponent(form.title);
     const url = `https://image.pollinations.ai/prompt/professional_photo_of_${q}_event?width=800&height=1000&nologo=true&seed=${Date.now()}`;
     const img = new Image();
     img.src = url;
-    img.onload = () => { setForm({...form, image_url: url}); setIsProcessing(false); showNotification("Imagen lista"); };
+    img.onload = () => { setForm({...form, image_url: url}); setIsProcessing(false); showNotification("Imagen cargada"); };
   };
 
   const handleUpload = async (e) => {
@@ -99,35 +99,20 @@ function App() {
     setIsProcessing(false);
   };
 
-  // --- PUBLICAR CON UBICACIÓN EN EL MAPA ---
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!form.image_url) return showNotification("Falta la foto ✨");
     setIsSubmitting(true);
-    
-    // Generar coordenadas aleatorias en España para que aparezca en el mapa
-    const randomLat = 36 + Math.random() * (43 - 36);
-    const randomLng = -9 + Math.random() * (3 - (-9));
-
+    // Generar ubicación automática en España
+    const lat = 36 + Math.random() * (43 - 36);
+    const lng = -9 + Math.random() * (3 - (-9));
     const isAdmin = profile?.role === 'admin';
-    const { error } = await supabase.from('events').insert([{ 
-      ...form, 
-      status: isAdmin ? 'approved' : 'pending', 
-      organizer_id: user?.id,
-      lat: randomLat,
-      lng: randomLng
-    }]);
-    
-    if (!error) { 
-      showNotification(isAdmin ? "¡Publicado!" : "¡Enviado!"); 
-      setView('home'); 
-      fetchEvents(); 
-      setForm({ title: '', category: 'MUSICA', city: '', address: '', date: '', image_url: '' });
-    }
+    const { error } = await supabase.from('events').insert([{ ...form, lat, lng, status: isAdmin ? 'approved' : 'pending', organizer_id: user?.id }]);
+    if (!error) { showNotification("¡Publicado!"); setView('home'); fetchEvents(); }
     setIsSubmitting(false);
   };
 
-  const toggleFav = async (ev) => {
+  const toggleFavorite = async (ev) => {
     if (!user) return showNotification("Inicia sesión ❤️");
     const id = String(ev.id);
     if (favorites.includes(id)) {
@@ -140,20 +125,19 @@ function App() {
   };
 
   const handleImGoing = async () => {
-    if (!user) return;
-    const id = String(selectedEvent.id);
-    if (!favorites.includes(id)) {
-      setFavorites(f => [...f, id]);
-      await supabase.from('favorites').insert({ user_id: user.id, event_id: id });
+    if (!user) return showNotification("Inicia sesión primero ❤️");
+    if (!favorites.includes(String(selectedEvent.id))) {
+      setFavorites(f => [...f, String(selectedEvent.id)]);
+      await supabase.from('favorites').insert({ user_id: user.id, event_id: selectedEvent.id });
     }
     showNotification("¡Gracias por asistir!");
   };
 
-  const publicEvents = events.filter(e => e.status === 'approved' && e.date >= new Date().toISOString().split('T')[0] && (activeCategory === 'TODOS' || e.category === activeCategory));
+  const publicEvents = events.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
 
   return (
     <div className={isDark ? "dark" : ""}>
-      <div className="h-screen w-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-500 overflow-hidden font-sans">
+      <div className="h-screen w-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white font-sans overflow-hidden">
         
         {toast && (
           <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2 border-2 border-white/20 animate-in slide-in-from-top">
@@ -161,16 +145,17 @@ function App() {
           </div>
         )}
 
-        {/* HEADER */}
         <nav className="h-[70px] shrink-0 bg-white/80 dark:bg-slate-900/80 border-b dark:border-slate-800 flex justify-between items-center px-8 z-[2000] shadow-sm">
           <div className="flex items-center gap-2" onClick={() => setView('home')}>
-            <div className="bg-indigo-600 p-2 rounded-xl text-white font-bold shadow-lg">E</div>
+            <div className="bg-indigo-600 p-2 rounded-xl text-white font-bold shadow-lg shadow-indigo-500/30 text-xl">E</div>
             <h1 className="text-xl font-black uppercase italic tracking-tighter">Eventos</h1>
           </div>
           <div className="flex items-center gap-4">
             {profile?.role === 'admin' && <button onClick={() => setView('admin')} className="text-amber-500 animate-pulse transition"><ShieldCheck size={28}/></button>}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 transition-all">{isDark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-indigo-600" />}</button>
-            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white cursor-pointer" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={handleLogin} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
+            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
+              {isDark ? <Sun size={20} className="text-yellow-400 drop-shadow-[0_0_8px_orange]" /> : <Moon size={20} className="text-indigo-600" />}
+            </button>
+            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={handleLogin} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase">Entrar</button>}
           </div>
         </nav>
 
@@ -179,30 +164,54 @@ function App() {
             <div className="max-w-6xl mx-auto p-4 pb-60 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-5 py-2.5 rounded-full font-black text-[9px] tracking-widest transition-all shrink-0 border-2 ${activeCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800'}`}>{cat}</button>
+                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2.5 rounded-full font-black text-[9px] tracking-widest transition-all shrink-0 border-2 ${activeCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800'}`}>{cat}</button>
                 ))}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 px-2">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[2.5rem] border dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-2xl flex flex-col h-full group">
+                  <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[2.5rem] border dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-2xl transition-all flex flex-col h-full group">
                     <div className="relative h-64 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                       <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-105 transition duration-1000" alt="img" />
-                      <button onClick={(e) => { e.stopPropagation(); toggleFav(ev); }} className="absolute top-5 right-5 p-3 bg-white/90 dark:bg-slate-900/90 rounded-full text-red-500 shadow-xl">
+                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-5 right-5 p-3 bg-white/90 dark:bg-slate-900/90 rounded-full text-red-500 shadow-xl">
                         <Heart size={20} fill={favorites.includes(String(ev.id)) ? "red" : "none"} />
                       </button>
                     </div>
                     <div className="p-6 flex flex-col flex-1 text-center"><h3 className="text-xl font-black mb-4 truncate leading-tight uppercase tracking-tighter">{ev.title}</h3>
-                    <button onClick={() => setSelectedEvent(ev)} className="mt-auto w-full bg-slate-900 dark:bg-indigo-600 text-white py-3 rounded-2xl font-black uppercase text-[10px] shadow-lg">Ver Detalles</button></div>
+                    <button onClick={() => setSelectedEvent(ev)} className="mt-auto w-full bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-3xl font-black uppercase text-[11px] transition tracking-widest shadow-lg">Ver Detalles</button></div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* VISTAS DE CREAR, ADMIN, FAVORITOS, PERFIL Y MAPA MANTENIDAS IGUAL QUE ANTES... */}
-          {view === 'create' && ( <div className="max-w-xl mx-auto p-6 pb-60 animate-in slide-in-from-bottom"> <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] p-10 border dark:border-slate-800 shadow-2xl"> <h2 className="text-3xl font-black mb-8 text-indigo-500 text-center uppercase tracking-tighter italic">Publicar</h2> <form onSubmit={handleCreate} className="space-y-4 text-left"> <input required placeholder="Título" className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none" value={form.title} onChange={e => setForm({...form, title: e.target.value})} /> <select className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none font-black text-[10px]" value={form.category} onChange={e => setForm({...form, category: e.target.value})}><option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINOS">TAURINOS</option><option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option><option value="OTROS">OTROS</option></select> <input required placeholder="Ciudad" className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none" value={form.city} onChange={e => setForm({...form, city: e.target.value})} /> <input required placeholder="Dirección" className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /> <input required type="date" className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none font-bold" value={form.date} onChange={e => setForm({...form, date: e.target.value})} /> <div className="pt-6 border-t dark:border-slate-800 text-center"> <div className="h-44 w-full bg-slate-50 dark:bg-slate-800 rounded-[2rem] overflow-hidden mb-4 flex items-center justify-center border-4 border-dashed border-slate-100 dark:border-slate-700"> {isProcessing ? <Loader2 className="animate-spin text-indigo-600"/> : form.image_url ? <img src={form.image_url} className="w-full h-full object-cover" alt="IA" /> : <p className="text-slate-400 font-black text-[10px] uppercase">Imagen</p>} </div> <div className="flex gap-2"> <label className="flex-1 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 p-4 rounded-2xl font-black text-[10px] flex items-center justify-center gap-2 cursor-pointer uppercase active:scale-95 transition shadow-lg"><Camera size={16}/> GALERÍA<input type="file" className="hidden" accept="image/*" onChange={handleUpload} /></label> <button type="button" onClick={generateIA} className="flex-1 bg-white dark:bg-slate-800 border-2 border-indigo-600 text-indigo-600 p-4 rounded-2xl font-black text-[10px] uppercase active:scale-95 transition shadow-sm"><Sparkles size={16}/> IA</button> </div> </div> <button type="submit" disabled={isProcessing || !form.image_url} className="w-full bg-indigo-600 text-white p-6 rounded-3xl font-black shadow-xl mt-4 uppercase">PUBLICAR AHORA</button> </form> </div> </div> )}
-          {view === 'admin' && ( <div className="max-w-2xl mx-auto p-6 pb-60 animate-in slide-in-from-top text-left"> <h2 className="text-3xl font-black mb-8 text-amber-500 italic text-center uppercase tracking-tighter underline">Moderación 🛡️</h2> {events.filter(e => e.status === 'pending').map(ev => ( <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[3rem] mb-8 border-2 border-amber-500/20 shadow-xl overflow-hidden flex flex-col"> <img src={ev.image_url} className="h-52 w-full object-cover" alt="p"/> <div className="p-8 text-center"> <h4 className="font-black text-xl mb-4">{ev.title}</h4> <div className="flex gap-4"> <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("Aprobado!"); }} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg">Aprobar</button> <button onClick={async () => { await supabase.from('events').update({ status: 'rejected' }).eq('id', ev.id).then(() => fetchEvents()); showNotification("Rechazado"); }} className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-xs opacity-60">Rechazar</button> </div> </div> </div> ))} </div> )}
-          {view === 'favorites' && ( <div className="max-w-2xl mx-auto p-6 pb-60 text-center text-left"> <h3 className="text-3xl font-black uppercase tracking-tighter text-indigo-600 mb-12"> EVENTOS GUARDADOS </h3> <div className="grid grid-cols-1 gap-4"> {events.filter(e => favorites.includes(String(e.id))).map(ev => ( <div key={ev.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border dark:border-slate-800 flex justify-between items-center shadow-md animate-in fade-in"> <span className="font-black text-xl px-4 truncate text-left uppercase tracking-tighter">{ev.title}</span> <button onClick={() => toggleFav(ev)} className="p-3 text-slate-300 hover:text-red-500 transition active:scale-75"><Trash2 size={28} /></button> </div> ))} </div> </div> )}
+          {view === 'create' && (
+            <div className="max-w-xl mx-auto p-6 pb-60">
+              <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] p-10 border dark:border-slate-800 shadow-2xl">
+                <h2 className="text-3xl font-black mb-8 text-indigo-500 text-center uppercase tracking-tighter italic">Publicar</h2>
+                <form onSubmit={handleCreate} className="space-y-4 text-left">
+                  <input required placeholder="Título" className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
+                  <select className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none font-black text-[10px]" value={form.category} onChange={e => setForm({...form, category: e.target.value})}><option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINOS">TAURINOS</option><option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option><option value="OTROS">OTROS</option></select>
+                  <input required placeholder="Ciudad" className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none" value={form.city} onChange={e => setForm({...form, city: e.target.value})} />
+                  <input required placeholder="Dirección" className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
+                  <input required type="date" className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none font-bold" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+                  <div className="pt-6 border-t dark:border-slate-800 text-center">
+                    <div className="h-44 w-full bg-slate-50 dark:bg-slate-800 rounded-[2rem] overflow-hidden mb-4 flex items-center justify-center border-4 border-dashed border-slate-100 dark:border-slate-700">
+                      {isProcessing ? <Loader2 className="animate-spin text-indigo-600"/> : form.image_url ? <img src={form.image_url} className="w-full h-full object-cover" alt="IA" /> : <p className="text-slate-400 font-black text-[10px] uppercase">Imagen</p>}
+                    </div>
+                    <div className="flex gap-2">
+                      <label className="flex-1 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 p-4 rounded-2xl font-black text-[10px] flex items-center justify-center gap-2 uppercase cursor-pointer active:scale-95 transition shadow-lg"><Camera size={16}/> GALERÍA<input type="file" className="hidden" accept="image/*" onChange={handleUpload} /></label>
+                      <button type="button" onClick={generateIA} className="flex-1 bg-white dark:bg-slate-800 border-2 border-indigo-600 text-indigo-600 p-4 rounded-2xl font-black text-[10px] uppercase active:scale-95 transition shadow-sm">IA ✨</button>
+                    </div>
+                  </div>
+                  <button type="submit" disabled={isProcessing || !form.image_url} className="w-full bg-indigo-600 text-white p-6 rounded-3xl font-black shadow-xl mt-4 uppercase active:scale-95 transition">PUBLICAR AHORA</button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {view === 'admin' && ( <div className="max-w-2xl mx-auto p-6 pb-60 text-left"> <h2 className="text-3xl font-black mb-8 text-amber-500 italic text-center uppercase tracking-tighter">Moderación 🛡️</h2> {events.filter(e => e.status === 'pending').map(ev => ( <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[3rem] mb-8 border-2 border-amber-500/20 shadow-xl overflow-hidden flex flex-col"> <img src={ev.image_url} className="h-52 w-full object-cover" alt="p"/> <div className="p-8 text-center"> <h4 className="font-black text-xl mb-4">{ev.title}</h4> <div className="flex gap-4"> <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("Aprobado!"); }} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg shadow-green-500/20">Aprobar</button> <button onClick={async () => { await supabase.from('events').update({ status: 'rejected' }).eq('id', ev.id).then(() => fetchEvents()); showNotification("Rechazado"); }} className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-xs opacity-60">Rechazar</button> </div> </div> </div> ))} </div> )}
+          {view === 'profile' && ( <div className="max-w-xl mx-auto p-10 text-center"> <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] p-12 shadow-2xl border dark:border-slate-800 text-center"> <div className="w-24 h-24 bg-indigo-600 rounded-full mx-auto mb-8 flex items-center justify-center text-4xl font-black text-white shadow-xl">{user?.email[0].toUpperCase()}</div> <h2 className="text-2xl font-black mb-10 tracking-tighter italic uppercase text-indigo-500">Mi Perfil</h2> <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-500 text-white p-5 rounded-3xl font-black uppercase active:scale-95 transition shadow-lg"> Cerrar Sesión </button> </div> </div> )}
+          {view === 'favorites' && ( <div className="max-w-2xl mx-auto p-6 pb-60 text-center"> <h3 className="text-3xl font-black mb-12 uppercase italic text-indigo-500 underline decoration-4 underline-offset-8 tracking-tighter">EVENTOS GUARDADOS</h3> <div className="grid grid-cols-1 gap-4"> {events.filter(e => favorites.includes(String(e.id))).map(ev => ( <div key={ev.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border dark:border-slate-800 flex justify-between items-center shadow-md"> <span className="font-black text-xl px-4 truncate text-left uppercase tracking-tighter">{ev.title}</span> <button onClick={() => toggleFavorite(ev)} className="p-3 text-slate-300 hover:text-red-500 transition active:scale-75"><Trash2 size={28} /></button> </div> ))} </div> </div> )}
           {view === 'map' && ( <div className="absolute inset-0 z-0 bg-white"> <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full"> <MapResizer /><TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" /> {events.filter(e => e.status === 'approved').map(ev => ev.lat && (<Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><div className="p-1 font-bold">{ev.title}</div></Popup></Marker>))} </MapContainer> </div> )}
         </main>
 
@@ -224,7 +233,7 @@ function App() {
           </div>
         )}
 
-        {/* BARRA INFERIOR (ISLA FLOTANTE PRO) */}
+        {/* BARRA INFERIOR */}
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 w-[94%] max-w-[460px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border dark:border-slate-800 h-[80px] rounded-full shadow-2xl flex items-center justify-around z-[2000] px-6 border-b-4 border-b-indigo-500/20 transition-all">
           <button onClick={() => {setView('home'); setSelectedEvent(null)}} className={`p-3 transition-all ${view === 'home' ? "text-indigo-600 scale-125 drop-shadow-xl" : "text-slate-400 opacity-40"}`}><LayoutList size={26}/></button>
           <button onClick={() => setView('create')} className={`p-3 transition-all ${view === 'create' ? "text-indigo-600 scale-125 drop-shadow-xl" : "text-slate-400 opacity-40"}`}><PlusCircle size={32}/></button>
