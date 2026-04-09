@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { 
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, X, Trash2, Map as MapIcon, 
-  Navigation, Clock, ChevronLeft, ChevronRight, LayoutList, ShieldCheck, Star, DollarSign, Sparkles, Camera, Loader2, CheckCircle2
+  Navigation, Clock, LayoutList, ShieldCheck, Star, DollarSign, Sparkles, Camera, Loader2, CheckCircle2
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -18,8 +18,7 @@ function App() {
   const [view, setView] = useState('home'); 
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [activeCategory, setActiveCategory] = useState('TODOS');
-  const [form, setForm] = useState({ title: '', category: 'MUSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [form, setForm] = useState({ title: '', category: 'MUSICA', city: '', address: '', date: '', image_url: '' });
   const [isProcessing, setIsProcessing] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -27,68 +26,52 @@ function App() {
 
   useEffect(() => {
     fetchEvents();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) { setUser(session.user); loadUserData(session.user.id); }
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) { setUser(session.user); loadUserData(session.user.id); }
-      else { setUser(null); setProfile(null); setFavorites([]); }
-    });
+    checkUser();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => checkUser());
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadUserData = async (id) => {
-    const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single();
-    if (prof) setProfile(prof);
-    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
-    const { data: f } = await supabase.from('favorites').select('event_id').eq('user_id', id);
-    if (f) setFavorites(f.map(item => String(item.event_id)));
+  const checkUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      setUser(session.user);
+      const { data: prof } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+      if (prof) setProfile(prof);
+      if (session.user.id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile(prev => ({...prev, role: 'admin'}));
+      const { data: f } = await supabase.from('favorites').select('event_id').eq('user_id', session.user.id);
+      if (f) setFavorites(f.map(item => String(item.event_id)));
+    }
   };
 
   const fetchEvents = async () => {
+    // El Admin descarga TODO, el usuario solo lo aprobado (Supabase filtra por RLS)
     const { data } = await supabase.from('events').select('*').order('date', { ascending: true });
     setEvents(data || []);
   };
 
-  const generateAI = () => {
+  const generateIA = () => {
     if (!form.title) return showNotification("Título primero ✨");
     setIsProcessing(true);
     const q = encodeURIComponent(form.title);
     const url = `https://image.pollinations.ai/prompt/professional_photography_of_${q}_event?width=800&height=1000&nologo=true&seed=${Date.now()}`;
     const img = new Image();
     img.src = url;
-    img.onload = () => { setForm({...form, image_url: url}); setIsProcessing(false); showNotification("Imagen IA lista"); };
-  };
-
-  const uploadGallery = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setIsProcessing(true);
-    const name = `${Date.now()}_${file.name}`;
-    const { error } = await supabase.storage.from('event-images').upload(name, file);
-    if (!error) {
-      const { data } = supabase.storage.from('event-images').getPublicUrl(name);
-      setForm({ ...form, image_url: data.publicUrl });
-      showNotification("Foto cargada");
-    }
-    setIsProcessing(false);
+    img.onload = () => { setForm({...form, image_url: url}); setIsProcessing(false); };
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!form.image_url) return showNotification("Falta la foto ✨");
-    setIsSubmitting(true);
     const isAdmin = profile?.role === 'admin';
     const { error } = await supabase.from('events').insert([{ ...form, status: isAdmin ? 'approved' : 'pending', organizer_id: user?.id }]);
-    if (error) {
-      alert("Error técnico: " + error.message);
-    } else {
-      showNotification(isAdmin ? "¡Publicado!" : "¡Enviado!");
-      setForm({ title: '', category: 'MUSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
-      setView('home');
-      fetchEvents();
-    }
-    setIsSubmitting(false);
+    if (!error) { showNotification(isAdmin ? "¡Publicado!" : "¡Enviado!"); setView('home'); fetchEvents(); }
+    else { alert("Error: " + error.message); }
+  };
+
+  const updateStatus = async (id, status) => {
+    await supabase.from('events').update({ status }).eq('id', id);
+    fetchEvents();
+    showNotification(status === 'approved' ? "Aprobado" : "Rechazado");
   };
 
   const toggleFav = async (ev) => {
@@ -103,6 +86,8 @@ function App() {
     }
   };
 
+  // Listas filtradas
+  const pendingEvents = events.filter(e => e.status === 'pending');
   const publicEvents = events.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
 
   return (
@@ -110,12 +95,12 @@ function App() {
       <div className="h-screen w-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white font-sans overflow-hidden">
         
         {toast && (
-          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-6 py-3 rounded-2xl shadow-[0_0_20px_rgba(79,70,229,0.4)] flex items-center gap-2 border-2 border-white/20 animate-in slide-in-from-top">
-            <CheckCircle2 size={18}/> <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-6 py-3 rounded-2xl shadow-xl border-2 border-white/20 animate-in slide-in-from-top">
+            <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
           </div>
         )}
 
-        {/* HEADER CON BRILLOS */}
+        {/* HEADER */}
         <nav className="h-[70px] shrink-0 bg-white/80 dark:bg-slate-900/80 border-b dark:border-slate-800 flex justify-between items-center px-8 z-[2000] shadow-sm">
           <div className="flex items-center gap-2" onClick={() => setView('home')}>
             <div className="bg-indigo-600 p-2 rounded-xl text-white font-bold shadow-[0_0_15px_rgba(79,70,229,0.5)]">E</div>
@@ -123,14 +108,14 @@ function App() {
           </div>
           <div className="flex items-center gap-4">
             {profile?.role === 'admin' && (
-              <button onClick={() => setView('admin')} className="text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-pulse"><ShieldCheck size={28}/></button>
+              <button onClick={() => setView('admin')} className={`p-2 transition-all ${pendingEvents.length > 0 ? 'text-amber-500 animate-pulse drop-shadow-[0_0_10px_rgba(245,158,11,0.8)]' : 'text-slate-400'}`}>
+                <ShieldCheck size={28} strokeWidth={3} />
+              </button>
             )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 transition-all shadow-inner">
-              {isDark ? <Sun size={20} className="text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" /> : <Moon size={20} className="text-indigo-600" />}
+            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 transition-all">
+              {isDark ? <Sun size={22} className="text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" /> : <Moon size={22} className="text-indigo-600" />}
             </button>
-            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl" onClick={() => setView('profile')}>
-              {user ? user.email[0].toUpperCase() : '?'}
-            </div>
+            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-lg" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={handleLogin} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
           </div>
         </nav>
 
@@ -139,87 +124,64 @@ function App() {
             <div className="max-w-6xl mx-auto p-4 pb-40">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-5 py-2 rounded-full font-black text-[10px] tracking-widest transition-all shrink-0 border-2 ${activeCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)]' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800'}`}>{cat}</button>
+                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-5 py-2 rounded-full font-black text-[10px] tracking-widest transition-all shrink-0 border-2 ${activeCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800'}`}>{cat}</button>
                 ))}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[2.5rem] border dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col h-full group">
-                    <div className="relative h-64 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
-                      <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-110 transition duration-1000" alt="img" />
+                  <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[2.5rem] border dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-2xl flex flex-col h-full group">
+                    <div className="relative h-60 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
+                      <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-105 transition duration-1000" alt="img" />
                       <button onClick={(e) => { e.stopPropagation(); toggleFav(ev); }} className="absolute top-5 right-5 p-3 bg-white/90 dark:bg-slate-900/90 rounded-full text-red-500 shadow-xl">
                         <Heart size={20} fill={favorites.includes(String(ev.id)) ? "red" : "none"} />
                       </button>
                     </div>
-                    <div className="p-8 flex flex-col flex-1 text-center">
-                      <h3 className="text-2xl font-black mb-6 leading-tight truncate">{ev.title}</h3>
-                      <button onClick={() => setSelectedEvent(ev)} className="mt-auto w-full bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-3xl font-black uppercase text-[11px] tracking-widest transition shadow-lg">Ver Detalles</button>
-                    </div>
+                    <div className="p-6 flex flex-col flex-1 text-center"><h3 className="text-xl font-black mb-4 truncate">{ev.title}</h3>
+                    <button onClick={() => setSelectedEvent(ev)} className="mt-auto w-full bg-slate-900 dark:bg-indigo-600 text-white py-3 rounded-2xl font-black uppercase text-[10px]">Detalles</button></div>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {view === 'create' && (
-            <div className="max-w-xl mx-auto p-6 pb-40 animate-in slide-in-from-bottom">
-              <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] p-10 border dark:border-slate-800 shadow-2xl">
-                <h2 className="text-3xl font-black mb-8 text-indigo-500 uppercase italic text-center tracking-tighter">Publicar</h2>
-                <form onSubmit={handleCreate} className="space-y-4 text-left">
-                  <input required placeholder="Título" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
-                  <select className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none font-bold uppercase text-xs" value={form.category} onChange={e => setForm({...form, category: e.target.value})}><option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINOS">TAURINOS</option><option value="OTROS">OTROS</option></select>
-                  <input required placeholder="Ciudad" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none" value={form.city} onChange={e => setForm({...form, city: e.target.value})} />
-                  <input required placeholder="Dirección" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
-                  <input required type="date" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none font-bold" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
-                  
-                  <div className="p-4 border-4 border-dashed border-slate-100 dark:border-slate-800 rounded-[2.5rem] text-center bg-slate-50/50 dark:bg-slate-800/50 relative min-h-[220px] flex flex-col justify-center items-center overflow-hidden">
-                    {isProcessing ? <Loader2 className="animate-spin text-indigo-600" size={40}/> : form.image_url ? <img src={form.image_url} className="w-full h-full object-cover rounded-2xl" alt="P" /> : <p className="text-[10px] font-black text-slate-400 uppercase">Añade Foto</p>}
-                  </div>
-                  <div className="flex gap-2">
-                    <label className="flex-1 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 p-4 rounded-2xl font-black text-[10px] flex items-center justify-center gap-2 uppercase cursor-pointer active:scale-95 transition shadow-lg"><Camera size={16}/> GALERÍA<input type="file" className="hidden" accept="image/*" onChange={uploadGallery} /></label>
-                    <button type="button" onClick={generateAI} className="flex-1 bg-white dark:bg-slate-800 p-4 rounded-2xl font-black text-[10px] flex items-center justify-center gap-2 uppercase border-2 dark:border-slate-700 active:scale-95 transition shadow-sm"><Sparkles size={16} className="text-indigo-500"/> IA</button>
-                  </div>
-                  <button type="submit" disabled={isSubmitting || isProcessing} className="w-full bg-indigo-600 text-white p-6 rounded-3xl font-black shadow-xl uppercase active:scale-95 transition tracking-widest text-sm mt-4">PUBLICAR AHORA</button>
-                </form>
               </div>
             </div>
           )}
 
           {view === 'admin' && (
-            <div className="max-w-2xl mx-auto p-6 pb-40 animate-in slide-in-from-top text-left">
-              <h2 className="text-3xl font-black mb-8 text-amber-500 italic text-center uppercase tracking-tighter">Moderación 🛡️</h2>
-              {events.filter(e => e.status === 'pending').map(ev => (
-                <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[3rem] mb-8 border-2 border-amber-500/20 shadow-xl overflow-hidden flex flex-col">
+            <div className="max-w-2xl mx-auto p-6 pb-40 animate-in slide-in-from-top">
+              <h2 className="text-3xl font-black mb-8 text-amber-500 italic text-center uppercase tracking-tighter underline underline-offset-8">Moderación 🛡️</h2>
+              {pendingEvents.map(ev => (
+                <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[3rem] mb-8 border-2 border-amber-500/20 shadow-xl overflow-hidden flex flex-col animate-in zoom-in">
                   <img src={ev.image_url} className="h-52 w-full object-cover" alt="p"/>
                   <div className="p-8">
-                    <h4 className="font-black text-xl mb-4">{ev.title}</h4>
+                    <h4 className="font-black text-xl mb-2">{ev.title}</h4>
+                    <p className="text-sm text-slate-500 mb-6 uppercase">{ev.city} • {ev.address}</p>
                     <div className="flex gap-4">
-                      <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg shadow-green-500/20">Aprobar</button>
-                      <button onClick={async () => { await supabase.from('events').update({ status: 'rejected' }).eq('id', ev.id); fetchEvents(); showNotification("Rechazado"); }} className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-xs opacity-60">Rechazar</button>
+                      <button onClick={() => updateStatus(ev.id, 'approved')} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg shadow-green-500/20">Aprobar</button>
+                      <button onClick={() => updateStatus(ev.id, 'rejected')} className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-xs opacity-60">Rechazar</button>
                     </div>
                   </div>
                 </div>
               ))}
-              {events.filter(e => e.status === 'pending').length === 0 && <p className="text-center py-20 text-slate-500 font-bold uppercase">Vacío ☕</p>}
+              {pendingEvents.length === 0 && <p className="text-center py-20 text-slate-500 font-bold uppercase opacity-40 italic tracking-widest">Bandeja limpia ☕</p>}
             </div>
           )}
 
-          {view === 'profile' && ( <div className="max-w-xl mx-auto p-6 pb-40 animate-in slide-in-from-bottom text-center"> <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 border dark:border-slate-800 shadow-2xl text-center"> <div className="w-24 h-24 bg-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center text-4xl font-black text-white shadow-xl border-4 border-white dark:border-slate-800"> {user?.email[0].toUpperCase()} </div> <h2 className="text-2xl font-black mb-10 tracking-tighter italic uppercase tracking-widest text-indigo-500">Mi Perfil</h2> <p className="mb-10 font-bold text-slate-400 tracking-wider text-sm">{user?.email}</p> <div className="space-y-4"> <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-500 text-white p-5 rounded-3xl font-black uppercase active:scale-95 transition shadow-lg shadow-red-500/20"> Cerrar Sesión </button> <a href="https://ko-fi.com" target="_blank" rel="noreferrer" className="w-full bg-[#FF5E5B] text-white p-5 rounded-3xl font-black flex items-center justify-center gap-3 active:scale-95 transition shadow-lg tracking-widest text-[10px]"> <DollarSign size={20}/> APOYAR PROYECTO </a> </div> </div> </div> )}
+          {/* OTRAS VISTAS (CREAR, PERFIL, MAPA) */}
+          {view === 'create' && ( <div className="max-w-xl mx-auto p-6 pb-40 animate-in slide-in-from-bottom"> <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] p-10 border dark:border-slate-800 shadow-2xl"> <h2 className="text-3xl font-black mb-8 text-indigo-500 uppercase italic text-center">Publicar</h2> <form onSubmit={handleCreate} className="space-y-4"> <input required placeholder="Título" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none" value={form.title} onChange={e => setForm({...form, title: e.target.value})} /> <select className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none font-bold uppercase text-[10px]" value={form.category} onChange={e => setForm({...form, category: e.target.value})}><option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINOS">TAURINOS</option><option value="OTROS">OTROS</option></select> <input required placeholder="Ciudad" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none" value={form.city} onChange={e => setForm({...form, city: e.target.value})} /> <input required placeholder="Dirección" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /> <input required type="date" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none font-bold" value={form.date} onChange={e => setForm({...form, date: e.target.value})} /> <div className="p-4 border-4 border-dashed border-slate-100 dark:border-slate-800 rounded-[2.5rem] text-center bg-slate-50/50 dark:bg-slate-800/50 relative min-h-[200px] flex flex-col justify-center items-center overflow-hidden"> {isProcessing ? <Loader2 className="animate-spin text-indigo-600"/> : form.image_url ? <img src={form.image_url} className="w-full h-full object-cover rounded-2xl" alt="P" /> : <p className="text-[10px] font-black text-slate-400 uppercase">Foto</p>} </div> <div className="flex gap-2"> <label className="flex-1 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 p-4 rounded-2xl font-black text-[10px] flex items-center justify-center gap-2 uppercase cursor-pointer"><Camera size={16}/> GALERÍA<input type="file" className="hidden" accept="image/*" onChange={async (e) => { const file = e.target.files[0]; if(!file) return; const name = `${Date.now()}_${file.name}`; await supabase.storage.from('event-images').upload(name, file); const { data } = supabase.storage.from('event-images').getPublicUrl(name); setForm({ ...form, image_url: data.publicUrl }); }} /></label> <button type="button" onClick={generateIA} className="flex-1 bg-white dark:bg-slate-800 border-2 border-indigo-600 text-indigo-600 p-4 rounded-2xl font-black text-[10px] uppercase active:scale-95 transition shadow-sm"><Sparkles size={16}/> IA</button> </div> <button type="submit" className="w-full bg-indigo-600 text-white p-6 rounded-3xl font-black shadow-xl mt-4">PUBLICAR AHORA</button> </form> </div> </div> )}
+          {view === 'profile' && ( <div className="max-w-xl mx-auto p-10 text-center animate-in slide-in-from-bottom"> <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 border dark:border-slate-800 shadow-2xl"> <div className="w-24 h-24 bg-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center text-4xl font-black text-white shadow-xl">{user?.email[0].toUpperCase()}</div> <h2 className="text-2xl font-black mb-10 text-indigo-500 uppercase italic">Mi Perfil</h2> <p className="mb-10 font-bold text-slate-400">{user?.email}</p> <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-500 text-white p-6 rounded-[2rem] font-black uppercase shadow-lg">Cerrar Sesión</button> </div> </div> )}
           {view === 'map' && ( <div className="absolute inset-0 z-0 bg-white"> <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full"> <MapResizer /><TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" /> {events.filter(e => e.status === 'approved').map(ev => ev.lat && (<Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><div className="p-1 font-bold">{ev.title}</div></Popup></Marker>))} </MapContainer> </div> )}
+
         </main>
 
-        {/* BOTTOM NAV BAR */}
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 w-[94%] max-w-[460px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border dark:border-slate-800 h-[80px] rounded-full shadow-[0_0_30px_rgba(0,0,0,0.1)] flex items-center justify-around z-[2000] px-6 border-b-4 border-b-indigo-500/20 transition-all">
-          <button onClick={() => {setView('home'); setSelectedEvent(null)}} className={`p-3 transition-all ${view === 'home' ? "text-indigo-600 scale-125 drop-shadow-[0_0_8px_rgba(79,70,229,0.5)]" : "text-slate-400 opacity-40"}`}><LayoutList size={26}/></button>
-          <button onClick={() => setView('create')} className={`p-3 transition-all ${view === 'create' ? "text-indigo-600 scale-125 drop-shadow-[0_0_8px_rgba(79,70,229,0.5)]" : "text-slate-400 opacity-40"}`}><PlusCircle size={32}/></button>
-          <button onClick={() => setView('profile')} className={`p-3 transition-all ${view === 'profile' ? "text-indigo-600 scale-125 drop-shadow-[0_0_8px_rgba(79,70,229,0.5)]" : "text-slate-400 opacity-40"}`}><Heart size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-3 transition-all ${view === 'map' ? "text-indigo-600 scale-125 drop-shadow-[0_0_8px_rgba(79,70,229,0.5)]" : "text-slate-400 opacity-40"}`}><MapIcon size={26}/></button>
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 w-[94%] max-w-[460px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border dark:border-slate-800 h-[80px] rounded-full shadow-2xl flex items-center justify-around z-[2000] px-6 border-b-4 border-indigo-500/20">
+          <button onClick={() => {setView('home'); setSelectedEvent(null)}} className={`p-3 ${view === 'home' ? "text-indigo-600 scale-125" : "text-slate-400 opacity-40"}`}><LayoutList size={26}/></button>
+          <button onClick={() => setView('create')} className={`p-3 ${view === 'create' ? "text-indigo-600 scale-125" : "text-slate-400 opacity-40"}`}><PlusCircle size={32}/></button>
+          <button onClick={() => setView('profile')} className={`p-3 ${view === 'profile' ? "text-indigo-600 scale-125" : "text-slate-400 opacity-40"}`}><Heart size={26}/></button>
+          <button onClick={() => setView('map')} className={`p-3 ${view === 'map' ? "text-indigo-600 scale-125" : "text-slate-400 opacity-40"}`}><MapIcon size={26}/></button>
         </div>
 
-        {/* MODAL DETALLES */}
+        {/* MODAL DETALLES ALARGADO */}
         {selectedEvent && (
-          <div className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center p-3 backdrop-blur-xl animate-in fade-in duration-300 text-left text-balance">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-[380px] h-[82vh] rounded-[3.5rem] overflow-hidden relative shadow-2xl border dark:border-slate-800 border-b-[8px] border-b-indigo-600 flex flex-col">
+          <div className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center p-3 animate-in fade-in duration-300 text-left">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-[380px] h-[85vh] rounded-[3.5rem] overflow-hidden relative shadow-2xl border dark:border-slate-800 border-b-[10px] border-b-indigo-600 flex flex-col">
               <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-4 z-50 p-2.5 bg-black/50 text-white rounded-full active:scale-90 transition shadow-xl"><X size={20} /></button>
               <img src={selectedEvent.image_url} className="w-full h-52 object-cover shrink-0" alt="hero" />
               <div className="p-6 flex flex-col flex-1 overflow-y-auto">
