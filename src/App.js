@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { 
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, X, Trash2, Map as MapIcon, 
-  Navigation, Clock, ChevronLeft, ChevronRight, LayoutList, ShieldCheck, Star, DollarSign, Sparkles, Camera, Loader2, CheckCircle2
+  Navigation, Clock, ChevronLeft, ChevronRight, LayoutList, ShieldCheck, Star, DollarSign, Sparkles, Camera, Loader2, CheckCircle2, MessageCircle
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -21,11 +21,9 @@ function MapResizer() {
   return null;
 }
 
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL, 
-  process.env.REACT_APP_SUPABASE_ANON_KEY,
-  { auth: { persistSession: true, autoRefreshToken: true } }
-);
+const supabase = createClient(process.env.REACT_APP_SUPABASE_URL, process.env.REACT_APP_SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
 
 function App() {
   const [user, setUser] = useState(null);
@@ -39,9 +37,12 @@ function App() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [activeDay, setActiveDay] = useState(null);
   const [form, setForm] = useState({ title: '', category: 'MUSICA', city: '', address: '', date: '', image_url: '' });
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [toast, setToast] = useState(null);
+
+  // Estados para Moderación
+  const [rejectingId, setRejectingId] = useState(null);
+  const [reasonText, setReasonText] = useState("");
 
   const showNotification = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
@@ -74,42 +75,27 @@ function App() {
   };
 
   const handleLogin = async () => {
-    const e = window.prompt("Introduce tu email:");
-    if (e) await supabase.auth.signInWithOtp({ email: e, options: { emailRedirectTo: 'https://app-eventos-pro-final.vercel.app' } });
+    const e = window.prompt("Email:");
+    if (e) await supabase.auth.signInWithOtp({ email: e, options: { emailRedirectTo: window.location.origin } });
   };
 
   const generateIA = () => {
-    if (!form.title) return showNotification("Pon un título ✨");
+    if (!form.title) return showNotification("Título primero ✨");
     setIsProcessing(true);
     const q = encodeURIComponent(form.title);
     const url = `https://image.pollinations.ai/prompt/professional_photo_of_${q}_event?width=800&height=1000&nologo=true&seed=${Date.now()}`;
     const img = new Image();
     img.src = url;
-    img.onload = () => { setForm({...form, image_url: url}); setIsProcessing(false); showNotification("Imagen cargada"); };
-  };
-
-  const handleUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setIsProcessing(true);
-    const name = `${Date.now()}_${file.name}`;
-    await supabase.storage.from('event-images').upload(name, file);
-    const { data } = supabase.storage.from('event-images').getPublicUrl(name);
-    setForm({ ...form, image_url: data.publicUrl });
-    setIsProcessing(false);
+    img.onload = () => { setForm({...form, image_url: url}); setIsProcessing(false); };
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!form.image_url) return showNotification("Falta foto ✨");
-    setIsSubmitting(true);
-    const lat = 36 + Math.random() * (43 - 36);
-    const lng = -9 + Math.random() * (3 - (-9));
     const isAdmin = profile?.role === 'admin';
-    await supabase.from('events').insert([{ ...form, lat, lng, status: isAdmin ? 'approved' : 'pending', organizer_id: user?.id }]);
+    await supabase.from('events').insert([{ ...form, status: isAdmin ? 'approved' : 'pending', organizer_id: user?.id }]);
     showNotification(isAdmin ? "¡Publicado!" : "¡Enviado!");
     setView('home'); fetchEvents();
-    setIsSubmitting(false);
   };
 
   const toggleFavorite = async (ev) => {
@@ -124,6 +110,22 @@ function App() {
     }
   };
 
+  // --- FUNCIÓN PARA DENEGAR CON MOTIVO ---
+  const handleRejectEvent = async (id) => {
+    if (!reasonText) return alert("Por favor, escribe por qué deniegas el evento.");
+    const { error } = await supabase
+      .from('events')
+      .update({ status: 'rejected', rejection_reason: reasonText })
+      .eq('id', id);
+    
+    if (!error) {
+      showNotification("Evento denegado.");
+      setRejectingId(null);
+      setReasonText("");
+      fetchEvents();
+    }
+  };
+
   const handleImGoing = async () => {
     if (!user) return;
     if (!favorites.includes(String(selectedEvent.id))) {
@@ -133,6 +135,7 @@ function App() {
     showNotification("¡Gracias por asistir!");
   };
 
+  const pendingEvents = events.filter(e => e.status === 'pending');
   const filtered = events.filter(e => (activeCategory === 'TODOS' || e.category === activeCategory) && e.status === 'approved');
 
   return (
@@ -141,44 +144,44 @@ function App() {
         
         {toast && (
           <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-6 py-3 rounded-2xl shadow-2xl border-2 border-white/20 animate-in slide-in-from-top">
-            <CheckCircle2 size={18}/> <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
+            <CheckCircle2 size={18} className="inline mr-2"/> <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
           </div>
         )}
 
         <nav className="h-[70px] shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b dark:border-slate-800 flex justify-between items-center px-8 z-[2000] shadow-sm">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
+          <div className="flex items-center gap-2" onClick={() => setView('home')}>
             <div className="bg-indigo-600 p-2 rounded-xl text-white font-bold shadow-lg shadow-indigo-500/30 text-xl">E</div>
-            <h1 className="text-xl font-black uppercase italic tracking-tighter">Eventos</h1>
+            <h1 className="text-xl font-black uppercase italic tracking-tighter text-slate-800 dark:text-white">Eventos</h1>
           </div>
           <div className="flex items-center gap-4">
-            {profile?.role === 'admin' && <button onClick={() => setView('admin')} className="text-amber-500 animate-pulse transition"><ShieldCheck size={28}/></button>}
+            {profile?.role === 'admin' && <button onClick={() => setView('admin')} className={`p-2 transition ${pendingEvents.length > 0 ? 'text-amber-500 animate-pulse drop-shadow-[0_0_8px_orange]' : 'text-slate-400'}`}><ShieldCheck size={28}/></button>}
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 transition-all">
               {isDark ? <Sun size={24} className="text-yellow-400 drop-shadow-[0_0_8px_orange]" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-md cursor-pointer" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={() => setView('profile')} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
+            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={() => setView('profile')} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
           </div>
         </nav>
 
         <main className="flex-1 relative overflow-y-auto">
           {view === 'home' && (
             <div className="max-w-6xl mx-auto p-4 pb-80 animate-in fade-in">
-              <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
+              <div className="flex gap-2 overflow-x-auto pb-8 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
                   <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2.5 rounded-full font-black text-[9px] tracking-widest transition-all shrink-0 border-2 ${activeCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800'}`}>{cat}</button>
                 ))}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 px-2">
                 {filtered.map(ev => (
                   <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[2.5rem] border dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col h-full group">
                     <div className="relative h-72 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                       <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-105 transition duration-1000" alt="img" />
-                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-4 right-4 p-2.5 bg-white/90 dark:bg-slate-900/90 rounded-full text-red-500 shadow-xl">
+                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-5 right-5 p-3 bg-white/90 dark:bg-slate-900/90 rounded-full text-red-500 shadow-xl active:scale-75 transition">
                         <Heart size={20} fill={favorites.includes(String(ev.id)) ? "red" : "none"} />
                       </button>
                     </div>
                     <div className="p-6 flex flex-col flex-1 text-center">
                       <h3 className="text-xl font-black mb-6 leading-tight uppercase tracking-tighter">{ev.title}</h3>
-                      <button onClick={() => setSelectedEvent(ev)} className="mt-auto w-full bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-3xl font-black uppercase text-[11px] tracking-widest shadow-lg">Ver Detalles</button>
+                      <button onClick={() => setSelectedEvent(ev)} className="mt-auto w-full bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-3xl font-black uppercase text-[11px] tracking-widest shadow-lg active:scale-95 transition">Ver Detalles</button>
                     </div>
                   </div>
                 ))}
@@ -187,18 +190,13 @@ function App() {
           )}
 
           {view === 'create' && (
-            <div className="max-w-xl mx-auto p-6 pb-80 animate-in slide-in-from-bottom">
+            <div className="max-w-xl mx-auto p-6 pb-80">
               <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] p-10 border dark:border-slate-800 shadow-2xl">
-                <h2 className="text-3xl font-black mb-8 text-indigo-500 text-center uppercase tracking-tighter italic">Publicar</h2>
-                <form onSubmit={handleCreate} className="space-y-4 text-left">
-                  {/* TÍTULO EN MAYÚSCULAS AUTOMÁTICAS */}
+                <h2 className="text-3xl font-black mb-8 text-indigo-500 text-center uppercase tracking-tighter italic font-sans">Publicar</h2>
+                <form onSubmit={handleCreate} className="space-y-4">
                   <input required placeholder="TÍTULO DEL EVENTO" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none border-2 border-transparent focus:border-indigo-500 transition font-bold uppercase" value={form.title} onChange={e => setForm({...form, title: e.target.value.toUpperCase()})} />
-                  
                   <select className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none font-black text-xs uppercase tracking-widest" value={form.category} onChange={e => setForm({...form, category: e.target.value})}><option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINOS">TAURINOS</option><option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option><option value="OTROS">OTROS</option></select>
-                  
-                  {/* CIUDAD EN MAYÚSCULAS AUTOMÁTICAS */}
                   <input required placeholder="CIUDAD" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none focus:border-indigo-500 transition font-bold uppercase" value={form.city} onChange={e => setForm({...form, city: e.target.value.toUpperCase()})} />
-                  
                   <input required placeholder="Dirección exacta" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none focus:border-indigo-500 transition font-bold" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
                   <input required type="date" className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl outline-none font-bold text-slate-400" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
                   <div className="pt-6 border-t dark:border-slate-800 text-center flex flex-col items-center">
@@ -210,29 +208,51 @@ function App() {
                        <button type="button" onClick={generateIA} className="flex-1 bg-white dark:bg-slate-800 border-2 border-indigo-600 text-indigo-600 p-4 rounded-2xl font-black text-[10px] uppercase active:scale-95 transition shadow-sm">IA ✨</button>
                     </div>
                   </div>
-                  <button type="submit" disabled={isProcessing || !form.image_url} className="w-full bg-indigo-600 text-white p-6 rounded-3xl font-black shadow-xl mt-4 uppercase">PUBLICAR AHORA</button>
+                  <button type="submit" disabled={isProcessing || !form.image_url} className="w-full bg-indigo-600 text-white p-6 rounded-3xl font-black shadow-xl mt-4 uppercase active:scale-95 transition tracking-widest text-sm">PUBLICAR AHORA</button>
                 </form>
               </div>
             </div>
           )}
 
-          {view === 'favorites' && (
-            <div className="max-w-2xl mx-auto p-6 pb-[450px] text-center">
-               <h3 className="text-3xl font-black uppercase tracking-tighter text-indigo-600 mb-12"> EVENTOS GUARDADOS </h3>
-               <div className="grid grid-cols-1 gap-4">
-                  {events.filter(e => favorites.includes(String(e.id))).map(ev => (
-                    <div key={ev.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border dark:border-slate-800 flex justify-between items-center shadow-md animate-in fade-in">
-                       <span className="font-black text-lg px-4 truncate text-left uppercase tracking-tighter">{ev.title}</span>
-                       <button onClick={() => toggleFavorite(ev)} className="p-3 text-slate-300 hover:text-red-500 transition active:scale-75"><Trash2 size={28} /></button>
-                    </div>
-                  ))}
-               </div>
+          {view === 'admin' && (
+            <div className="max-w-2xl mx-auto p-6 pb-96 animate-in slide-in-from-top text-left">
+              <h2 className="text-3xl font-black mb-8 text-amber-500 italic text-center uppercase tracking-tighter underline">Moderación 🛡️</h2>
+              {pendingEvents.map(ev => (
+                <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[3rem] mb-8 border-2 border-amber-500/20 shadow-xl overflow-hidden flex flex-col">
+                  <img src={ev.image_url} className="h-64 w-full object-cover" alt="p"/>
+                  <div className="p-8">
+                    <h4 className="font-black text-2xl mb-4">{ev.title}</h4>
+                    <p className="text-sm font-bold text-slate-500 mb-6 uppercase tracking-widest">{ev.city} • {ev.address} • {ev.date}</p>
+                    
+                    {rejectingId === ev.id ? (
+                      <div className="animate-in fade-in duration-300">
+                        <textarea 
+                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-red-500/30 mb-4 outline-none focus:border-red-500 text-sm font-bold"
+                          placeholder="Escribe el motivo del rechazo..."
+                          value={reasonText}
+                          onChange={(e) => setReasonText(e.target.value)}
+                        />
+                        <div className="flex gap-2">
+                          <button onClick={() => handleRejectEvent(ev.id)} className="flex-1 bg-red-500 text-white py-4 rounded-xl font-black uppercase text-xs">Confirmar Rechazo</button>
+                          <button onClick={() => setRejectingId(null)} className="px-6 bg-slate-100 dark:bg-slate-800 rounded-xl font-black uppercase text-xs">Cancelar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-4">
+                        <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("Aprobado!"); }} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg">Aprobar</button>
+                        <button onClick={() => setRejectingId(ev.id)} className="flex-1 bg-red-50 text-red-500 border-2 border-red-500/20 py-4 rounded-2xl font-black uppercase text-xs">Rechazar</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {pendingEvents.length === 0 && <p className="text-center py-20 text-slate-500 font-bold uppercase opacity-30 tracking-widest">Nada pendiente ☕</p>}
             </div>
           )}
 
-          {view === 'profile' && ( <div className="max-w-xl mx-auto p-10 text-center animate-in slide-in-from-bottom duration-500"> <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-12 shadow-2xl border dark:border-slate-800 text-center text-balance"> <div className="w-20 h-20 bg-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl font-black text-white shadow-xl">{user?.email[0].toUpperCase()}</div> <h2 className="text-2xl font-black mb-10 tracking-tighter italic uppercase text-indigo-500 underline decoration-4 underline-offset-8">Mi Perfil</h2> <p className="mb-10 font-bold text-slate-400 text-sm italic">{user?.email}</p> <div className="space-y-4 flex flex-col"> <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="bg-red-500 text-white p-5 rounded-3xl font-black uppercase shadow-lg tracking-widest text-xs active:scale-95 transition">Cerrar Sesión</button> <a href="https://ko-fi.com" target="_blank" rel="noreferrer" className="bg-[#FF5E5B] text-white p-5 rounded-3xl font-black flex items-center justify-center gap-2 shadow-lg tracking-widest text-xs uppercase active:scale-95 transition"><DollarSign size={16}/> APOYAR PROYECTO</a> </div> </div> </div> )}
+          {view === 'profile' && ( <div className="max-w-xl mx-auto p-10 text-center"> <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-12 shadow-2xl border dark:border-slate-800 text-center text-balance"> <div className="w-20 h-20 bg-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl font-black text-white">{user?.email[0].toUpperCase()}</div> <h2 className="text-2xl font-black mb-10 tracking-tighter italic uppercase text-indigo-500 underline decoration-4 underline-offset-8">Mi Perfil</h2> <p className="mb-10 font-bold text-slate-400">{user?.email}</p> <div className="space-y-4 flex flex-col"> <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="bg-red-500 text-white p-5 rounded-3xl font-black uppercase shadow-lg tracking-widest text-xs active:scale-95 transition">Cerrar Sesión</button> <a href="https://ko-fi.com" target="_blank" rel="noreferrer" className="bg-[#FF5E5B] text-white p-5 rounded-3xl font-black flex items-center justify-center gap-2 shadow-lg tracking-widest text-xs uppercase active:scale-95 transition"><DollarSign size={16}/> APOYAR PROYECTO</a> </div> </div> </div> )}
+          {view === 'favorites' && ( <div className="max-w-2xl mx-auto p-6 pb-80 text-center"> <h3 className="text-3xl font-black uppercase tracking-tighter text-indigo-600 mb-12"> EVENTOS GUARDADOS </h3> <div className="grid grid-cols-1 gap-4"> {events.filter(e => favorites.includes(String(e.id))).map(ev => ( <div key={ev.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border dark:border-slate-800 flex justify-between items-center shadow-md animate-in fade-in"> <span className="font-black text-xl px-4 truncate text-left uppercase tracking-tighter">{ev.title}</span> <button onClick={() => toggleFavorite(ev)} className="p-3 text-slate-300 hover:text-red-500 transition active:scale-75"><Trash2 size={28} /></button> </div> ))} </div> </div> )}
           {view === 'map' && ( <div className="absolute inset-0 z-0 bg-white"> <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full"> <MapResizer /><TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" /> {events.filter(e => e.status === 'approved').map(ev => ev.lat && (<Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><div className="p-1 font-bold">{ev.title}</div></Popup></Marker>))} </MapContainer> </div> )}
-          {view === 'admin' && ( <div className="max-w-2xl mx-auto p-6 pb-60 text-left text-balance animate-in slide-in-from-top"> <h2 className="text-3xl font-black mb-8 text-amber-500 italic text-center uppercase tracking-tighter underline">Moderación 🛡️</h2> {events.filter(e => e.status === 'pending').map(ev => ( <div key={ev.id} className="bg-white dark:bg-slate-900 rounded-[3rem] mb-8 border-2 border-amber-500/20 shadow-xl overflow-hidden flex flex-col"> <img src={ev.image_url} className="h-52 w-full object-cover" alt="p"/> <div className="p-8 text-center"> <h4 className="font-black text-xl mb-4">{ev.title}</h4> <div className="flex gap-4"> <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg">Aprobar</button> <button onClick={async () => { await supabase.from('events').update({ status: 'rejected' }).eq('id', ev.id).then(() => fetchEvents()); showNotification("Rechazado"); }} className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-xs opacity-60">Rechazar</button> </div> </div> </div> ))} </div> )}
         </main>
 
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[94%] max-w-[460px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border dark:border-slate-800 h-[80px] rounded-full shadow-2xl flex items-center justify-around z-[2000] px-6 border-b-4 border-b-indigo-500/20 transition-all">
