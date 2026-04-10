@@ -18,8 +18,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// COMPONENTE PARA FORZAR EL MAPA A ESPAÑA Y NOMBRES EN ESPAÑOL
-function SpainMapController() {
+// COMPONENTE PARA FORZAR EL MAPA A ESPAÑA
+function MapSpainControl() {
   const map = useMap();
   useEffect(() => {
     setTimeout(() => {
@@ -61,7 +61,6 @@ function App() {
   }, []);
 
   const loadUserData = async (id) => {
-    // FORZADO DE ADMIN POR TU ID
     if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
       setProfile({ role: 'admin' });
     } else {
@@ -80,10 +79,10 @@ function App() {
   const generateIA = () => {
     if (!form.title) return showNotification("Pon un título ✨");
     setIsProcessing(true);
-    const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
+    const urlIA = `https://image.pollinations.ai/prompt/professional_event_photo_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
     img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen Lista ✨"); };
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("IA: Imagen Lista ✨"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -95,14 +94,14 @@ function App() {
       await supabase.storage.from('event-images').upload(name, file);
       const { data } = supabase.storage.from('event-images').getPublicUrl(name);
       setForm({ ...form, image_url: data.publicUrl });
-      showNotification("¡Subida!");
-    } catch (err) { alert("Error al subir"); }
+      showNotification("¡Foto subida!");
+    } catch (err) { alert("Error"); }
     finally { setIsProcessing(false); }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.image_url) return showNotification("Falta la foto ✨");
+    if (!form.image_url) return showNotification("Falta foto ✨");
     setIsSubmitting(true);
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address + ', ' + form.city + ', España')}&limit=1`);
@@ -138,33 +137,32 @@ function App() {
         
         {toast && (
           <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top">
-            <CheckCircle2 size={16} className="inline mr-2"/>
-            <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
+            <span className="font-black uppercase text-[10px] tracking-widest italic">{toast}</span>
           </div>
         )}
 
         {/* HEADER */}
-        <nav className="h-[70px] shrink-0 bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-md border-b dark:border-slate-800 flex justify-between items-center px-8 z-[2000] shadow-sm">
+        <nav className="h-[65px] shrink-0 bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-md border-b dark:border-slate-800 flex justify-between items-center px-6 z-[2000] shadow-sm">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
-            <div className="bg-indigo-600 p-2 rounded-xl text-white font-bold shadow-lg text-xl italic">E</div>
+            <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold text-xl shadow-lg">E</div>
             <h1 className="text-xl font-black uppercase italic tracking-tighter">Eventos</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
               <button onClick={() => setView('admin')} className={`p-2 transition ${pendingCount > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
-                <ShieldCheck size={28}/>
+                <ShieldCheck size={26}/>
               </button>
             )}
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
-              {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
+              {isDark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-indigo-600" />}
             </button>
-            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
+            {user ? <div className="w-9 h-9 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black text-sm cursor-pointer shadow-md" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase shadow-md">Entrar</button>}
           </div>
         </nav>
 
         <main className="flex-1 relative overflow-y-auto no-scrollbar">
           
-          {/* HOME CON TARJETAS DE ALTURA FIJA PARA QUE SE VEA TODO */}
+          {/* HOME - TARJETAS COMPACTAS PARA QUE SE VEA EL BOTÓN */}
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
@@ -172,17 +170,17 @@ function App() {
                   <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] tracking-widest transition-all shrink-0 border-2 ${activeCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'bg-slate-900/40 text-slate-500 border-slate-800'}`}>{cat}</button>
                 ))}
               </div>
-              <div className="space-y-8">
+              <div className="space-y-6">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-2xl flex flex-col h-[520px] transition-all">
-                    <div className="relative h-72 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-2xl flex flex-col h-[480px] transition-all">
+                    <div className="relative h-56 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                       <img src={ev.image_url} className="w-full h-full object-cover" alt="img" />
                       <div className="absolute top-4 left-4 font-black bg-black/60 text-white text-[8px] px-3 py-1 rounded-full uppercase tracking-widest backdrop-blur-md">{ev.category}</div>
                       <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-4 right-4 p-3 bg-slate-900/60 backdrop-blur-md rounded-full text-red-500 shadow-lg"><Heart size={18} fill={favorites.includes(String(ev.id)) ? "red" : "none"} /></button>
                     </div>
-                    <div className="p-6 flex-1 flex flex-col justify-between text-center">
-                      <h3 className="text-xl font-black leading-tight uppercase tracking-tighter italic text-white mb-2 line-clamp-2">{ev.title}</h3>
-                      <button onClick={() => setSelectedEvent(ev)} className="w-full bg-indigo-600 text-white py-5 rounded-[2rem] font-black uppercase text-[11px] tracking-widest shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">Ver Detalles</button>
+                    <div className="p-5 flex-1 flex flex-col justify-between text-center">
+                      <h3 className="text-xl font-black leading-tight uppercase tracking-tighter italic text-white line-clamp-2">{ev.title}</h3>
+                      <button onClick={() => setSelectedEvent(ev)} className="w-full bg-indigo-600 text-white py-4 rounded-[2rem] font-black uppercase text-[11px] tracking-widest shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">Ver Detalles</button>
                     </div>
                   </div>
                 ))}
@@ -190,24 +188,18 @@ function App() {
             </div>
           )}
 
-          {/* VISTA MAPA - ESPAÑA EN ESPAÑOL */}
+          {/* VISTA MAPA - ESPAÑA EN ESPAÑOL (ARCGIS ORIGINAL) */}
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#020617]"> 
-              <MapContainer 
-                key={view} 
-                center={[40.41, -3.70]} 
-                zoom={6} 
-                className="h-full w-full" 
-                zoomControl={false}
-              > 
-                <SpainMapController />
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{y}/{x}{r}.png" attribution='&copy; OSM' /> 
+              <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
+                <SpainMapControl />
+                <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" attribution='ESPAÑA' /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
                       <div className="p-1 text-center" onClick={() => setSelectedEvent(ev)}>
-                        <div className="font-black text-[9px] uppercase text-indigo-600 leading-tight mb-1">{ev.title}</div>
-                        <p className="text-[7px] font-black uppercase opacity-60">{ev.city}</p>
+                        <div className="font-black text-[9px] uppercase text-indigo-600 mb-1">{ev.title}</div>
+                        <button className="text-[7px] bg-indigo-600 text-white px-2 py-0.5 rounded-md">VER</button>
                       </div>
                     </Popup>
                   </Marker>
@@ -216,7 +208,7 @@ function App() {
             </div> 
           )}
 
-          {/* CREAR EVENTO */}
+          {/* CREAR, ADMIN, FAVORITOS (Mantenidos igual) */}
           {view === 'create' && (
             <div className="max-w-xl mx-auto p-4 pb-60 animate-in slide-in-from-bottom">
               <div className="bg-[#0f172a] rounded-[2.5rem] p-6 border border-slate-800 shadow-2xl text-left">
@@ -241,24 +233,23 @@ function App() {
                       <label className="flex-1 bg-slate-700 text-white p-3 rounded-xl font-black text-[8px] uppercase flex items-center justify-center gap-1 cursor-pointer"><Upload size={14}/> GALERÍA<input type="file" accept="image/*" className="hidden" onChange={handleGalleryUpload} /></label>
                     </div>
                   </div>
-                  <button type="submit" disabled={isSubmitting || isProcessing} className="w-full bg-white text-slate-900 p-4 rounded-xl font-black shadow-xl mt-4 uppercase text-[9px] tracking-widest active:scale-95 transition-all">PUBLICA AHORA</button>
+                  <button type="submit" disabled={isSubmitting || isProcessing} className="w-full bg-white text-slate-900 p-4 rounded-xl font-black shadow-xl mt-4 uppercase text-[9px] tracking-widest active:scale-95 transition-all">PUBLICAR</button>
                 </form>
               </div>
             </div>
           )}
 
-          {/* MODERACIÓN ADMIN */}
           {view === 'admin' && (
             <div className="max-w-xl mx-auto p-6 pb-60 text-center animate-in slide-in-from-top">
               <h2 className="text-xl font-black mb-8 text-amber-500 uppercase italic tracking-tighter underline underline-offset-8">Moderación</h2>
               {events.filter(e => e.status === 'pending').map(ev => (
                 <div key={ev.id} className="bg-[#0f172a] rounded-[2rem] mb-6 border border-slate-800 overflow-hidden shadow-xl text-left">
-                  <img src={ev.image_url} className="h-40 w-full object-cover" alt="p"/>
+                  <img src={ev.image_url} className="h-44 w-full object-cover" alt="p"/>
                   <div className="p-6">
-                    <h4 className="font-black text-lg mb-4 text-white uppercase italic leading-tight">{ev.title}</h4>
-                    <div className="flex gap-4">
-                        <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-3 rounded-xl font-black text-[9px] uppercase">Aprobar</button>
-                        <button onClick={async () => { await supabase.from('events').delete().eq('id', ev.id); fetchEvents(); showNotification("¡Borrado!"); }} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-black text-[9px] opacity-60 uppercase">Borrar</button>
+                    <h4 className="font-black text-xl mb-2 text-white uppercase italic">{ev.title}</h4>
+                    <div className="flex gap-4 mt-4">
+                        <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Aprobar</button>
+                        <button onClick={async () => { await supabase.from('events').delete().eq('id', ev.id); fetchEvents(); showNotification("¡Borrado!"); }} className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-[10px] opacity-60">Borrar</button>
                     </div>
                   </div>
                 </div>
@@ -266,6 +257,7 @@ function App() {
               {events.filter(e => e.status === 'pending').length === 0 && <p className="opacity-40 font-black uppercase text-[10px]">No hay pendientes</p>}
             </div>
           )}
+
         </main>
 
         {/* NAVEGACIÓN INFERIOR */}
@@ -290,12 +282,12 @@ function App() {
                 </div>
                 <div className="space-y-4">
                   <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.city)}`} target="_blank" rel="noreferrer" className="flex items-center gap-4 p-4 bg-slate-800 rounded-2xl border border-slate-800 transition active:scale-95">
-                    <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-500/20"><MapPin size={20} /></div>
+                    <div className="p-2 bg-indigo-600 text-white rounded-lg"><MapPin size={20} /></div>
                     <div className="overflow-hidden"><p className="text-[9px] font-black text-white uppercase mb-1 tracking-tighter line-clamp-1">{selectedEvent.address}</p><p className="text-[8px] font-black text-indigo-500 uppercase">{selectedEvent.city}</p></div>
                   </a>
                   <div className="flex gap-2 text-center">
                     <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800 rounded-2xl border border-slate-800 text-white text-[9px] font-black tracking-tighter uppercase italic"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
-                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800 rounded-2xl border border-slate-800 text-white text-[9px] font-black tracking-tighter uppercase italic"><Clock size={18} className="text-emerald-500" /> {selectedEvent.time} hs</div>
+                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800 rounded-2xl border border-slate-800 text-white text-[9px] font-black tracking-tighter uppercase italic"><Clock size={18} className="text-emerald-500" /> {selectedEvent.time} HS</div>
                   </div>
                 </div>
               </div>
