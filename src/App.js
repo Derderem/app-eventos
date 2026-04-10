@@ -7,10 +7,10 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// CSS de Leaflet fundamental para evitar cuadros blancos
+// CSS OBLIGATORIO para Leaflet
 import 'leaflet/dist/leaflet.css';
 
-// Reparación de iconos de marcadores
+// Reparar iconos de marcadores
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -18,14 +18,15 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Componente para forzar el redibujado exacto en España
-function MapForceCenter() {
+// COMPONENTE QUE OBLIGA AL MAPA A IR A ESPAÑA Y NO MOVERSE DE AHÍ
+function MapSpainControl() {
   const map = useMap();
   useEffect(() => {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       map.invalidateSize();
-      map.setView([40.4167, -3.7037], 6); // Centro exacto en Madrid, España
+      map.setView([40.4167, -3.7037], 6); // MADRID
     }, 500);
+    return () => clearTimeout(timer);
   }, [map]);
   return null;
 }
@@ -61,6 +62,7 @@ function App() {
   }, []);
 
   const loadUserData = async (id) => {
+    // FORZAR ADMIN POR TU ID (EL DEL SQL)
     if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
       setProfile({ role: 'admin' });
     } else {
@@ -77,13 +79,13 @@ function App() {
   };
 
   const generateIA = () => {
-    if (!form.title) return showNotification("Pon un título ✨");
+    if (!form.title) return showNotification("Escribe el título ✨");
     setIsProcessing(true);
-    const q = encodeURIComponent(`professional event photography of ${form.title}`);
-    const urlIA = `https://image.pollinations.ai/prompt/${q}?width=800&height=1000&nologo=true&seed=${Date.now()}`;
+    const q = encodeURIComponent(`professional_photo_of_${form.title}_event`);
+    const url = `https://image.pollinations.ai/prompt/${q}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
-    img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("IA: Lista ✨"); };
+    img.src = url;
+    img.onload = () => { setForm({...form, image_url: url}); setIsProcessing(false); showNotification("Imagen Lista!"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -91,12 +93,12 @@ function App() {
     if (!file) return;
     setIsProcessing(true);
     try {
-      const fileName = `${Date.now()}_img.jpg`;
-      await supabase.storage.from('event-images').upload(fileName, file);
-      const { data } = supabase.storage.from('event-images').getPublicUrl(fileName);
+      const name = `${Date.now()}_img.jpg`;
+      await supabase.storage.from('event-images').upload(name, file);
+      const { data } = supabase.storage.from('event-images').getPublicUrl(name);
       setForm({ ...form, image_url: data.publicUrl });
-      showNotification("¡Foto subida!");
-    } catch (err) { alert("Error de subida"); }
+      showNotification("¡Subida!");
+    } catch (err) { alert("Error al subir"); }
     finally { setIsProcessing(false); }
   };
 
@@ -110,7 +112,7 @@ function App() {
       let lat = 40.41; let lng = -3.70;
       if (geo && geo.length > 0) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
       await supabase.from('events').insert([{ ...form, lat, lng, status: profile?.role === 'admin' ? 'approved' : 'pending', organizer_id: user?.id }]);
-      showNotification("¡Enviado!");
+      showNotification("¡Publicado!");
       setView('home'); fetchEvents();
       setForm({ title: '', category: 'MUSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
     } catch (err) { alert("Error"); }
@@ -133,7 +135,7 @@ function App() {
 
   return (
     <div className={isDark ? "dark" : ""}>
-      <div className="h-screen w-screen flex flex-col bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-white font-sans overflow-hidden transition-all duration-500">
+      <div className="h-screen w-screen flex flex-col bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-white font-sans overflow-hidden">
         
         {toast && (
           <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top">
@@ -141,16 +143,16 @@ function App() {
           </div>
         )}
 
-        {/* NAV CON ESCUDO ADMIN RESTAURADO */}
+        {/* HEADER CON ESCUDO PARA ADMIN */}
         <nav className="h-[60px] shrink-0 bg-white dark:bg-[#0f172a] border-b dark:border-slate-800 flex justify-between items-center px-6 z-[2000]">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
-            <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold text-xl shadow-lg shadow-indigo-500/30">E</div>
+            <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold text-xl shadow-lg">E</div>
             <h1 className="text-xl font-black uppercase italic tracking-tighter">Eventos</h1>
           </div>
           <div className="flex items-center gap-3">
             {profile?.role === 'admin' && (
-              <button onClick={() => setView('admin')} className="p-2 text-amber-500 bg-amber-500/10 rounded-xl border border-amber-500/20 shadow-sm">
-                <ShieldCheck size={22}/>
+              <button onClick={() => setView('admin')} className="p-2 text-amber-500 bg-amber-500/10 rounded-xl border border-amber-500/20 shadow-md">
+                <ShieldCheck size={24}/>
               </button>
             )}
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
@@ -200,7 +202,7 @@ function App() {
                   </div>
                   <div className="flex gap-2">
                     <input required type="date" className="flex-1 p-4 bg-slate-800 rounded-2xl text-[10px] font-bold text-white outline-none" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
-                    {/* HORA 24 HORAS */}
+                    {/* HORA FORZADA 24H */}
                     <input required type="time" step="60" className="w-24 p-4 bg-slate-800 rounded-2xl text-[10px] font-bold text-white outline-none" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
                   </div>
                   <div className="pt-2 text-center">
@@ -218,25 +220,29 @@ function App() {
             </div>
           )}
 
-          {/* VISTA MAPA - FORZADA A ESPAÑA Y EN ESPAÑOL */}
+          {/* VISTA MAPA - ESPAÑA EN ESPAÑOL Y BLOQUEADA */}
           {view === 'map' && ( 
-            <div className="absolute inset-0 z-0 bg-white"> 
+            <div className="absolute inset-0 z-0 bg-[#020617] animate-in fade-in"> 
               <MapContainer 
-                key={view} // Esto fuerza a React a destruir y crear el mapa cada vez
+                key={Date.now()} // Forzar refresco
                 center={[40.41, -3.70]} 
                 zoom={6} 
                 className="h-full w-full" 
                 zoomControl={false}
+                minZoom={5}
+                maxBounds={[[35, -10], [44, 4]]}
               > 
-                <MapForceCenter />
-                {/* Servidor de mapas en ESPAÑOL */}
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{y}/{x}{r}.png" attribution='&copy; OSM' /> 
+                <MapSpainControl />
+                <TileLayer 
+                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{y}/{x}{r}.png" 
+                  attribution='&copy; OSM' 
+                /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
                       <div className="p-1 text-center" onClick={() => setSelectedEvent(ev)}>
                         <div className="font-black text-[9px] uppercase text-indigo-600 leading-tight mb-1">{ev.title}</div>
-                        <p className="text-[7px] font-black uppercase opacity-60">{ev.city}</p>
+                        <button className="text-[7px] bg-indigo-600 text-white px-2 py-1 rounded-md uppercase">Ver</button>
                       </div>
                     </Popup>
                   </Marker>
@@ -245,17 +251,16 @@ function App() {
             </div> 
           )}
 
-          {/* VISTA ADMIN */}
+          {/* VISTA ADMINISTRADOR */}
           {view === 'admin' && (
             <div className="max-w-xl mx-auto p-6 pb-60 text-center animate-in slide-in-from-top">
-              <h2 className="text-xl font-black mb-8 text-amber-500 uppercase italic tracking-tighter underline underline-offset-8 decoration-amber-500/30">Moderación 🛡️</h2>
+              <h2 className="text-xl font-black mb-8 text-amber-500 uppercase italic tracking-tighter underline underline-offset-8">Moderación 🛡️</h2>
               {events.filter(e => e.status === 'pending').map(ev => (
                 <div key={ev.id} className="bg-[#0f172a] rounded-[2rem] mb-6 border border-slate-800 overflow-hidden shadow-xl text-left">
                   <img src={ev.image_url} className="h-44 w-full object-cover" alt="p"/>
                   <div className="p-6">
                     <h4 className="font-black text-xl mb-2 text-white uppercase italic leading-tight">{ev.title}</h4>
-                    <p className="text-[10px] font-black opacity-50 mb-6 uppercase tracking-widest">{ev.city} | {ev.date} | {ev.time}hs</p>
-                    <div className="flex gap-4">
+                    <div className="flex gap-4 mt-4">
                         <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Aprobar</button>
                         <button onClick={async () => { await supabase.from('events').delete().eq('id', ev.id); fetchEvents(); showNotification("¡Borrado!"); }} className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-[10px] opacity-60">Borrar</button>
                     </div>
@@ -266,28 +271,9 @@ function App() {
             </div>
           )}
 
-          {/* FAVORITOS */}
-          {view === 'favorites' && (
-            <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in text-center">
-               <h3 className="text-2xl font-black uppercase tracking-tighter text-indigo-600 mb-8 italic underline underline-offset-8">Mis Guardados ❤️</h3>
-               <div className="space-y-4">
-                  {events.filter(e => favorites.includes(String(e.id))).map(ev => (
-                    <div key={ev.id} className="bg-[#0f172a] p-4 rounded-[1.5rem] border border-slate-800 flex justify-between items-center shadow-lg text-left">
-                       <div className="flex items-center gap-4">
-                          <img src={ev.image_url} className="w-14 h-14 rounded-xl object-cover" alt="ev" />
-                          <div>
-                            <span className="font-black text-sm block uppercase tracking-tighter text-white line-clamp-1">{ev.title}</span>
-                            <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{ev.city}</span>
-                          </div>
-                       </div>
-                       <button onClick={() => toggleFavorite(ev)} className="p-3 text-red-500 active:scale-75 transition-all"><Trash2 size={20} /></button>
-                    </div>
-                  ))}
-               </div>
-            </div>
-          )}
         </main>
 
+        {/* NAVEGACIÓN INFERIOR */}
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[75px] rounded-[2rem] shadow-2xl flex items-center justify-around z-[2000] px-4 transition-all">
           <button onClick={() => {setView('home'); setSelectedEvent(null);}} className={`p-3 rounded-xl transition-all ${view === 'home' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><LayoutList size={22}/></button>
           <button onClick={() => setView('create')} className={`p-3 rounded-xl transition-all ${view === 'create' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><PlusCircle size={22}/></button>
