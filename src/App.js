@@ -7,10 +7,10 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// CSS OBLIGATORIO para Leaflet
+// Importar CSS de Leaflet para evitar errores visuales
 import 'leaflet/dist/leaflet.css';
 
-// Reparar iconos de marcadores
+// Fix para iconos de marcadores
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -18,15 +18,14 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// COMPONENTE QUE OBLIGA AL MAPA A IR A ESPAÑA Y NO MOVERSE DE AHÍ
-function MapSpainControl() {
+// Componente para forzar el centrado en ESPAÑA cada vez que se carga
+function MapEspañaControl() {
   const map = useMap();
   useEffect(() => {
-    const timer = setTimeout(() => {
+    setTimeout(() => {
       map.invalidateSize();
       map.setView([40.4167, -3.7037], 6); // MADRID
     }, 500);
-    return () => clearTimeout(timer);
   }, [map]);
   return null;
 }
@@ -62,7 +61,7 @@ function App() {
   }, []);
 
   const loadUserData = async (id) => {
-    // FORZAR ADMIN POR TU ID (EL DEL SQL)
+    // ID DE ADMINISTRADOR DEL SQL
     if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
       setProfile({ role: 'admin' });
     } else {
@@ -79,13 +78,12 @@ function App() {
   };
 
   const generateIA = () => {
-    if (!form.title) return showNotification("Escribe el título ✨");
+    if (!form.title) return showNotification("Pon un título ✨");
     setIsProcessing(true);
-    const q = encodeURIComponent(`professional_photo_of_${form.title}_event`);
-    const url = `https://image.pollinations.ai/prompt/${q}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
+    const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
-    img.src = url;
-    img.onload = () => { setForm({...form, image_url: url}); setIsProcessing(false); showNotification("Imagen Lista!"); };
+    img.src = urlIA;
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen Lista ✨"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -93,12 +91,12 @@ function App() {
     if (!file) return;
     setIsProcessing(true);
     try {
-      const name = `${Date.now()}_img.jpg`;
+      const name = `${Date.now()}.jpg`;
       await supabase.storage.from('event-images').upload(name, file);
       const { data } = supabase.storage.from('event-images').getPublicUrl(name);
       setForm({ ...form, image_url: data.publicUrl });
-      showNotification("¡Subida!");
-    } catch (err) { alert("Error al subir"); }
+      showNotification("¡Foto subida!");
+    } catch (err) { alert("Error"); }
     finally { setIsProcessing(false); }
   };
 
@@ -143,7 +141,7 @@ function App() {
           </div>
         )}
 
-        {/* HEADER CON ESCUDO PARA ADMIN */}
+        {/* NAV CON ESCUDO PARA ADMIN */}
         <nav className="h-[60px] shrink-0 bg-white dark:bg-[#0f172a] border-b dark:border-slate-800 flex justify-between items-center px-6 z-[2000]">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
             <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold text-xl shadow-lg">E</div>
@@ -151,7 +149,7 @@ function App() {
           </div>
           <div className="flex items-center gap-3">
             {profile?.role === 'admin' && (
-              <button onClick={() => setView('admin')} className="p-2 text-amber-500 bg-amber-500/10 rounded-xl border border-amber-500/20 shadow-md">
+              <button onClick={() => setView('admin')} className="p-2 text-amber-500 bg-amber-500/10 rounded-xl border border-amber-500/20 shadow-lg">
                 <ShieldCheck size={24}/>
               </button>
             )}
@@ -168,7 +166,7 @@ function App() {
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] tracking-widest transition-all shrink-0 border-2 ${activeCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-900/40 text-slate-500 border-slate-800'}`}>{cat}</button>
+                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] tracking-widest transition-all shrink-0 border-2 ${activeCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'bg-slate-900/40 text-slate-500 border-slate-800'}`}>{cat}</button>
                 ))}
               </div>
               <div className="space-y-6">
@@ -203,7 +201,7 @@ function App() {
                   <div className="flex gap-2">
                     <input required type="date" className="flex-1 p-4 bg-slate-800 rounded-2xl text-[10px] font-bold text-white outline-none" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
                     {/* HORA FORZADA 24H */}
-                    <input required type="time" step="60" className="w-24 p-4 bg-slate-800 rounded-2xl text-[10px] font-bold text-white outline-none" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
+                    <input required type="time" className="w-24 p-4 bg-slate-800 rounded-2xl text-[10px] font-bold text-white outline-none" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
                   </div>
                   <div className="pt-2 text-center">
                     <div className="h-40 w-full bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-dashed border-indigo-500/20 mb-4">
@@ -220,22 +218,20 @@ function App() {
             </div>
           )}
 
-          {/* VISTA MAPA - ESPAÑA EN ESPAÑOL Y BLOQUEADA */}
+          {/* VISTA MAPA - SOLUCIÓN FORZADA ESPAÑA */}
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#020617] animate-in fade-in"> 
               <MapContainer 
-                key={Date.now()} // Forzar refresco
+                key={view} // ESTO OBLIGA AL MAPA A CARGAR ESPAÑA CADA VEZ
                 center={[40.41, -3.70]} 
                 zoom={6} 
                 className="h-full w-full" 
                 zoomControl={false}
-                minZoom={5}
-                maxBounds={[[35, -10], [44, 4]]}
               > 
-                <MapSpainControl />
+                <MapEspañaControl />
                 <TileLayer 
                   url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{y}/{x}{r}.png" 
-                  attribution='&copy; OSM' 
+                  attribution='&copy; OpenStreetMap' 
                 /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
@@ -258,22 +254,21 @@ function App() {
               {events.filter(e => e.status === 'pending').map(ev => (
                 <div key={ev.id} className="bg-[#0f172a] rounded-[2rem] mb-6 border border-slate-800 overflow-hidden shadow-xl text-left">
                   <img src={ev.image_url} className="h-44 w-full object-cover" alt="p"/>
-                  <div className="p-6">
-                    <h4 className="font-black text-xl mb-2 text-white uppercase italic leading-tight">{ev.title}</h4>
-                    <div className="flex gap-4 mt-4">
-                        <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Aprobar</button>
-                        <button onClick={async () => { await supabase.from('events').delete().eq('id', ev.id); fetchEvents(); showNotification("¡Borrado!"); }} className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-[10px] opacity-60">Borrar</button>
+                  <div className="p-6 text-center">
+                    <h4 className="font-black text-xl mb-4 text-white uppercase italic leading-tight">{ev.title}</h4>
+                    <div className="flex gap-4">
+                        <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-3 rounded-xl font-black text-[9px] uppercase">Aprobar</button>
+                        <button onClick={async () => { await supabase.from('events').delete().eq('id', ev.id); fetchEvents(); showNotification("¡Borrado!"); }} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-black text-[9px] opacity-60 uppercase">Borrar</button>
                     </div>
                   </div>
                 </div>
               ))}
-              {events.filter(e => e.status === 'pending').length === 0 && <p className="opacity-40 font-black uppercase text-[10px]">No hay pendientes</p>}
+              {events.filter(e => e.status === 'pending').length === 0 && <p className="opacity-40 font-black uppercase text-[10px]">No hay eventos pendientes</p>}
             </div>
           )}
 
         </main>
 
-        {/* NAVEGACIÓN INFERIOR */}
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[75px] rounded-[2rem] shadow-2xl flex items-center justify-around z-[2000] px-4 transition-all">
           <button onClick={() => {setView('home'); setSelectedEvent(null);}} className={`p-3 rounded-xl transition-all ${view === 'home' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><LayoutList size={22}/></button>
           <button onClick={() => setView('create')} className={`p-3 rounded-xl transition-all ${view === 'create' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><PlusCircle size={22}/></button>
@@ -281,14 +276,13 @@ function App() {
           <button onClick={() => setView('map')} className={`p-3 rounded-xl transition-all ${view === 'map' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><MapIcon size={22}/></button>
         </div>
 
-        {/* MODAL DETALLES */}
         {selectedEvent && (
-          <div className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center p-4 backdrop-blur-xl animate-in fade-in duration-300 text-left">
+          <div className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center p-4 backdrop-blur-xl animate-in fade-in text-left">
             <div className="bg-[#0f172a] w-full max-w-[380px] h-[85vh] rounded-[3rem] overflow-hidden relative border border-slate-800 border-b-8 border-indigo-600 flex flex-col shadow-2xl">
               <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-4 z-50 p-3 bg-white/10 rounded-full text-white active:scale-90 transition shadow-xl"><X size={20} /></button>
               <img src={selectedEvent.image_url} className="h-52 w-full object-cover shrink-0" alt="hero" />
               <div className="p-8 flex flex-col flex-1 overflow-y-auto no-scrollbar">
-                <h2 className="text-2xl font-black mb-6 leading-tight text-white uppercase italic tracking-tighter">{selectedEvent.title}</h2>
+                <h2 className="text-2xl font-black mb-6 leading-tight text-white uppercase italic tracking-tighter text-center">{selectedEvent.title}</h2>
                 <div className="flex gap-2 mb-8 text-center">
                   <button onClick={() => { toggleFavorite(selectedEvent); showNotification("¡Apuntado!"); }} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-2 uppercase italic transition active:scale-95 shadow-indigo-500/20"><Sparkles size={14} /> ¡VOY A IR!</button>
                   <button onClick={() => { if(navigator.share) { navigator.share({title: selectedEvent.title, url: window.location.href}); } else { showNotification("Copiado"); } }} className="p-4 bg-slate-800 text-white rounded-xl active:scale-90 transition"><Share2 size={20} /></button>
