@@ -7,10 +7,10 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// IMPORTANTE: CSS de Leaflet directo para evitar cuadros blancos
+// IMPORTANTE: Cargamos el CSS de Leaflet para evitar cuadros blancos
 import 'leaflet/dist/leaflet.css';
 
-// Fix para iconos de marcadores
+// Corregir iconos de marcadores
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -18,14 +18,14 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// COMPONENTE PARA FORZAR EL MAPA A ESPAÑA
+// COMPONENTE PARA FORZAR EL MAPA A ESPAÑA CADA VEZ QUE SE ABRE
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
     setTimeout(() => {
       map.invalidateSize();
-      map.setView([40.4167, -3.7037], 6); // COORDENADAS MADRID, ESPAÑA
-    }, 400);
+      map.setView([40.4167, -3.7037], 6); // MADRID, ESPAÑA
+    }, 500);
   }, [map]);
   return null;
 }
@@ -62,7 +62,7 @@ function App() {
 
   const loadUserData = async (id) => {
     try {
-      // TU ID DE ADMIN (FORZADO)
+      // TU ID DE ADMIN FORZADO
       if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
         setProfile({ role: 'admin' });
       } else {
@@ -71,7 +71,7 @@ function App() {
       }
       const { data: f } = await supabase.from('favorites').select('event_id').eq('user_id', id);
       if (f) setFavorites(f.map(item => String(item.event_id)));
-    } catch (e) { console.log("Cargando perfil..."); }
+    } catch (e) { console.log("Cargando..."); }
   };
 
   const fetchEvents = async () => {
@@ -79,15 +79,13 @@ function App() {
     setEvents(data || []);
   };
 
-  // IA CON GENERACIÓN GARANTIZADA
   const generateIA = () => {
-    if (!form.title) return showNotification("Escribe un título ✨");
+    if (!form.title) return showNotification("Pon un título ✨");
     setIsProcessing(true);
     const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
     img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("IA: Foto lista"); };
-    img.onerror = () => { setIsProcessing(false); showNotification("Error IA, reintenta"); };
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen IA lista"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -100,7 +98,7 @@ function App() {
       const { data } = supabase.storage.from('event-images').getPublicUrl(fileName);
       setForm({ ...form, image_url: data.publicUrl });
       showNotification("Subida con éxito");
-    } catch (err) { alert("Error de subida"); }
+    } catch (err) { alert("Error al subir"); }
     finally { setIsProcessing(false); }
   };
 
@@ -109,15 +107,13 @@ function App() {
     if (!form.image_url) return showNotification("Falta la foto ✨");
     setIsSubmitting(true);
     try {
-      // GEOLOCALIZACIÓN FORZADA EN ESPAÑA
+      // GEOLOCALIZACIÓN REAL EN ESPAÑA
       const search = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address + ', ' + form.city + ', España')}&limit=1`);
       const geo = await search.json();
       let lat = 40.41; let lng = -3.70;
-      if (geo && geo.length > 0) {
-        lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon);
-      }
+      if (geo && geo.length > 0) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
       await supabase.from('events').insert([{ ...form, lat, lng, status: profile?.role === 'admin' ? 'approved' : 'pending', organizer_id: user?.id }]);
-      showNotification("¡Evento enviado!");
+      showNotification("¡Enviado!");
       setView('home'); fetchEvents();
       setForm({ title: '', category: 'MUSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
     } catch (err) { alert("Error al guardar"); }
@@ -140,7 +136,7 @@ function App() {
 
   return (
     <div className={isDark ? "dark" : ""}>
-      <div className="h-screen w-screen flex flex-col bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-white font-sans overflow-hidden transition-colors">
+      <div className="h-screen w-screen flex flex-col bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-white font-sans overflow-hidden transition-all">
         
         {toast && (
           <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top text-center">
@@ -148,7 +144,7 @@ function App() {
           </div>
         )}
 
-        {/* HEADER CON ESCUDO ADMINISTRADOR */}
+        {/* HEADER CON BOTÓN DE ADMIN (ESCUDO) */}
         <nav className="h-[60px] shrink-0 bg-white dark:bg-[#0f172a] border-b dark:border-slate-800 flex justify-between items-center px-6 z-[2000]">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
             <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold text-lg italic shadow-lg">E</div>
@@ -163,7 +159,7 @@ function App() {
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-yellow-400">
               {isDark ? <Sun size={20}/> : <Moon size={20}/>}
             </button>
-            {user ? <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e, options:{emailRedirectTo:window.location.origin}})}} className="bg-indigo-600 text-white px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase shadow-md">Entrar</button>}
+            {user ? <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md cursor-pointer" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e, options:{emailRedirectTo:window.location.origin}})}} className="bg-indigo-600 text-white px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase shadow-md">Entrar</button>}
           </div>
         </nav>
 
@@ -196,9 +192,9 @@ function App() {
 
           {view === 'create' && (
             <div className="max-w-xl mx-auto p-4 pb-60 animate-in slide-in-from-bottom">
-              <div className="bg-[#0f172a] rounded-[2.5rem] p-6 border border-slate-800 shadow-2xl">
+              <div className="bg-[#0f172a] rounded-[2.5rem] p-6 border border-slate-800 shadow-2xl text-left">
                 <h2 className="text-xl font-black mb-6 text-indigo-500 text-center uppercase italic underline underline-offset-8">Publicar</h2>
-                <form onSubmit={handleCreate} className="space-y-4 text-left">
+                <form onSubmit={handleCreate} className="space-y-4">
                   <input required placeholder="TÍTULO" className="w-full p-4 bg-slate-800 rounded-2xl outline-none font-bold uppercase text-xs text-white" value={form.title} onChange={e => setForm({...form, title: e.target.value.toUpperCase()})} />
                   <select className="w-full p-4 bg-slate-800 rounded-2xl outline-none font-black text-[10px] uppercase text-white" value={form.category} onChange={e => setForm({...form, category: e.target.value})}><option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINOS">TAURINOS</option><option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option><option value="OTROS">OTROS</option></select>
                   <div className="grid grid-cols-2 gap-3">
@@ -208,7 +204,7 @@ function App() {
                   <div className="flex gap-2">
                     <input required type="date" className="flex-1 p-4 bg-slate-800 rounded-2xl text-[10px] font-bold text-white outline-none" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
                     {/* RELOJ 24H */}
-                    <input required type="time" className="w-24 p-4 bg-slate-800 rounded-2xl text-[10px] font-bold text-white outline-none" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
+                    <input required type="time" step="60" className="w-24 p-4 bg-slate-800 rounded-2xl text-[10px] font-bold text-white outline-none" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
                   </div>
                   <div className="pt-2 text-center">
                     <div className="h-40 w-full bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-dashed border-indigo-500/20 mb-4">
@@ -219,13 +215,13 @@ function App() {
                       <label className="flex-1 bg-slate-700 text-white p-3 rounded-xl font-black text-[8px] uppercase flex items-center justify-center gap-1 cursor-pointer"><Upload size={14}/> GALERÍA<input type="file" accept="image/*" className="hidden" onChange={handleGalleryUpload} /></label>
                     </div>
                   </div>
-                  <button type="submit" disabled={isSubmitting || isProcessing} className="w-full bg-white text-slate-900 p-4 rounded-xl font-black shadow-xl mt-4 uppercase text-[9px] tracking-widest active:scale-95 transition-all uppercase italic">PUBLICAR</button>
+                  <button type="submit" disabled={isSubmitting || isProcessing} className="w-full bg-white text-slate-900 p-4 rounded-xl font-black shadow-xl mt-4 uppercase text-[9px] tracking-widest active:scale-95 transition-all">PUBLICAR</button>
                 </form>
               </div>
             </div>
           )}
 
-          {/* VISTA MAPA - ESPAÑA GARANTIZADO */}
+          {/* VISTA MAPA - ESPAÑA OBLIGATORIO */}
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#020617] animate-in fade-in"> 
               <MapContainer 
@@ -240,14 +236,14 @@ function App() {
                 <SpainMapController />
                 <TileLayer 
                   url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{y}/{x}{r}.png" 
-                  attribution='&copy; OpenStreetMap' 
+                  attribution='&copy; OSM' 
                 /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
                       <div className="p-1 text-center" onClick={() => setSelectedEvent(ev)}>
-                        <div className="font-black text-[9px] uppercase text-indigo-600 leading-tight mb-1">{ev.title}</div>
-                        <p className="text-[7px] font-black uppercase opacity-60">{ev.city}</p>
+                        <div className="font-black text-[9px] uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
+                        <button className="text-[7px] bg-indigo-600 text-white px-2 py-1 rounded-md">VER</button>
                       </div>
                     </Popup>
                   </Marker>
@@ -261,14 +257,14 @@ function App() {
             <div className="max-w-xl mx-auto p-6 pb-60 text-center animate-in slide-in-from-top">
               <h2 className="text-xl font-black mb-8 text-amber-500 uppercase italic tracking-tighter underline underline-offset-8">Revisión 🛡️</h2>
               {events.filter(e => e.status === 'pending').map(ev => (
-                <div key={ev.id} className="bg-[#0f172a] rounded-[2rem] mb-6 border border-slate-800 overflow-hidden shadow-xl text-left">
-                  <img src={ev.image_url} className="h-44 w-full object-cover" alt="p"/>
+                <div key={ev.id} className="bg-[#0f172a] rounded-[2rem] mb-6 border border-slate-800 overflow-hidden text-center shadow-xl">
+                  <img src={ev.image_url} className="h-40 w-full object-cover" alt="p"/>
                   <div className="p-6">
-                    <h4 className="font-black text-xl mb-2 text-white uppercase italic leading-tight">{ev.title}</h4>
-                    <p className="text-[10px] font-black opacity-50 mb-6 uppercase tracking-widest">{ev.city} | {ev.date} | {ev.time}hs</p>
+                    <h4 className="font-black text-lg mb-2 text-white uppercase italic leading-tight">{ev.title}</h4>
+                    <p className="text-[8px] font-black opacity-50 mb-6 uppercase tracking-widest">{ev.city} | {ev.date} | {ev.time}hs</p>
                     <div className="flex gap-4">
-                        <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-[10px] shadow-lg">Aprobar</button>
-                        <button onClick={async () => { await supabase.from('events').delete().eq('id', ev.id); fetchEvents(); showNotification("¡Borrado!"); }} className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-[10px] opacity-60">Borrar</button>
+                        <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-3 rounded-xl font-black text-[9px]">APROBAR</button>
+                        <button onClick={async () => { await supabase.from('events').delete().eq('id', ev.id); fetchEvents(); showNotification("¡Borrado!"); }} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-black text-[9px] opacity-60">BORRAR</button>
                     </div>
                   </div>
                 </div>
@@ -279,11 +275,11 @@ function App() {
 
           {/* PERFIL */}
           {view === 'profile' && (
-            <div className="max-w-xl mx-auto p-10 text-center">
-               <div className="bg-[#0f172a] rounded-[3rem] p-10 border border-slate-800 shadow-2xl">
-                  <div className="w-20 h-20 bg-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl font-black text-white border-2 border-white shadow-xl">{user?.email[0].toUpperCase()}</div>
+            <div className="max-w-xl mx-auto p-10 text-center animate-in fade-in">
+               <div className="bg-[#0f172a] rounded-[3rem] p-10 border border-slate-800 shadow-2xl text-center">
+                  <div className="w-20 h-20 bg-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl font-black text-white border-2 border-white shadow-xl shadow-indigo-500/20">{user?.email[0].toUpperCase()}</div>
                   <p className="mb-10 font-black text-slate-400 text-[10px] uppercase tracking-widest truncate">{user?.email}</p>
-                  <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600 text-white p-4 rounded-xl font-black uppercase text-[10px] shadow-lg"> Cerrar Sesión </button>
+                  <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600 text-white p-4 rounded-xl font-black uppercase text-[10px] shadow-lg active:scale-95 transition-all"> Cerrar Sesión </button>
                </div>
             </div>
           )}
@@ -299,24 +295,24 @@ function App() {
 
         {/* MODAL DETALLES */}
         {selectedEvent && (
-          <div className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center p-4 backdrop-blur-xl animate-in fade-in text-left">
+          <div className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center p-4 backdrop-blur-xl animate-in fade-in duration-300 text-left">
             <div className="bg-[#0f172a] w-full max-w-[380px] h-[85vh] rounded-[3rem] overflow-hidden relative border border-slate-800 border-b-8 border-indigo-600 flex flex-col shadow-2xl">
               <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-4 z-50 p-3 bg-white/10 rounded-full text-white active:scale-90 transition shadow-xl"><X size={20} /></button>
               <img src={selectedEvent.image_url} className="h-52 w-full object-cover shrink-0" alt="hero" />
               <div className="p-8 flex flex-col flex-1 overflow-y-auto no-scrollbar">
                 <h2 className="text-2xl font-black mb-6 leading-tight text-white uppercase italic tracking-tighter">{selectedEvent.title}</h2>
-                <div className="flex gap-2 mb-8">
+                <div className="flex gap-2 mb-8 text-center">
                   <button onClick={() => { toggleFavorite(selectedEvent); showNotification("¡Confirmado!"); }} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-2 uppercase italic transition active:scale-95 shadow-indigo-500/20"><Sparkles size={14} /> ¡VOY A IR!</button>
                   <button onClick={() => { if(navigator.share) { navigator.share({title: selectedEvent.title, url: window.location.href}); } else { showNotification("Copiado"); } }} className="p-4 bg-slate-800 text-white rounded-xl active:scale-90 transition"><Share2 size={20} /></button>
                 </div>
                 <div className="space-y-4">
                   <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.city)}`} target="_blank" rel="noreferrer" className="flex items-center gap-4 p-4 bg-slate-800 rounded-2xl border border-slate-800 transition active:scale-95">
-                    <div className="p-2 bg-indigo-600 text-white rounded-lg"><MapPin size={20} /></div>
+                    <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-500/20"><MapPin size={20} /></div>
                     <div className="overflow-hidden"><p className="text-[9px] font-black text-white uppercase mb-1 tracking-tighter line-clamp-1">{selectedEvent.address}</p><p className="text-[8px] font-black text-indigo-500 uppercase">{selectedEvent.city}</p></div>
                   </a>
                   <div className="flex gap-2">
-                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800 rounded-2xl border border-slate-800 text-white text-[9px] font-black tracking-tighter uppercase italic"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
-                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800 rounded-2xl border border-slate-800 text-white text-[9px] font-black tracking-tighter uppercase italic"><Clock size={18} className="text-emerald-500" /> {selectedEvent.time} HS</div>
+                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800 rounded-2xl border border-slate-800 text-white text-[9px] font-black tracking-tighter"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
+                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800 rounded-2xl border border-slate-800 text-white text-[9px] font-black tracking-tighter uppercase"><Clock size={18} className="text-emerald-500" /> {selectedEvent.time} hs</div>
                   </div>
                 </div>
               </div>
