@@ -41,7 +41,6 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [toast, setToast] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
-  const [reasonText, setReasonText] = useState("");
 
   const showNotification = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
@@ -84,18 +83,26 @@ function App() {
     }
   };
 
+  // GENERAR OPCIONES IA MEJORADO
   const generateIAOptions = () => {
-    if (!form.title) return showNotification("Pon un título ✨");
+    if (!form.title) return showNotification("Pon un título primero ✨");
     setIsProcessing(true);
-    const q = encodeURIComponent(form.title);
-    const time = Date.now();
-    // Generar 2 variantes
-    const url1 = `https://image.pollinations.ai/prompt/professional_photo_event_${q}_party?width=800&height=1000&nologo=true&seed=${time}`;
-    const url2 = `https://image.pollinations.ai/prompt/professional_event_photography_${q}_night?width=800&height=1000&nologo=true&seed=${time + 1}`;
+    setIaOptions([]);
     
-    setIaOptions([url1, url2]);
-    setIsProcessing(false);
-    showNotification("2 opciones listas");
+    const q = encodeURIComponent(form.title + " professional event photography");
+    const seed1 = Math.floor(Math.random() * 10000);
+    const seed2 = Math.floor(Math.random() * 10000);
+    
+    // Usamos el endpoint más estable de Pollinations
+    const opt1 = `https://image.pollinations.ai/prompt/${q}?width=800&height=1000&seed=${seed1}&nologo=true`;
+    const opt2 = `https://image.pollinations.ai/prompt/${q}?width=800&height=1000&seed=${seed2}&nologo=true`;
+
+    // Simular carga para asegurar que la IA procese la petición
+    setTimeout(() => {
+      setIaOptions([opt1, opt2]);
+      setIsProcessing(false);
+      showNotification("2 opciones listas ✨");
+    }, 2000);
   };
 
   const handleGalleryUpload = async (e) => {
@@ -110,7 +117,7 @@ function App() {
       setForm({ ...form, image_url: data.publicUrl });
       setIaOptions([]);
       showNotification("¡Foto subida!");
-    } catch (err) { alert("Error al subir. Revisa las Policies."); }
+    } catch (err) { alert("Error al subir. Revisa las Policies en Supabase."); }
     finally { setIsProcessing(false); }
   };
 
@@ -120,17 +127,17 @@ function App() {
     setIsSubmitting(true);
 
     try {
-      // GEOLOCALIZACIÓN REAL en España
-      const query = encodeURIComponent(`${form.address}, ${form.city}, España`);
-      const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
-      const geoData = await geoRes.json();
+      // BUSCAR COORDENADAS REALES EN ESPAÑA
+      const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address + ', ' + form.city + ', España')}&limit=1`;
+      const response = await fetch(searchUrl);
+      const data = await response.json();
       
-      let lat = 40.4167; // Madrid por defecto
+      let lat = 40.4167; // Madrid por defecto si falla
       let lng = -3.7037;
-      
-      if (geoData.length > 0) {
-        lat = parseFloat(geoData[0].lat);
-        lng = parseFloat(geoData[0].lon);
+
+      if (data && data.length > 0) {
+        lat = parseFloat(data[0].lat);
+        lng = parseFloat(data[0].lon);
       }
 
       await supabase.from('events').insert([{ 
@@ -141,14 +148,14 @@ function App() {
         organizer_id: user?.id 
       }]);
 
-      showNotification("¡Enviado!");
+      showNotification("¡Evento enviado!");
       setView('home'); 
-      fetchEvents();
+      fetchEvents(); 
+      setIsSubmitting(false);
       setForm({ title: '', category: 'MUSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
       setIaOptions([]);
     } catch (err) {
-      showNotification("Error al guardar");
-    } finally {
+      alert("Error al guardar el evento");
       setIsSubmitting(false);
     }
   };
@@ -166,12 +173,12 @@ function App() {
   };
 
   const handleImGoing = async () => {
-    if (!user || !selectedEvent) return;
+    if (!user) return;
     if (!favorites.includes(String(selectedEvent.id))) {
       setFavorites(f => [...f, String(selectedEvent.id)]);
       await supabase.from('favorites').insert({ user_id: user.id, event_id: selectedEvent.id });
     }
-    showNotification("¡Confirmado!");
+    showNotification("¡Te hemos apuntado!");
   };
 
   const pendingEvents = events.filter(e => e.status === 'pending');
@@ -182,14 +189,14 @@ function App() {
       <div className="h-screen w-screen flex flex-col bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-white font-sans overflow-hidden">
         
         {toast && (
-          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl border border-white/20 animate-in slide-in-from-top text-center">
+          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top">
             <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
           </div>
         )}
 
         <nav className="h-[60px] shrink-0 bg-white dark:bg-[#0f172a] border-b dark:border-slate-800 flex justify-between items-center px-6 z-[2000]">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
-            <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold text-lg italic shadow-lg">E</div>
+            <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold text-lg italic">E</div>
             <h1 className="text-lg font-black uppercase italic tracking-tighter">Eventos</h1>
           </div>
           <div className="flex items-center gap-3">
@@ -197,7 +204,7 @@ function App() {
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
               {isDark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-indigo-600" />}
             </button>
-            {user ? <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black text-xs cursor-pointer shadow-md" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={handleLogin} className="bg-indigo-600 text-white px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase">Entrar</button>}
+            {user ? <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black text-xs cursor-pointer" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={handleLogin} className="bg-indigo-600 text-white px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase">Entrar</button>}
           </div>
         </nav>
 
@@ -229,68 +236,75 @@ function App() {
           )}
 
           {view === 'create' && (
-            <div className="max-w-xl mx-auto p-6 pb-60 animate-in slide-in-from-bottom">
-              <div className="bg-[#0f172a] rounded-[2.5rem] p-8 border border-slate-800">
+            <div className="max-w-xl mx-auto p-4 pb-60 animate-in slide-in-from-bottom">
+              <div className="bg-[#0f172a] rounded-[2.5rem] p-6 border border-slate-800">
                 <h2 className="text-xl font-black mb-6 text-indigo-500 text-center uppercase italic">Publicar</h2>
                 <form onSubmit={handleCreate} className="space-y-3 text-left">
-                  <input required placeholder="TÍTULO" className="w-full p-4 bg-slate-800 rounded-2xl outline-none font-bold uppercase text-xs" value={form.title} onChange={e => setForm({...form, title: e.target.value.toUpperCase()})} />
-                  <select className="w-full p-4 bg-slate-800 rounded-2xl outline-none font-black text-xs uppercase" value={form.category} onChange={e => setForm({...form, category: e.target.value})}><option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINOS">TAURINOS</option><option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option><option value="OTROS">OTROS</option></select>
-                  <input required placeholder="CIUDAD" className="w-full p-4 bg-slate-800 rounded-2xl outline-none font-bold uppercase text-xs" value={form.city} onChange={e => setForm({...form, city: e.target.value.toUpperCase()})} />
-                  <input required placeholder="DIRECCIÓN EXACTA" className="w-full p-4 bg-slate-800 rounded-2xl outline-none font-bold text-xs" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
-                  
+                  <input required placeholder="TÍTULO DEL EVENTO" className="w-full p-4 bg-slate-800 rounded-2xl outline-none font-bold uppercase text-xs" value={form.title} onChange={e => setForm({...form, title: e.target.value.toUpperCase()})} />
+                  <select className="w-full p-4 bg-slate-800 rounded-2xl outline-none font-black text-[10px] uppercase" value={form.category} onChange={e => setForm({...form, category: e.target.value})}><option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINOS">TAURINOS</option><option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option><option value="OTROS">OTROS</option></select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input required placeholder="CIUDAD" className="w-full p-4 bg-slate-800 rounded-2xl outline-none font-bold uppercase text-[10px]" value={form.city} onChange={e => setForm({...form, city: e.target.value.toUpperCase()})} />
+                    <input required placeholder="DIRECCIÓN" className="w-full p-4 bg-slate-800 rounded-2xl outline-none font-bold text-[10px]" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
+                  </div>
                   <div className="flex gap-2">
                     <input required type="date" className="flex-1 p-4 bg-slate-800 rounded-2xl text-[10px] font-bold text-white outline-none" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
                     <input required type="time" className="w-24 p-4 bg-slate-800 rounded-2xl text-[10px] font-bold text-white outline-none" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
                   </div>
 
-                  <div className="pt-4 space-y-4 text-center">
-                    <div className="h-40 w-full bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-dashed border-indigo-500/30">
-                      {isProcessing ? <Loader2 className="animate-spin text-indigo-600"/> : form.image_url ? <img src={form.image_url} className="w-full h-full object-cover" alt="preview" /> : <div className="text-center opacity-30"><Camera size={20} className="mx-auto mb-1"/><p className="text-[7px] font-black uppercase">Falta Foto</p></div>}
+                  <div className="pt-2 space-y-3 text-center">
+                    <div className="h-40 w-full bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-dashed border-slate-700">
+                      {isProcessing ? <Loader2 className="animate-spin text-indigo-600"/> : form.image_url ? <img src={form.image_url} className="w-full h-full object-cover" alt="p" /> : <div className="text-center opacity-20"><Camera size={24} className="mx-auto mb-1"/><p className="text-[7px] font-black uppercase">Falta Foto</p></div>}
                     </div>
 
+                    {/* Selector de IA */}
                     {iaOptions.length > 0 && (
-                      <div className="grid grid-cols-2 gap-2 animate-in zoom-in">
+                      <div className="grid grid-cols-2 gap-2">
                         {iaOptions.map((url, idx) => (
-                          <div key={idx} onClick={() => setForm({...form, image_url: url})} className={`relative cursor-pointer rounded-xl overflow-hidden border-2 transition-all ${form.image_url === url ? 'border-indigo-600' : 'border-transparent opacity-50'}`}>
-                            <img src={url} className="w-full h-16 object-cover" alt="ia" />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/30 font-black text-[7px] text-white">OPCIÓN {idx+1}</div>
+                          <div key={idx} onClick={() => setForm({...form, image_url: url})} className={`relative cursor-pointer rounded-xl overflow-hidden border-2 transition-all ${form.image_url === url ? 'border-indigo-600 scale-95' : 'border-transparent opacity-60'}`}>
+                            <img src={url} className="w-full h-20 object-cover bg-slate-700" alt="ia" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 font-black text-[7px] text-white">OPCIÓN {idx+1}</div>
                           </div>
                         ))}
                       </div>
                     )}
 
                     <div className="flex gap-2">
-                      <button type="button" onClick={generateIAOptions} className="flex-1 bg-indigo-600/20 text-indigo-400 p-3 rounded-xl font-black text-[8px] uppercase border border-indigo-600/30 flex items-center justify-center gap-1">
-                        <Sparkles size={12}/> 2 OPCIONES IA
-                      </button>
-                      <label className="flex-1 bg-slate-800 text-slate-300 p-3 rounded-xl font-black text-[8px] uppercase border border-slate-700 flex items-center justify-center gap-1 cursor-pointer">
-                        <Upload size={12}/> GALERÍA
-                        <input type="file" accept="image/*" className="hidden" onChange={handleGalleryUpload} />
-                      </label>
+                      <button type="button" onClick={generateIAOptions} className="flex-1 bg-indigo-600 text-white p-3.5 rounded-xl font-black text-[8px] uppercase flex items-center justify-center gap-1"><Sparkles size={14}/> 2 OPCIONES IA</button>
+                      <label className="flex-1 bg-slate-700 text-white p-3.5 rounded-xl font-black text-[8px] uppercase flex items-center justify-center gap-1 cursor-pointer"><Upload size={14}/> GALERÍA<input type="file" accept="image/*" className="hidden" onChange={handleGalleryUpload} /></label>
                     </div>
                   </div>
-                  <button type="submit" disabled={isSubmitting || isProcessing} className="w-full bg-white text-slate-900 p-4 rounded-xl font-black shadow-xl mt-4 uppercase text-[9px] tracking-widest">{isSubmitting ? '...' : 'PUBLICAR'}</button>
+                  <button type="submit" disabled={isSubmitting || isProcessing} className="w-full bg-white text-slate-900 p-4 rounded-2xl font-black shadow-xl mt-2 uppercase text-[10px] tracking-widest">{isSubmitting ? '...' : 'PUBLICAR'}</button>
                 </form>
               </div>
             </div>
           )}
 
           {view === 'admin' && (
-            <div className="max-w-xl mx-auto p-6 pb-60 text-center">
+            <div className="max-w-xl mx-auto p-6 pb-60 text-center animate-in slide-in-from-top">
               <h2 className="text-xl font-black mb-8 text-amber-500 uppercase italic">Moderación</h2>
               {pendingEvents.length === 0 && <p className="text-[10px] opacity-40 uppercase font-black">Nada pendiente</p>}
               {pendingEvents.map(ev => (
-                <div key={ev.id} className="bg-[#0f172a] rounded-[2rem] mb-6 border border-slate-800 overflow-hidden text-center shadow-xl">
+                <div key={ev.id} className="bg-[#0f172a] rounded-[2rem] mb-6 border border-slate-800 overflow-hidden text-center">
                   <img src={ev.image_url} className="h-40 w-full object-cover" alt="p"/>
                   <div className="p-6">
                     <h4 className="font-black text-lg mb-4 text-white uppercase italic">{ev.title}</h4>
                     <div className="flex gap-4">
                         <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("Aprobado!"); }} className="flex-1 bg-green-500 text-white py-3 rounded-xl font-black text-[9px]">APROBAR</button>
-                        <button onClick={() => {setRejectingId(ev.id)}} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-black text-[9px] opacity-60">DENEGAR</button>
+                        <button onClick={() => setRejectingId(ev.id)} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-black text-[9px] opacity-60">DENEGAR</button>
                     </div>
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {view === 'profile' && (
+            <div className="max-w-xl mx-auto p-10 text-center">
+               <div className="bg-[#0f172a] rounded-[3rem] p-10 border border-slate-800 shadow-2xl">
+                  <div className="w-20 h-20 bg-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl font-black text-white">{user?.email[0].toUpperCase()}</div>
+                  <p className="mb-8 font-black text-slate-400 text-[10px] uppercase truncate">{user?.email}</p>
+                  <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600 text-white p-4 rounded-xl font-black uppercase text-[10px]"> Cerrar Sesión </button>
+               </div>
             </div>
           )}
 
@@ -299,7 +313,7 @@ function App() {
                <h3 className="text-2xl font-black uppercase tracking-tighter text-indigo-600 mb-8 text-center italic">Guardados ❤️</h3>
                <div className="space-y-4">
                   {events.filter(e => favorites.includes(String(e.id))).map(ev => (
-                    <div key={ev.id} className="bg-[#0f172a] p-4 rounded-[1.5rem] border border-slate-800 flex justify-between items-center shadow-md">
+                    <div key={ev.id} className="bg-[#0f172a] p-4 rounded-[1.5rem] border border-slate-800 flex justify-between items-center shadow-lg">
                        <div className="flex items-center gap-4">
                           <img src={ev.image_url} className="w-14 h-14 rounded-xl object-cover" alt="ev" />
                           <span className="font-black text-sm text-white uppercase truncate w-32">{ev.title}</span>
@@ -311,39 +325,29 @@ function App() {
             </div>
           )}
 
-          {view === 'profile' && (
-            <div className="max-w-xl mx-auto p-10 text-center">
-               <div className="bg-[#0f172a] rounded-[3rem] p-10 border border-slate-800 shadow-2xl">
-                  <div className="w-20 h-20 bg-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl font-black text-white border-2 border-white">{user?.email[0].toUpperCase()}</div>
-                  <p className="mb-8 font-black text-slate-400 text-[10px] uppercase tracking-widest truncate">{user?.email}</p>
-                  <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600 text-white p-4 rounded-xl font-black uppercase text-[10px]"> Cerrar Sesión </button>
-               </div>
-            </div>
-          )}
-
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0"> 
               <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full"> 
                 <MapResizer /><TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{y}/{x}{r}.png" /> 
                 {events.filter(e => e.status === 'approved').map(ev => ev.lat && (
-                  <Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><div className="p-2 text-center" onClick={() => setSelectedEvent(ev)}><div className="font-black text-[8px] uppercase mb-1">{ev.title}</div><button className="text-[7px] bg-indigo-600 text-white px-2 py-1 rounded">Ver</button></div></Popup></Marker>
+                  <Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><div className="p-2 text-center" onClick={() => setSelectedEvent(ev)}><div className="font-black text-[8px] uppercase">{ev.title}</div><p className="text-[6px] opacity-50">{ev.city}</p></div></Popup></Marker>
                 ))} 
               </MapContainer> 
             </div> 
           )}
         </main>
 
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[75px] rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center justify-around z-[2000] px-4">
-          <button onClick={() => {setView('home'); setSelectedEvent(null);}} className={`p-3 rounded-xl transition-all ${view === 'home' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><LayoutList size={22}/></button>
-          <button onClick={() => setView('create')} className={`p-3 rounded-xl transition-all ${view === 'create' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><PlusCircle size={22}/></button>
-          <button onClick={() => setView('favorites')} className={`p-3 rounded-xl transition-all ${view === 'favorites' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><Heart size={22}/></button>
-          <button onClick={() => setView('map')} className={`p-3 rounded-xl transition-all ${view === 'map' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><MapIcon size={22}/></button>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[75px] rounded-[2rem] shadow-2xl flex items-center justify-around z-[2000] px-4">
+          <button onClick={() => {setView('home'); setSelectedEvent(null);}} className={`p-3 rounded-xl transition-all ${view === 'home' ? "bg-indigo-600 text-white" : "text-slate-500"}`}><LayoutList size={22}/></button>
+          <button onClick={() => setView('create')} className={`p-3 rounded-xl transition-all ${view === 'create' ? "bg-indigo-600 text-white" : "text-slate-500"}`}><PlusCircle size={22}/></button>
+          <button onClick={() => setView('favorites')} className={`p-3 rounded-xl transition-all ${view === 'favorites' ? "bg-indigo-600 text-white" : "text-slate-500"}`}><Heart size={22}/></button>
+          <button onClick={() => setView('map')} className={`p-3 rounded-xl transition-all ${view === 'map' ? "bg-indigo-600 text-white" : "text-slate-500"}`}><MapIcon size={22}/></button>
         </div>
 
         {selectedEvent && (
           <div className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center p-4 backdrop-blur-xl animate-in fade-in">
             <div className="bg-[#0f172a] w-full max-w-[380px] h-[85vh] rounded-[3rem] overflow-hidden relative border border-slate-800 border-b-8 border-indigo-600 flex flex-col shadow-2xl">
-              <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-4 z-50 p-3 bg-white/10 rounded-full text-white active:scale-90 transition shadow-xl"><X size={20} /></button>
+              <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-4 z-50 p-3 bg-white/10 rounded-full text-white active:scale-90 transition"><X size={20} /></button>
               <div className="relative h-52 shrink-0">
                 <img src={selectedEvent.image_url} className="w-full h-full object-cover" alt="hero" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] to-transparent" />
@@ -354,7 +358,7 @@ function App() {
                 <button onClick={handleImGoing} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-2 uppercase italic mb-8 active:scale-95 transition"><Sparkles size={14} /> ¡VOY A IR!</button>
                 <div className="space-y-4 text-left">
                   <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.city)}`} target="_blank" rel="noreferrer" className="flex items-center gap-4 p-4 bg-slate-800 rounded-2xl border border-slate-800 transition active:scale-95">
-                    <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg"><MapPin size={20} /></div>
+                    <div className="p-2 bg-indigo-600 text-white rounded-lg"><MapPin size={20} /></div>
                     <div className="overflow-hidden"><p className="text-[9px] font-black text-white uppercase mb-1">{selectedEvent.address}</p><p className="text-[8px] font-black text-indigo-500 uppercase">{selectedEvent.city}</p></div>
                   </a>
                   <div className="flex gap-2">
