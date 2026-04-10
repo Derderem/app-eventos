@@ -7,10 +7,10 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// IMPORTANTE: Cargamos el CSS de Leaflet para evitar cuadros blancos
+// IMPORTANTE: Estilos de Leaflet para evitar cuadros blancos
 import 'leaflet/dist/leaflet.css';
 
-// Corregir iconos de marcadores
+// Fix Marcadores
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -18,14 +18,11 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// COMPONENTE PARA FORZAR EL MAPA A ESPAÑA CADA VEZ QUE SE ABRE
-function SpainMapController() {
+// Forzar que el mapa se dibuje bien en España
+function MapResizer() {
   const map = useMap();
   useEffect(() => {
-    setTimeout(() => {
-      map.invalidateSize();
-      map.setView([40.4167, -3.7037], 6); // MADRID, ESPAÑA
-    }, 500);
+    setTimeout(() => { map.invalidateSize(); }, 500);
   }, [map]);
   return null;
 }
@@ -61,17 +58,14 @@ function App() {
   }, []);
 
   const loadUserData = async (id) => {
-    try {
-      // TU ID DE ADMIN FORZADO
-      if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
-        setProfile({ role: 'admin' });
-      } else {
-        const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single();
-        if (prof) setProfile(prof);
-      }
-      const { data: f } = await supabase.from('favorites').select('event_id').eq('user_id', id);
-      if (f) setFavorites(f.map(item => String(item.event_id)));
-    } catch (e) { console.log("Cargando..."); }
+    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
+      setProfile({ role: 'admin' });
+    } else {
+      const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single();
+      if (prof) setProfile(prof);
+    }
+    const { data: f } = await supabase.from('favorites').select('event_id').eq('user_id', id);
+    if (f) setFavorites(f.map(item => String(item.event_id)));
   };
 
   const fetchEvents = async () => {
@@ -79,13 +73,14 @@ function App() {
     setEvents(data || []);
   };
 
+  // IA - Una sola imagen de alta calidad
   const generateIA = () => {
     if (!form.title) return showNotification("Pon un título ✨");
     setIsProcessing(true);
     const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
     img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen IA lista"); };
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen IA lista ✨"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -93,30 +88,29 @@ function App() {
     if (!file) return;
     setIsProcessing(true);
     try {
-      const fileName = `${Date.now()}.jpg`;
+      const fileName = `${Date.now()}_img.jpg`;
       await supabase.storage.from('event-images').upload(fileName, file);
       const { data } = supabase.storage.from('event-images').getPublicUrl(fileName);
       setForm({ ...form, image_url: data.publicUrl });
-      showNotification("Subida con éxito");
+      showNotification("¡Foto subida!");
     } catch (err) { alert("Error al subir"); }
     finally { setIsProcessing(false); }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.image_url) return showNotification("Falta la foto ✨");
+    if (!form.image_url) return showNotification("Falta foto ✨");
     setIsSubmitting(true);
     try {
-      // GEOLOCALIZACIÓN REAL EN ESPAÑA
-      const search = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address + ', ' + form.city + ', España')}&limit=1`);
-      const geo = await search.json();
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address + ', ' + form.city + ', España')}&limit=1`);
+      const geo = await res.json();
       let lat = 40.41; let lng = -3.70;
       if (geo && geo.length > 0) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
       await supabase.from('events').insert([{ ...form, lat, lng, status: profile?.role === 'admin' ? 'approved' : 'pending', organizer_id: user?.id }]);
-      showNotification("¡Enviado!");
+      showNotification("¡Evento enviado!");
       setView('home'); fetchEvents();
       setForm({ title: '', category: 'MUSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
-    } catch (err) { alert("Error al guardar"); }
+    } catch (err) { alert("Error"); }
     finally { setIsSubmitting(false); }
   };
 
@@ -136,7 +130,7 @@ function App() {
 
   return (
     <div className={isDark ? "dark" : ""}>
-      <div className="h-screen w-screen flex flex-col bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-white font-sans overflow-hidden transition-all">
+      <div className="h-screen w-screen flex flex-col bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-white font-sans overflow-hidden">
         
         {toast && (
           <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top text-center">
@@ -144,11 +138,10 @@ function App() {
           </div>
         )}
 
-        {/* HEADER CON BOTÓN DE ADMIN (ESCUDO) */}
         <nav className="h-[60px] shrink-0 bg-white dark:bg-[#0f172a] border-b dark:border-slate-800 flex justify-between items-center px-6 z-[2000]">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
-            <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold text-lg italic shadow-lg">E</div>
-            <h1 className="text-lg font-black uppercase italic tracking-tighter">Eventos</h1>
+            <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold text-xl italic shadow-lg">E</div>
+            <h1 className="text-xl font-black uppercase italic tracking-tighter">Eventos</h1>
           </div>
           <div className="flex items-center gap-3">
             {profile?.role === 'admin' && (
@@ -156,10 +149,10 @@ function App() {
                 <ShieldCheck size={22}/>
               </button>
             )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-yellow-400">
-              {isDark ? <Sun size={20}/> : <Moon size={20}/>}
+            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
+              {isDark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-indigo-600" />}
             </button>
-            {user ? <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md cursor-pointer" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e, options:{emailRedirectTo:window.location.origin}})}} className="bg-indigo-600 text-white px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase shadow-md">Entrar</button>}
+            {user ? <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black text-xs cursor-pointer shadow-md" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase shadow-md">Entrar</button>}
           </div>
         </nav>
 
@@ -169,7 +162,7 @@ function App() {
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-black text-[9px] tracking-widest transition-all shrink-0 border-2 ${activeCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'bg-slate-900/40 text-slate-500 border-slate-800'}`}>{cat}</button>
+                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] tracking-widest transition-all shrink-0 border-2 ${activeCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-900/40 text-slate-500 border-slate-800'}`}>{cat}</button>
                 ))}
               </div>
               <div className="space-y-6">
@@ -204,7 +197,7 @@ function App() {
                   <div className="flex gap-2">
                     <input required type="date" className="flex-1 p-4 bg-slate-800 rounded-2xl text-[10px] font-bold text-white outline-none" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
                     {/* RELOJ 24H */}
-                    <input required type="time" step="60" className="w-24 p-4 bg-slate-800 rounded-2xl text-[10px] font-bold text-white outline-none" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
+                    <input required type="time" className="w-24 p-4 bg-slate-800 rounded-2xl text-[10px] font-bold text-white outline-none" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
                   </div>
                   <div className="pt-2 text-center">
                     <div className="h-40 w-full bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-dashed border-indigo-500/20 mb-4">
@@ -221,29 +214,18 @@ function App() {
             </div>
           )}
 
-          {/* VISTA MAPA - ESPAÑA OBLIGATORIO */}
+          {/* VISTA MAPA - CONFIGURACIÓN ORIGINAL QUE FUNCIONABA */}
           {view === 'map' && ( 
-            <div className="absolute inset-0 z-0 bg-[#020617] animate-in fade-in"> 
-              <MapContainer 
-                key={Date.now()} 
-                center={[40.41, -3.70]} 
-                zoom={6} 
-                className="h-full w-full" 
-                zoomControl={false}
-                minZoom={5}
-                maxBounds={[[35, -10], [44, 4]]}
-              > 
-                <SpainMapController />
-                <TileLayer 
-                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{y}/{x}{r}.png" 
-                  attribution='&copy; OSM' 
-                /> 
+            <div className="absolute inset-0 z-0 bg-[#020617]"> 
+              <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
+                <MapResizer />
+                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{y}/{x}{r}.png" attribution='&copy; OSM' /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
                       <div className="p-1 text-center" onClick={() => setSelectedEvent(ev)}>
-                        <div className="font-black text-[9px] uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
-                        <button className="text-[7px] bg-indigo-600 text-white px-2 py-1 rounded-md">VER</button>
+                        <div className="font-black text-[9px] uppercase text-indigo-600 leading-tight mb-1">{ev.title}</div>
+                        <p className="text-[7px] font-black uppercase opacity-60">{ev.city}</p>
                       </div>
                     </Popup>
                   </Marker>
@@ -255,38 +237,27 @@ function App() {
           {/* VISTA ADMINISTRADOR */}
           {view === 'admin' && (
             <div className="max-w-xl mx-auto p-6 pb-60 text-center animate-in slide-in-from-top">
-              <h2 className="text-xl font-black mb-8 text-amber-500 uppercase italic tracking-tighter underline underline-offset-8">Revisión 🛡️</h2>
+              <h2 className="text-xl font-black mb-8 text-amber-500 uppercase italic tracking-tighter underline underline-offset-8 decoration-amber-500/30">Moderación 🛡️</h2>
               {events.filter(e => e.status === 'pending').map(ev => (
-                <div key={ev.id} className="bg-[#0f172a] rounded-[2rem] mb-6 border border-slate-800 overflow-hidden text-center shadow-xl">
-                  <img src={ev.image_url} className="h-40 w-full object-cover" alt="p"/>
+                <div key={ev.id} className="bg-[#0f172a] rounded-[2rem] mb-6 border border-slate-800 overflow-hidden shadow-xl text-left">
+                  <img src={ev.image_url} className="h-44 w-full object-cover" alt="p"/>
                   <div className="p-6">
-                    <h4 className="font-black text-lg mb-2 text-white uppercase italic leading-tight">{ev.title}</h4>
-                    <p className="text-[8px] font-black opacity-50 mb-6 uppercase tracking-widest">{ev.city} | {ev.date} | {ev.time}hs</p>
-                    <div className="flex gap-4">
-                        <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-3 rounded-xl font-black text-[9px]">APROBAR</button>
-                        <button onClick={async () => { await supabase.from('events').delete().eq('id', ev.id); fetchEvents(); showNotification("¡Borrado!"); }} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-black text-[9px] opacity-60">BORRAR</button>
+                    <h4 className="font-black text-xl mb-2 text-white uppercase italic">{ev.title}</h4>
+                    <div className="flex gap-4 mt-4">
+                        <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Aprobar</button>
+                        <button onClick={async () => { await supabase.from('events').delete().eq('id', ev.id); fetchEvents(); showNotification("¡Borrado!"); }} className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-black uppercase text-[10px] opacity-60">Borrar</button>
                     </div>
                   </div>
                 </div>
               ))}
-              {events.filter(e => e.status === 'pending').length === 0 && <p className="opacity-40 font-black uppercase text-[10px]">No hay eventos pendientes</p>}
+              {events.filter(e => e.status === 'pending').length === 0 && <p className="opacity-40 font-black uppercase text-[10px]">Nada pendiente</p>}
             </div>
           )}
 
-          {/* PERFIL */}
-          {view === 'profile' && (
-            <div className="max-w-xl mx-auto p-10 text-center animate-in fade-in">
-               <div className="bg-[#0f172a] rounded-[3rem] p-10 border border-slate-800 shadow-2xl text-center">
-                  <div className="w-20 h-20 bg-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl font-black text-white border-2 border-white shadow-xl shadow-indigo-500/20">{user?.email[0].toUpperCase()}</div>
-                  <p className="mb-10 font-black text-slate-400 text-[10px] uppercase tracking-widest truncate">{user?.email}</p>
-                  <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600 text-white p-4 rounded-xl font-black uppercase text-[10px] shadow-lg active:scale-95 transition-all"> Cerrar Sesión </button>
-               </div>
-            </div>
-          )}
         </main>
 
         {/* NAVEGACIÓN INFERIOR */}
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[75px] rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center justify-around z-[2000] px-4 transition-all">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[75px] rounded-[2rem] shadow-2xl flex items-center justify-around z-[2000] px-4 transition-all">
           <button onClick={() => {setView('home'); setSelectedEvent(null);}} className={`p-3 rounded-xl transition-all ${view === 'home' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><LayoutList size={22}/></button>
           <button onClick={() => setView('create')} className={`p-3 rounded-xl transition-all ${view === 'create' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><PlusCircle size={22}/></button>
           <button onClick={() => setView('favorites')} className={`p-3 rounded-xl transition-all ${view === 'favorites' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><Heart size={22}/></button>
@@ -302,7 +273,7 @@ function App() {
               <div className="p-8 flex flex-col flex-1 overflow-y-auto no-scrollbar">
                 <h2 className="text-2xl font-black mb-6 leading-tight text-white uppercase italic tracking-tighter">{selectedEvent.title}</h2>
                 <div className="flex gap-2 mb-8 text-center">
-                  <button onClick={() => { toggleFavorite(selectedEvent); showNotification("¡Confirmado!"); }} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-2 uppercase italic transition active:scale-95 shadow-indigo-500/20"><Sparkles size={14} /> ¡VOY A IR!</button>
+                  <button onClick={() => { toggleFavorite(selectedEvent); showNotification("¡Apuntado!"); }} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-2 uppercase italic transition active:scale-95 shadow-indigo-500/20"><Sparkles size={14} /> ¡VOY A IR!</button>
                   <button onClick={() => { if(navigator.share) { navigator.share({title: selectedEvent.title, url: window.location.href}); } else { showNotification("Copiado"); } }} className="p-4 bg-slate-800 text-white rounded-xl active:scale-90 transition"><Share2 size={20} /></button>
                 </div>
                 <div className="space-y-4">
@@ -311,8 +282,8 @@ function App() {
                     <div className="overflow-hidden"><p className="text-[9px] font-black text-white uppercase mb-1 tracking-tighter line-clamp-1">{selectedEvent.address}</p><p className="text-[8px] font-black text-indigo-500 uppercase">{selectedEvent.city}</p></div>
                   </a>
                   <div className="flex gap-2">
-                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800 rounded-2xl border border-slate-800 text-white text-[9px] font-black tracking-tighter"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
-                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800 rounded-2xl border border-slate-800 text-white text-[9px] font-black tracking-tighter uppercase"><Clock size={18} className="text-emerald-500" /> {selectedEvent.time} hs</div>
+                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800 rounded-2xl border border-slate-800 text-white text-[9px] font-black tracking-tighter uppercase italic"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
+                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800 rounded-2xl border border-slate-800 text-white text-[9px] font-black tracking-tighter uppercase italic"><Clock size={18} className="text-emerald-500" /> {selectedEvent.time} HS</div>
                   </div>
                 </div>
               </div>
