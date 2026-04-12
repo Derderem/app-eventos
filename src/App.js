@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { 
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, X, Trash2, Map as MapIcon, 
   Navigation, Clock, LayoutList, ShieldCheck, Sparkles, Camera, Loader2, CheckCircle2, Share2, Upload,
-  Coffee, LogOut
+  Coffee, LogOut, ExternalLink, Smartphone
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -19,7 +19,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Componente para forzar el mapa a centrarse en España (Configuración original ArcGIS)
+// Componente para forzar el mapa a centrarse en España (Configuración ArcGIS)
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
@@ -49,6 +49,7 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [toast, setToast] = useState(null);
+  const [showCoffeeOptions, setShowCoffeeOptions] = useState(false); // Estado para elegir Ko-fi o Bizum
 
   const showNotification = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
@@ -149,7 +150,7 @@ function App() {
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
         
         {toast && (
-          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top">
+          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top text-center">
             <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
           </div>
         )}
@@ -166,10 +167,10 @@ function App() {
                 <ShieldCheck size={28}/>
               </button>
             )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
-               {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
+            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
+               <Sun size={24} className="text-yellow-400" />
             </button>
-            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
+            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer" onClick={() => {setView('profile'); setShowCoffeeOptions(false);}}>{user.email[0].toUpperCase()}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
           </div>
         </nav>
 
@@ -202,7 +203,41 @@ function App() {
             </div>
           )}
 
-          {/* VISTA MAPA */}
+          {/* PERFIL CON ELECCIÓN DE CAFÉ */}
+          {view === 'profile' && (
+            <div className="max-w-xl mx-auto p-10 text-center animate-in slide-in-from-bottom">
+               <div className="bg-[#0f172a] rounded-[3rem] p-12 shadow-2xl border border-slate-800">
+                  <div className="w-24 h-24 bg-indigo-600 rounded-full mx-auto mb-8 flex items-center justify-center text-4xl font-black text-white border-4 border-white shadow-xl shadow-indigo-500/20 uppercase">
+                    {user?.email[0]}
+                  </div>
+                  <h2 className="text-xl font-black mb-10 uppercase tracking-widest">Mi Perfil</h2>
+                  
+                  <div className="space-y-4">
+                    {!showCoffeeOptions ? (
+                      <button onClick={() => setShowCoffeeOptions(true)} className="w-full bg-amber-500 text-white p-5 rounded-[2rem] font-black uppercase flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
+                        <Coffee size={24} /> Invitar a un café
+                      </button>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3 animate-in zoom-in duration-200">
+                        <a href="https://ko-fi.com/" target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md">
+                          <ExternalLink size={18} /> Ko-fi
+                        </a>
+                        <button onClick={() => {navigator.clipboard.writeText('600000000'); showNotification("Número Bizum copiado");}} className="w-full bg-[#00aae4] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md">
+                          <Smartphone size={18} /> Bizum (Copiar número)
+                        </button>
+                        <button onClick={() => setShowCoffeeOptions(false)} className="text-[10px] uppercase font-black opacity-50 pt-2 italic">Volver atrás</button>
+                      </div>
+                    )}
+                    
+                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600 text-white p-5 rounded-[2rem] font-black uppercase flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
+                      <LogOut size={24} /> Cerrar Sesión
+                    </button>
+                  </div>
+               </div>
+            </div>
+          )}
+
+          {/* VISTA MAPA - ARCGIS ESPAÑA */}
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#020617]"> 
               <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
@@ -222,37 +257,17 @@ function App() {
             </div> 
           )}
 
-          {/* PERFIL CORREGIDO: MÁS ARRIBA Y BOTONES VISIBLES */}
-          {view === 'profile' && (
-            <div className="max-w-xl mx-auto p-4 pt-6 text-center animate-in slide-in-from-bottom pb-40">
-               <div className="bg-[#0f172a] rounded-[3rem] p-8 shadow-2xl border border-slate-800">
-                  <div className="w-20 h-20 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-4xl font-black text-white border-4 border-white shadow-xl shadow-indigo-500/20 uppercase">
-                    {user?.email[0]}
-                  </div>
-                  <h2 className="text-lg font-black mb-6 uppercase tracking-widest">Mi Perfil</h2>
-                  <div className="space-y-3">
-                    <a href="https://ko-fi.com/" target="_blank" rel="noreferrer" className="w-full bg-amber-500 text-white py-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
-                      <Coffee size={20} /> Invitar a un café
-                    </a>
-                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600 text-white py-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
-                      <LogOut size={20} /> Cerrar Sesión
-                    </button>
-                  </div>
-               </div>
-            </div>
-          )}
-
-          {/* FAVORITOS */}
+          {/* FAVORITOS - TÍTULO RECTO Y MUY GRUESO */}
           {view === 'favorites' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in text-center">
-               <h3 className="text-2xl font-black uppercase tracking-widest text-indigo-600 mb-10">GUARDADOS</h3>
+               <h3 className="text-3xl font-black uppercase tracking-widest text-indigo-600 mb-10">GUARDADOS</h3>
                <div className="space-y-4 text-left">
                   {events.filter(e => favorites.includes(String(e.id))).map(ev => (
                     <div key={ev.id} className="bg-white dark:bg-[#0f172a] p-4 rounded-[1.5rem] border border-slate-800 flex justify-between items-center shadow-lg">
                        <div className="flex items-center gap-4 cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                           <img src={ev.image_url} className="w-14 h-14 rounded-xl object-cover" alt="ev" />
                           <div>
-                            <span className="font-black text-sm block uppercase tracking-tighter text-slate-800 dark:text-white line-clamp-1">{ev.title}</span>
+                            <span className="font-black text-sm block uppercase tracking-tighter text-white line-clamp-1">{ev.title}</span>
                             <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{ev.city}</span>
                           </div>
                        </div>
@@ -266,22 +281,22 @@ function App() {
 
           {/* CREAR EVENTO */}
           {view === 'create' && (
-            <div className="max-w-xl mx-auto p-4 pb-60 animate-in slide-in-from-bottom">
-              <div className="bg-white dark:bg-[#0f172a] rounded-[2.5rem] p-6 border border-slate-800 shadow-2xl text-left">
-                <h2 className="text-xl font-black mb-6 text-indigo-500 text-center uppercase italic underline underline-offset-8 decoration-indigo-500/30">Publicar</h2>
+            <div className="max-w-xl mx-auto p-4 pb-60 animate-in slide-in-from-bottom text-left">
+              <div className="bg-white dark:bg-[#0f172a] rounded-[2.5rem] p-6 border border-slate-800 shadow-2xl">
+                <h2 className="text-xl font-black mb-6 text-indigo-500 text-center uppercase italic underline underline-offset-8">Publicar</h2>
                 <form onSubmit={handleCreate} className="space-y-4">
-                  <input required placeholder="TÍTULO" className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none font-bold uppercase text-xs" value={form.title} onChange={e => setForm({...form, title: e.target.value.toUpperCase()})} />
-                  <select className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none font-black text-[10px] uppercase" value={form.category} onChange={e => setForm({...form, category: e.target.value})}><option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINOS">TAURINOS</option><option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option><option value="OTROS">OTROS</option></select>
+                  <input required placeholder="TÍTULO" className="w-full p-4 bg-[#0f172a] rounded-2xl outline-none border border-slate-800 font-bold uppercase text-xs text-white" value={form.title} onChange={e => setForm({...form, title: e.target.value.toUpperCase()})} />
+                  <select className="w-full p-4 bg-[#0f172a] rounded-2xl outline-none border border-slate-800 font-black text-[10px] uppercase text-white" value={form.category} onChange={e => setForm({...form, category: e.target.value})}><option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINOS">TAURINOS</option><option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option><option value="OTROS">OTROS</option></select>
                   <div className="grid grid-cols-2 gap-3">
-                    <input required placeholder="CIUDAD" className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none font-bold uppercase text-[10px]" value={form.city} onChange={e => setForm({...form, city: e.target.value.toUpperCase()})} />
-                    <input required placeholder="DIRECCIÓN" className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none font-bold text-[10px]" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
+                    <input required placeholder="CIUDAD" className="w-full p-4 bg-[#0f172a] rounded-2xl outline-none border border-slate-800 font-bold uppercase text-[10px] text-white" value={form.city} onChange={e => setForm({...form, city: e.target.value.toUpperCase()})} />
+                    <input required placeholder="DIRECCIÓN" className="w-full p-4 bg-[#0f172a] rounded-2xl outline-none border border-slate-800 font-bold text-[10px] text-white" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
                   </div>
                   <div className="flex gap-2">
-                    <input required type="date" className="flex-1 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-[10px] font-bold" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
-                    <input required type="time" className="w-24 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-[10px] font-bold" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
+                    <input required type="date" className="flex-1 p-4 bg-[#0f172a] rounded-2xl border border-slate-800 text-[10px] font-bold text-white" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+                    <input required type="time" className="w-24 p-4 bg-[#0f172a] rounded-2xl border border-slate-800 text-[10px] font-bold text-white" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
                   </div>
                   <div className="pt-2 text-center">
-                    <div className="h-40 w-full bg-slate-50 dark:bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-dashed border-indigo-500/20 mb-4">
+                    <div className="h-40 w-full bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-dashed border-indigo-500/20 mb-4">
                       {isProcessing ? <Loader2 className="animate-spin text-indigo-600"/> : form.image_url ? <img src={form.image_url} className="w-full h-full object-cover" alt="p" /> : <Camera className="text-slate-400" size={30}/>}
                     </div>
                     <div className="flex gap-2">
@@ -289,18 +304,17 @@ function App() {
                       <label className="flex-1 bg-slate-700 text-white p-3 rounded-xl font-black text-[8px] uppercase flex items-center justify-center gap-1 cursor-pointer"><Upload size={14}/> GALERÍA<input type="file" accept="image/*" className="hidden" onChange={handleGalleryUpload} /></label>
                     </div>
                   </div>
-                  <button type="submit" disabled={isSubmitting || isProcessing} className="w-full bg-slate-900 text-white p-4 rounded-xl font-black shadow-xl mt-4 uppercase text-[9px] tracking-widest active:scale-95 transition-all">PUBLICAR</button>
+                  <button type="submit" disabled={isSubmitting || isProcessing} className="w-full bg-indigo-600 text-white p-4 rounded-xl font-black shadow-xl mt-4 uppercase text-[9px] active:scale-95 transition-all">PUBLICAR</button>
                 </form>
               </div>
             </div>
           )}
 
-          {/* ADMIN */}
           {view === 'admin' && (
             <div className="max-w-xl mx-auto p-6 pb-60 text-center animate-in slide-in-from-top">
-              <h2 className="text-xl font-black mb-8 text-amber-500 uppercase italic tracking-tighter underline underline-offset-8">Moderación</h2>
+              <h2 className="text-xl font-black mb-8 text-amber-500 uppercase italic tracking-tighter underline underline-offset-8 decoration-amber-500/30">Moderación 🛡️</h2>
               {events.filter(e => e.status === 'pending').map(ev => (
-                <div key={ev.id} className="bg-white dark:bg-[#0f172a] rounded-[2rem] mb-6 border border-slate-800 overflow-hidden shadow-xl text-left">
+                <div key={ev.id} className="bg-white dark:bg-[#0f172a] rounded-[2rem] mb-6 border border-slate-800 overflow-hidden text-left shadow-xl">
                   <img src={ev.image_url} className="h-40 w-full object-cover" alt="p"/>
                   <div className="p-6">
                     <h4 className="font-black text-lg mb-2 text-slate-800 dark:text-white uppercase italic leading-tight">{ev.title}</h4>
@@ -314,7 +328,6 @@ function App() {
               {events.filter(e => e.status === 'pending').length === 0 && <p className="opacity-40 font-black uppercase text-[10px]">No hay pendientes</p>}
             </div>
           )}
-
         </main>
 
         {/* NAVEGACIÓN INFERIOR */}
@@ -332,7 +345,7 @@ function App() {
               <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-4 z-50 p-3 bg-white/10 rounded-full text-white active:scale-90 transition shadow-xl"><X size={20} /></button>
               <img src={selectedEvent.image_url} className="h-52 w-full object-cover shrink-0" alt="hero" />
               <div className="p-8 flex flex-col flex-1 overflow-y-auto no-scrollbar">
-                <h2 className="text-2xl font-black mb-6 leading-tight text-slate-800 dark:text-white uppercase italic tracking-tighter">{selectedEvent.title}</h2>
+                <h2 className="text-2xl font-black mb-6 leading-tight text-white uppercase italic tracking-tighter text-center">{selectedEvent.title}</h2>
                 <div className="flex gap-2 mb-8 text-center">
                   <button onClick={handleImGoing} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-2 uppercase italic transition active:scale-95 shadow-indigo-500/20"><Sparkles size={14} /> ¡VOY A IR!</button>
                   <button onClick={() => { if(navigator.share) { navigator.share({title: selectedEvent.title, url: window.location.href}); } else { showNotification("Copiado"); } }} className="p-4 bg-slate-800 text-white rounded-xl active:scale-90 transition"><Share2 size={20} /></button>
@@ -340,7 +353,7 @@ function App() {
                 <div className="space-y-4 font-black">
                   <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.city)}`} target="_blank" rel="noreferrer" className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-800 transition active:scale-95">
                     <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-500/20"><MapPin size={20} /></div>
-                    <div className="overflow-hidden"><p className="text-[9px] font-black text-slate-800 dark:text-white uppercase mb-1 tracking-tighter line-clamp-1">{selectedEvent.address}</p><p className="text-[8px] font-black text-indigo-500 uppercase">{selectedEvent.city}</p></div>
+                    <div className="overflow-hidden"><p className="text-[9px] font-black text-white uppercase mb-1 tracking-tighter line-clamp-1">{selectedEvent.address}</p><p className="text-[8px] font-black text-indigo-500 uppercase">{selectedEvent.city}</p></div>
                   </a>
                   <div className="flex gap-2 text-center">
                     <div className="flex-1 flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-800 text-slate-400 text-[9px] font-black tracking-tighter uppercase italic"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
