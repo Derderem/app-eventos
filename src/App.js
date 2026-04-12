@@ -11,18 +11,27 @@ import L from 'leaflet';
 // Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// FIX DRÁSTICO PARA MAPA Y ESTILOS DE LOGO
+// FIX DEFINITIVO PARA ELIMINAR LAS LÍNEAS DEL MAPA Y ESTILO DEL LOGO
 const globalStyles = `
   .leaflet-container { background-color: #cbd2d3 !important; }
   .leaflet-tile {
-    width: 257px !important;
-    height: 257px !important;
-    margin-left: -0.5px !important;
-    margin-top: -0.5px !important;
+    width: 258px !important;
+    height: 258px !important;
+    margin-left: -1px !important;
+    margin-top: -1px !important;
     outline: 1px solid transparent;
     image-rendering: -webkit-optimize-contrast;
+    transform: translate3d(0,0,0); /* Fuerza al móvil a renderizar sin grietas */
   }
-  .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; }
+  .logo-eventora {
+    font-family: 'Arial Black', sans-serif;
+    font-weight: 900;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    letter-spacing: -1.5px;
+    font-size: 24px;
+  }
 `;
 
 // Fix Marcadores Leaflet
@@ -64,6 +73,7 @@ function App() {
   const [toast, setToast] = useState(null);
   const [showCoffeeOptions, setShowCoffeeOptions] = useState(false);
 
+  // CONFIGURACIÓN PAGO
   const paypalUrl = "https://paypal.me/jacobogarver"; 
   const kofiUrl = "https://ko-fi.com/jacobogarver";
 
@@ -94,12 +104,12 @@ function App() {
   };
 
   const generateIA = () => {
-    if (!form.title) return showNotification("Pon un título ✨");
+    if (!form.title) return showNotification("Escribe un título ✨");
     setIsProcessing(true);
     const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
     img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen IA Lista ✨"); };
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("IA: Imagen Lista ✨"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -112,13 +122,13 @@ function App() {
       const { data } = supabase.storage.from('event-images').getPublicUrl(name);
       setForm({ ...form, image_url: data.publicUrl });
       showNotification("¡Foto subida!");
-    } catch (err) { alert("Error al subir"); }
+    } catch (err) { alert("Error"); }
     finally { setIsProcessing(false); }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.image_url) return showNotification("Falta la foto ✨");
+    if (!form.image_url) return showNotification("Falta foto ✨");
     setIsSubmitting(true);
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address + ', ' + form.city + ', España')}&limit=1`);
@@ -126,7 +136,7 @@ function App() {
       let lat = 40.41; let lng = -3.70;
       if (geo && geo.length > 0) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
       await supabase.from('events').insert([{ ...form, lat, lng, status: profile?.role === 'admin' ? 'approved' : 'pending', organizer_id: user?.id }]);
-      showNotification("¡Enviado!");
+      showNotification("¡Publicado!");
       setView('home'); fetchEvents();
       setForm({ title: '', category: 'MUSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
     } catch (err) { alert("Error"); }
@@ -148,9 +158,10 @@ function App() {
   const handleImGoing = async () => {
     if (!user || !selectedEvent) return;
     toggleFavorite(selectedEvent);
-    showNotification("¡Confirmado!");
+    showNotification("¡Guardado!");
   };
 
+  // LOGICA PARA FILTRAR/ELIMINAR EVENTOS PASADOS
   const today = new Date().toISOString().split('T')[0];
   const activeEvents = events.filter(e => e.date >= today);
   const publicEvents = activeEvents.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
@@ -166,35 +177,35 @@ function App() {
           </div>
         )}
 
+        {/* HEADER CON LOGO RECONSTRUIDO */}
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-6 z-[2000] shadow-sm">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}>
-             {/* LOGO RECONSTRUIDO CON CÓDIGO (IDENTICO A LA FOTO) */}
-             <div className="logo-font text-2xl tracking-tighter flex items-center">
-                <span style={{color: '#00E5FF'}}>E</span>
-                <span style={{color: '#00E5FF'}}>V</span>
-                <span style={{color: '#2979FF'}}>E</span>
-                <span style={{color: '#2979FF'}}>N</span>
-                <span style={{color: '#7C4DFF'}}>T</span>
-                <span style={{color: '#7C4DFF'}}>O</span>
-                <span style={{color: '#AA00FF'}}>R</span>
-                <span style={{color: '#AA00FF'}}>A</span>
-                <div className="ml-2 bg-indigo-500/20 p-1 rounded-lg">
-                  <Calendar className="text-blue-400" size={20} />
-                </div>
+             <div className="logo-eventora">
+                <span style={{color: '#00e5ff'}}>E</span>
+                <span style={{color: '#00e5ff'}}>V</span>
+                <span style={{color: '#2979ff'}}>E</span>
+                <span style={{color: '#2979ff'}}>N</span>
+                <span style={{color: '#7c4dff'}}>T</span>
+                <span style={{color: '#aa00ff'}}>O</span>
+                <span style={{color: '#aa00ff'}}>R</span>
+                <span style={{color: '#aa00ff'}}>A</span>
+                <Calendar className="text-indigo-400 ml-2" size={24} />
              </div>
           </div>
           <div className="flex items-center gap-4">
             {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
               <button onClick={() => setView('admin')} className="text-slate-400"><ShieldCheck size={28}/></button>
             )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50 transition-all">
-               <Sun size={24} className="text-yellow-400" />
+            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
+               {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => {setView('profile'); setShowCoffeeOptions(false);}}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
+            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => setView('profile')}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
           </div>
         </nav>
 
         <main className="flex-1 relative overflow-y-auto no-scrollbar">
+          
+          {/* HOME - PANTALLA COMPACTA */}
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
@@ -204,8 +215,8 @@ function App() {
               </div>
               <div className="space-y-6">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[415px] border border-slate-800">
-                    <div className="relative h-52 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[390px] border border-slate-800">
+                    <div className="relative h-44 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                       <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-105 transition duration-1000" alt="img" />
                       <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-4 right-4 p-2.5 bg-white rounded-full text-red-500 shadow-xl">
                         <Heart size={18} fill={favorites.includes(String(ev.id)) ? "red" : "none"} />
@@ -221,10 +232,11 @@ function App() {
             </div>
           )}
 
+          {/* PERFIL */}
           {view === 'profile' && (
-            <div className="max-w-xl mx-auto p-10 text-center animate-in slide-in-from-bottom pb-40">
-               <div className="bg-[#0f172a] rounded-[3rem] p-8 shadow-2xl border border-slate-800">
-                  <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black text-white border-2 border-white shadow-xl shadow-indigo-500/20 uppercase">
+            <div className="max-w-xl mx-auto p-4 pt-4 text-center animate-in slide-in-from-bottom pb-40">
+               <div className="bg-[#0f172a] rounded-[3rem] p-6 shadow-2xl border border-slate-800">
+                  <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black text-white border-2 border-white shadow-xl shadow-indigo-500/20 uppercase font-black">
                     {user?.email[0]}
                   </div>
                   <h2 className="text-sm font-black mb-8 uppercase tracking-widest text-slate-300">Apoya el Proyecto</h2>
@@ -235,11 +247,11 @@ function App() {
                         <Coffee size={20} /> Invitar a un café
                       </button>
                     ) : (
-                      <div className="grid grid-cols-1 gap-3 animate-in zoom-in duration-200">
-                        <a href={kofiUrl} target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition">
+                      <div className="grid grid-cols-1 gap-2 animate-in zoom-in duration-200">
+                        <a href={kofiUrl} target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
                           <ExternalLink size={16} /> Ko-fi
                         </a>
-                        <a href={paypalUrl} target="_blank" rel="noreferrer" className="w-full bg-[#003087] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition">
+                        <a href={paypalUrl} target="_blank" rel="noreferrer" className="w-full bg-[#003087] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
                           <CreditCard size={16} /> PayPal
                         </a>
                         <button onClick={() => setShowCoffeeOptions(false)} className="w-full bg-slate-800 text-white p-3 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 mt-2 shadow-lg">
@@ -248,7 +260,7 @@ function App() {
                       </div>
                     )}
                     
-                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition mt-8">
+                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition mt-6">
                       <LogOut size={20} /> Cerrar Sesión
                     </button>
                   </div>
@@ -256,6 +268,7 @@ function App() {
             </div>
           )}
 
+          {/* VISTA MAPA ARCGIS SIN LÍNEAS */}
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#cbd2d3]"> 
               <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
@@ -275,6 +288,7 @@ function App() {
             </div> 
           )}
 
+          {/* FAVORITOS - TÍTULO NEGRITA RECTO */}
           {view === 'favorites' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in text-center text-white">
                <h3 className="text-3xl font-black uppercase tracking-widest text-indigo-600 mb-10">GUARDADOS</h3>
