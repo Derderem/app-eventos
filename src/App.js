@@ -18,13 +18,13 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Componente para forzar el mapa a España
+// Componente para forzar el mapa a centrarse en España
 function MapSpainControl() {
   const map = useMap();
   useEffect(() => {
     setTimeout(() => {
       map.invalidateSize();
-      map.setView([40.4167, -3.7037], 6); // Madrid, Centro de España
+      map.setView([40.4167, -3.7037], 6); // Madrid, centro de España
     }, 500);
   }, [map]);
   return null;
@@ -154,19 +154,20 @@ function App() {
           </div>
         )}
 
+        {/* HEADER */}
         <nav className="h-[70px] shrink-0 bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-md border-b dark:border-slate-800 flex justify-between items-center px-8 z-[2000] shadow-sm">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
-            <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold text-xl shadow-lg">E</div>
+            <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold text-xl shadow-lg shadow-indigo-500/30 italic">E</div>
             <h1 className="text-xl font-black uppercase italic tracking-tighter">Eventos</h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
               <button onClick={() => setView('admin')} className={`p-2 transition ${pendingCount > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
-                <ShieldCheck size={26}/>
+                <ShieldCheck size={28}/>
               </button>
             )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
-              {isDark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-indigo-600" />}
+            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 transition-all">
+              {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
             {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
           </div>
@@ -174,23 +175,24 @@ function App() {
 
         <main className="flex-1 relative overflow-y-auto no-scrollbar">
           
+          {/* HOME - TARJETAS COMPACTAS (450px) PARA QUE EL BOTÓN SEA VISIBLE */}
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2.5 rounded-full font-black text-[9px] tracking-widest transition-all shrink-0 border-2 ${activeCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'bg-slate-900/40 text-slate-500 border-slate-800'}`}>{cat}</button>
+                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] tracking-widest transition-all shrink-0 border-2 ${activeCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'bg-slate-900/40 text-slate-500 border-slate-800'}`}>{cat}</button>
                 ))}
               </div>
               <div className="space-y-8">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-2xl flex flex-col h-[480px] transition-all">
-                    <div className="relative h-56 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-2xl flex flex-col h-[450px] transition-all">
+                    <div className="relative h-52 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                       <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-105 transition duration-1000" alt="img" />
                       <div className="absolute top-4 left-4 font-black bg-black/60 text-white text-[8px] px-3 py-1 rounded-full uppercase tracking-widest backdrop-blur-md">{ev.category}</div>
-                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-4 right-4 p-3 bg-slate-900/60 backdrop-blur-md rounded-full text-red-500 shadow-lg"><Heart size={18} fill={favorites.includes(String(ev.id)) ? "red" : "none"} /></button>
+                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-4 right-4 p-2.5 bg-slate-900/60 backdrop-blur-md rounded-full text-red-500 shadow-lg"><Heart size={18} fill={favorites.includes(String(ev.id)) ? "red" : "none"} /></button>
                     </div>
                     <div className="p-5 flex-1 flex flex-col justify-between text-center">
-                      <h3 className="text-xl font-black leading-tight uppercase tracking-tighter italic text-white line-clamp-2">{ev.title}</h3>
+                      <h3 className="text-xl font-black leading-tight uppercase tracking-tighter italic text-white mb-2 line-clamp-2">{ev.title}</h3>
                       <button onClick={() => setSelectedEvent(ev)} className="w-full bg-indigo-600 text-white py-4 rounded-[2rem] font-black uppercase text-[11px] tracking-widest shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">Ver Detalles</button>
                     </div>
                   </div>
@@ -199,11 +201,12 @@ function App() {
             </div>
           )}
 
+          {/* VISTA MAPA - ESPAÑA EN ESPAÑOL */}
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#020617]"> 
               <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
                 <MapSpainControl />
-                <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" attribution='ESPAÑA' /> 
+                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{y}/{x}{r}.png" attribution='ESPAÑA' /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
@@ -218,10 +221,10 @@ function App() {
             </div> 
           )}
 
+          {/* FAVORITOS - TÍTULO MÁS GRUESO Y RECTO */}
           {view === 'favorites' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in text-center">
-               {/* TÍTULO CORREGIDO: RECTO, SIN SUBRAYAR Y SIN CORAZÓN */}
-               <h3 className="text-2xl font-black uppercase tracking-tighter text-indigo-600 mb-8">GUARDADOS</h3>
+               <h3 className="text-3xl font-black uppercase tracking-widest text-indigo-600 mb-10">GUARDADOS</h3>
                <div className="space-y-4 text-left">
                   {events.filter(e => favorites.includes(String(e.id))).map(ev => (
                     <div key={ev.id} className="bg-white dark:bg-[#0f172a] p-4 rounded-[1.5rem] border border-slate-800 flex justify-between items-center shadow-lg">
@@ -235,11 +238,12 @@ function App() {
                        <button onClick={() => toggleFavorite(ev)} className="p-3 text-red-500 active:scale-75 transition-all"><Trash2 size={20} /></button>
                     </div>
                   ))}
-                  {favorites.length === 0 && <p className="opacity-40 font-black uppercase text-center text-[10px]">No tienes favoritos aún</p>}
+                  {favorites.length === 0 && <p className="opacity-40 font-black uppercase text-center text-[10px]">No hay favoritos</p>}
                </div>
             </div>
           )}
 
+          {/* CREAR EVENTO */}
           {view === 'create' && (
             <div className="max-w-xl mx-auto p-4 pb-60 animate-in slide-in-from-bottom">
               <div className="bg-white dark:bg-[#0f172a] rounded-[2.5rem] p-6 border border-slate-800 shadow-2xl text-left">
@@ -270,6 +274,7 @@ function App() {
             </div>
           )}
 
+          {/* MODERACIÓN ADMIN */}
           {view === 'admin' && (
             <div className="max-w-xl mx-auto p-6 pb-60 text-center animate-in slide-in-from-top">
               <h2 className="text-xl font-black mb-8 text-amber-500 uppercase italic tracking-tighter underline underline-offset-8">Moderación</h2>
@@ -315,7 +320,7 @@ function App() {
                   </a>
                   <div className="flex gap-2 text-center">
                     <div className="flex-1 flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-800 text-slate-800 dark:text-white text-[9px] font-black tracking-tighter uppercase italic"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
-                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-800 text-slate-800 dark:text-white text-[9px] font-black tracking-tighter uppercase italic"><Clock size={18} className="text-emerald-500" /> {selectedEvent.time} HS</div>
+                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800/40 rounded-2xl border border-slate-800 text-slate-800 dark:text-white text-[9px] font-black tracking-tighter uppercase italic"><Clock size={18} className="text-emerald-500" /> {selectedEvent.time} HS</div>
                   </div>
                 </div>
               </div>
