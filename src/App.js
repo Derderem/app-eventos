@@ -6,8 +6,6 @@ import {
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-
-// CSS de Leaflet
 import 'leaflet/dist/leaflet.css';
 
 // Fix Marcadores Leaflet
@@ -24,7 +22,7 @@ function MapSpainControl() {
   useEffect(() => {
     setTimeout(() => {
       map.invalidateSize();
-      map.setView([40.4167, -3.7037], 6); // Madrid, centro de España
+      map.setView([40.4167, -3.7037], 6); 
     }, 500);
   }, [map]);
   return null;
@@ -77,12 +75,12 @@ function App() {
   };
 
   const generateIA = () => {
-    if (!form.title) return showNotification("Pon un título ✨");
+    if (!form.title) return showNotification("Escribe un título ✨");
     setIsProcessing(true);
-    const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
+    const urlIA = `https://image.pollinations.ai/prompt/professional_photography_of_event_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
     img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen IA Lista ✨"); };
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen Lista ✨"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -95,7 +93,7 @@ function App() {
       const { data } = supabase.storage.from('event-images').getPublicUrl(name);
       setForm({ ...form, image_url: data.publicUrl });
       showNotification("¡Foto subida!");
-    } catch (err) { alert("Error"); }
+    } catch (err) { alert("Error de subida"); }
     finally { setIsProcessing(false); }
   };
 
@@ -130,14 +128,8 @@ function App() {
 
   const handleImGoing = async () => {
     if (!user) return showNotification("Inicia sesión ❤️");
-    const id = String(selectedEvent.id);
-    if (!favorites.includes(id)) {
-      setFavorites(f => [...f, id]);
-      await supabase.from('favorites').insert({ user_id: user.id, event_id: id });
-      showNotification("¡Apuntado!");
-    } else {
-      showNotification("¡Ya estás apuntado!");
-    }
+    toggleFavorite(selectedEvent);
+    showNotification("¡Apuntado!");
   };
 
   const publicEvents = events.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
@@ -149,7 +141,6 @@ function App() {
         
         {toast && (
           <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top">
-            <CheckCircle2 size={16} className="inline mr-2"/>
             <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
           </div>
         )}
@@ -160,22 +151,22 @@ function App() {
             <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold text-xl shadow-lg shadow-indigo-500/30 italic">E</div>
             <h1 className="text-xl font-black uppercase italic tracking-tighter">Eventos</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
               <button onClick={() => setView('admin')} className={`p-2 transition ${pendingCount > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
-                <ShieldCheck size={28}/>
+                <ShieldCheck size={26}/>
               </button>
             )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 transition-all">
-              {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
+            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
+              {isDark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-indigo-600" />}
             </button>
-            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
+            {user ? <div className="w-9 h-9 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black text-sm cursor-pointer shadow-md" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase shadow-md">Entrar</button>}
           </div>
         </nav>
 
         <main className="flex-1 relative overflow-y-auto no-scrollbar">
           
-          {/* HOME - TARJETAS COMPACTAS (450px) PARA QUE EL BOTÓN SEA VISIBLE */}
+          {/* HOME - TARJETAS ULTRA COMPACTAS (380px) PARA QUE TODO SE VEA */}
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
@@ -183,17 +174,17 @@ function App() {
                   <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] tracking-widest transition-all shrink-0 border-2 ${activeCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'bg-slate-900/40 text-slate-500 border-slate-800'}`}>{cat}</button>
                 ))}
               </div>
-              <div className="space-y-8">
+              <div className="space-y-6">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-2xl flex flex-col h-[450px] transition-all">
-                    <div className="relative h-52 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-2xl flex flex-col h-[380px] transition-all">
+                    <div className="relative h-40 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                       <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-105 transition duration-1000" alt="img" />
-                      <div className="absolute top-4 left-4 font-black bg-black/60 text-white text-[8px] px-3 py-1 rounded-full uppercase tracking-widest backdrop-blur-md">{ev.category}</div>
-                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-4 right-4 p-2.5 bg-slate-900/60 backdrop-blur-md rounded-full text-red-500 shadow-lg"><Heart size={18} fill={favorites.includes(String(ev.id)) ? "red" : "none"} /></button>
+                      <div className="absolute top-3 left-3 font-black bg-black/60 text-white text-[7px] px-2 py-1 rounded-full uppercase tracking-widest backdrop-blur-md">{ev.category}</div>
+                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-3 right-3 p-2.5 bg-slate-900/60 backdrop-blur-md rounded-full text-red-500 shadow-lg"><Heart size={16} fill={favorites.includes(String(ev.id)) ? "red" : "none"} /></button>
                     </div>
-                    <div className="p-5 flex-1 flex flex-col justify-between text-center">
-                      <h3 className="text-xl font-black leading-tight uppercase tracking-tighter italic text-white mb-2 line-clamp-2">{ev.title}</h3>
-                      <button onClick={() => setSelectedEvent(ev)} className="w-full bg-indigo-600 text-white py-4 rounded-[2rem] font-black uppercase text-[11px] tracking-widest shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">Ver Detalles</button>
+                    <div className="p-4 flex-1 flex flex-col justify-between text-center">
+                      <h3 className="text-lg font-black leading-tight uppercase tracking-tighter italic text-white line-clamp-2">{ev.title}</h3>
+                      <button onClick={() => setSelectedEvent(ev)} className="w-full bg-indigo-600 text-white py-3.5 rounded-[1.5rem] font-black uppercase text-[9px] tracking-widest shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">Ver Detalles</button>
                     </div>
                   </div>
                 ))}
@@ -201,12 +192,12 @@ function App() {
             </div>
           )}
 
-          {/* VISTA MAPA - ESPAÑA EN ESPAÑOL */}
+          {/* VISTA MAPA - ARCGIS ESPAÑA */}
           {view === 'map' && ( 
-            <div className="absolute inset-0 z-0 bg-[#020617]"> 
+            <div className="absolute inset-0 z-0 bg-white"> 
               <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
                 <MapSpainControl />
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{y}/{x}{r}.png" attribution='ESPAÑA' /> 
+                <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" attribution='ESPAÑA' /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
@@ -221,7 +212,7 @@ function App() {
             </div> 
           )}
 
-          {/* FAVORITOS - TÍTULO MÁS GRUESO Y RECTO */}
+          {/* FAVORITOS - TÍTULO NEGRITA RECTO */}
           {view === 'favorites' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in text-center">
                <h3 className="text-3xl font-black uppercase tracking-widest text-indigo-600 mb-10">GUARDADOS</h3>
@@ -243,7 +234,7 @@ function App() {
             </div>
           )}
 
-          {/* CREAR EVENTO */}
+          {/* OTRAS VISTAS (CREATE, ADMIN) MANTENIDAS */}
           {view === 'create' && (
             <div className="max-w-xl mx-auto p-4 pb-60 animate-in slide-in-from-bottom">
               <div className="bg-white dark:bg-[#0f172a] rounded-[2.5rem] p-6 border border-slate-800 shadow-2xl text-left">
@@ -274,7 +265,6 @@ function App() {
             </div>
           )}
 
-          {/* MODERACIÓN ADMIN */}
           {view === 'admin' && (
             <div className="max-w-xl mx-auto p-6 pb-60 text-center animate-in slide-in-from-top">
               <h2 className="text-xl font-black mb-8 text-amber-500 uppercase italic tracking-tighter underline underline-offset-8">Moderación</h2>
@@ -290,18 +280,19 @@ function App() {
                   </div>
                 </div>
               ))}
-              {events.filter(e => e.status === 'pending').length === 0 && <p className="opacity-40 font-black uppercase text-[10px]">No hay pendientes</p>}
             </div>
           )}
         </main>
 
-        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[75px] rounded-[2rem] shadow-2xl flex items-center justify-around z-[2000] px-4 transition-all">
+        {/* NAVEGACIÓN INFERIOR */}
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[75px] rounded-[2rem] shadow-2xl flex items-center justify-around z-[2000] px-4 transition-all">
           <button onClick={() => {setView('home'); setSelectedEvent(null);}} className={`p-3 rounded-xl transition-all ${view === 'home' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><LayoutList size={22}/></button>
           <button onClick={() => setView('create')} className={`p-3 rounded-xl transition-all ${view === 'create' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><PlusCircle size={22}/></button>
           <button onClick={() => {setView('favorites'); setSelectedEvent(null);}} className={`p-3 rounded-xl transition-all ${view === 'favorites' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><Heart size={22}/></button>
           <button onClick={() => setView('map')} className={`p-3 rounded-xl transition-all ${view === 'map' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-500"}`}><MapIcon size={22}/></button>
-        </nav>
+        </div>
 
+        {/* MODAL DETALLES */}
         {selectedEvent && (
           <div className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center p-4 backdrop-blur-xl animate-in fade-in duration-300 text-left">
             <div className="bg-[#0f172a] w-full max-w-[380px] h-[85vh] rounded-[3rem] overflow-hidden relative border border-slate-800 border-b-8 border-indigo-600 flex flex-col shadow-2xl">
