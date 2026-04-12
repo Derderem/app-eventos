@@ -11,17 +11,18 @@ import L from 'leaflet';
 // Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// FIX DEFINITIVO PARA LÍNEAS EN EL MAPA (Solapamiento de piezas)
+// FIX DEFINITIVO PARA LÍNEAS EN EL MAPA (Fondo camuflado y solapamiento)
 const mapStyleFix = `
+  .leaflet-container {
+    background-color: #cbd2d3 !important;
+  }
   .leaflet-tile {
-    width: 257px !important;
-    height: 257px !important;
-    margin-top: -0.5px;
-    margin-left: -0.5px;
+    outline: 1px solid transparent;
     -webkit-backface-visibility: hidden;
   }
-  .leaflet-container {
-    background: #020617 !important;
+  .leaflet-tile-container img {
+    width: 256.5px !important;
+    height: 256.5px !important;
   }
 `;
 
@@ -64,7 +65,7 @@ function App() {
   const [toast, setToast] = useState(null);
   const [showCoffeeOptions, setShowCoffeeOptions] = useState(false);
 
-  // CONFIGURACIÓN PAGO SEGURO
+  // CONFIGURACIÓN PAGO PRIVADO
   const paypalUrl = "https://paypal.me/TU_USUARIO"; 
   const kofiUrl = "https://ko-fi.com/jacobogarver";
 
@@ -95,12 +96,12 @@ function App() {
   };
 
   const generateIA = () => {
-    if (!form.title) return showNotification("Escribe un título ✨");
+    if (!form.title) return showNotification("Pon un título ✨");
     setIsProcessing(true);
     const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
     img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen Lista ✨"); };
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen IA Lista ✨"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -112,14 +113,14 @@ function App() {
       await supabase.storage.from('event-images').upload(name, file);
       const { data } = supabase.storage.from('event-images').getPublicUrl(name);
       setForm({ ...form, image_url: data.publicUrl });
-      showNotification("¡Subida!");
+      showNotification("¡Foto subida!");
     } catch (err) { alert("Error"); }
     finally { setIsProcessing(false); }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.image_url) return showNotification("Falta foto ✨");
+    if (!form.image_url) return showNotification("Falta la foto ✨");
     setIsSubmitting(true);
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address + ', ' + form.city + ', España')}&limit=1`);
@@ -146,10 +147,21 @@ function App() {
     }
   };
 
-  // LOGICA PARA ELIMINAR/OCULTAR EVENTOS PASADOS
+  const handleImGoing = async () => {
+    if (!user || !selectedEvent) return showNotification("Inicia sesión ❤️");
+    const id = String(selectedEvent.id);
+    if (!favorites.includes(id)) {
+      setFavorites(f => [...f, id]);
+      await supabase.from('favorites').insert({ user_id: user.id, event_id: id });
+      showNotification("¡Apuntado!");
+    } else { showNotification("¡Ya estás apuntado!"); }
+  };
+
+  // FILTRADO DE EVENTOS PASADOS
   const today = new Date().toISOString().split('T')[0];
   const activeEvents = events.filter(e => e.date >= today);
   const publicEvents = activeEvents.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
+  const pendingEvents = events.filter(e => e.status === 'pending');
 
   return (
     <div className={isDark ? "dark" : ""}>
@@ -158,32 +170,31 @@ function App() {
         
         {toast && (
           <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top">
+            <CheckCircle2 size={16} className="inline mr-2"/>
             <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
           </div>
         )}
 
-        {/* HEADER */}
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000] shadow-sm">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
             <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold shadow-lg shadow-indigo-500/30 text-xl italic">E</div>
-            <h1 className="text-xl font-black uppercase italic tracking-tighter">Eventos</h1>
+            <h1 className="text-xl font-black uppercase italic tracking-tighter text-white">Eventos</h1>
           </div>
           <div className="flex items-center gap-4">
             {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
-              <button onClick={() => setView('admin')} className={`p-2 transition ${events.some(e => e.status === 'pending') ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
+              <button onClick={() => setView('admin')} className={`p-2 transition ${pendingEvents.length > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
                 <ShieldCheck size={28}/>
               </button>
             )}
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase" onClick={() => {setView('profile'); setShowCoffeeOptions(false);}}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
+            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => {setView('profile'); setShowCoffeeOptions(false);}}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
           </div>
         </nav>
 
         <main className="flex-1 relative overflow-y-auto no-scrollbar">
           
-          {/* HOME */}
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
@@ -201,20 +212,20 @@ function App() {
                       </button>
                     </div>
                     <div className="p-6 flex-1 flex flex-col justify-center items-center text-center">
-                      <h3 className="text-xl font-black italic uppercase tracking-tighter mb-6">{ev.title}</h3>
+                      <h3 className="text-xl font-black italic uppercase tracking-tighter mb-4">{ev.title}</h3>
                       <button onClick={() => setSelectedEvent(ev)} className="w-full max-w-[280px] bg-blue-600 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Ver Detalles</button>
                     </div>
                   </div>
                 ))}
+                {publicEvents.length === 0 && <p className="text-center opacity-40 font-black py-10 uppercase text-xs">No hay eventos próximos</p>}
               </div>
             </div>
           )}
 
-          {/* PERFIL SUBIDO Y COMPACTO */}
           {view === 'profile' && (
             <div className="max-w-xl mx-auto p-4 pt-4 text-center animate-in slide-in-from-bottom pb-40">
-               <div className="bg-[#0f172a] rounded-[3rem] p-8 shadow-2xl border border-slate-800">
-                  <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl font-black text-white border-2 border-white shadow-xl shadow-indigo-500/20 uppercase">
+               <div className="bg-[#0f172a] rounded-[3rem] p-6 shadow-2xl border border-slate-800">
+                  <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black text-white border-2 border-white shadow-xl uppercase">
                     {user?.email[0]}
                   </div>
                   <h2 className="text-sm font-black mb-8 uppercase tracking-widest text-slate-300">Apoya el Proyecto</h2>
@@ -225,12 +236,12 @@ function App() {
                         <Coffee size={20} /> Invitar a un café
                       </button>
                     ) : (
-                      <div className="grid grid-cols-1 gap-3 animate-in zoom-in duration-200">
+                      <div className="grid grid-cols-1 gap-2 animate-in zoom-in duration-200">
                         <a href={kofiUrl} target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
-                          <ExternalLink size={18} /> Ko-fi
+                          <ExternalLink size={16} /> Ko-fi
                         </a>
                         <a href={paypalUrl} target="_blank" rel="noreferrer" className="w-full bg-[#003087] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
-                          <CreditCard size={18} /> PayPal
+                          <CreditCard size={16} /> PayPal
                         </a>
                         <button onClick={() => setShowCoffeeOptions(false)} className="w-full bg-slate-800 text-white p-3 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 mt-2 shadow-lg">
                            <ArrowLeft size={14} /> VOLVER
@@ -238,7 +249,7 @@ function App() {
                       </div>
                     )}
                     
-                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition mt-8">
+                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition mt-6">
                       <LogOut size={20} /> Cerrar Sesión
                     </button>
                   </div>
@@ -246,9 +257,8 @@ function App() {
             </div>
           )}
 
-          {/* VISTA MAPA ARCGIS */}
           {view === 'map' && ( 
-            <div className="absolute inset-0 z-0 bg-[#020617]"> 
+            <div className="absolute inset-0 z-0 bg-[#cbd2d3]"> 
               <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
                 <SpainMapController />
                 <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" attribution='ESPAÑA' /> 
@@ -266,7 +276,6 @@ function App() {
             </div> 
           )}
 
-          {/* FAVORITOS - TÍTULO NEGRITA Y RECTO */}
           {view === 'favorites' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in text-center">
                <h3 className="text-3xl font-black uppercase tracking-widest text-indigo-600 mb-10">GUARDADOS</h3>
@@ -303,7 +312,7 @@ function App() {
               <div className="p-8 flex flex-col flex-1 overflow-y-auto no-scrollbar">
                 <h2 className="text-2xl font-black mb-6 leading-tight text-white uppercase italic tracking-tighter text-center">{selectedEvent.title}</h2>
                 <div className="flex gap-2 mb-8 text-center">
-                  <button onClick={() => { toggleFavorite(selectedEvent); showNotification("Guardado"); }} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-2 uppercase italic transition active:scale-95 shadow-indigo-500/20"><Sparkles size={14} /> ¡VOY A IR!</button>
+                  <button onClick={handleImGoing} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-2 uppercase italic transition active:scale-95 shadow-indigo-500/20"><Sparkles size={14} /> ¡VOY A IR!</button>
                   <button onClick={() => { if(navigator.share) { navigator.share({title: selectedEvent.title, url: window.location.href}); } else { showNotification("Copiado"); } }} className="p-4 bg-slate-800 text-white rounded-xl active:scale-90 transition"><Share2 size={20} /></button>
                 </div>
                 <div className="space-y-4 font-black">
@@ -312,8 +321,8 @@ function App() {
                     <div className="overflow-hidden"><p className="text-[9px] font-black text-white uppercase mb-1 tracking-tighter line-clamp-1">{selectedEvent.address}</p><p className="text-[8px] font-black text-indigo-500 uppercase">{selectedEvent.city}</p></div>
                   </a>
                   <div className="flex gap-2 text-center">
-                    <div className="flex-1 flex items-center gap-3 p-4 bg-[#0f172a] border border-slate-800 text-slate-400 text-[9px] font-black tracking-tighter uppercase italic"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
-                    <div className="flex-1 flex items-center gap-3 p-4 bg-[#0f172a] border border-slate-800 text-slate-400 text-[9px] font-black tracking-tighter uppercase italic"><Clock size={18} className="text-emerald-500" /> {selectedEvent.time} HS</div>
+                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-50 dark:bg-[#0f172a] rounded-2xl border border-slate-800 text-slate-400 text-[9px] font-black tracking-tighter uppercase italic"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
+                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-50 dark:bg-[#0f172a] rounded-2xl border border-slate-800 text-slate-400 text-[9px] font-black tracking-tighter uppercase italic"><Clock size={18} className="text-emerald-500" /> {selectedEvent.time} HS</div>
                   </div>
                 </div>
               </div>
