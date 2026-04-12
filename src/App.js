@@ -11,20 +11,17 @@ import L from 'leaflet';
 // Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// FIX DEFINITIVO PARA RENDIJAS (LÍNEAS) EN EL MAPA
+// FIX MAESTRO PARA LÍNEAS EN EL MAPA (Overlap de 1px para cerrar grietas)
 const mapStyleFix = `
   .leaflet-container {
-    background-color: #cbd2d3 !important; /* Color tierra del mapa */
+    background-color: #cbd2d3 !important;
   }
   .leaflet-tile {
-    /* Forzamos un ligero solapamiento para cerrar las grietas */
-    width: 256.5px !important;
-    height: 256.5px !important;
-    outline: 1px solid transparent;
-  }
-  .leaflet-tile-container {
-    /* Suavizado de bordes */
-    image-rendering: -webkit-optimize-contrast;
+    width: 258px !important; /* Forzamos tamaño mayor al estándar */
+    height: 258px !important;
+    margin-left: -1px !important;
+    margin-top: -1px !important;
+    filter: brightness(1.02); /* Suaviza el renderizado de bordes */
   }
 `;
 
@@ -36,7 +33,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Componente para forzar el mapa a centrarse en España
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
@@ -68,8 +64,8 @@ function App() {
   const [toast, setToast] = useState(null);
   const [showCoffeeOptions, setShowCoffeeOptions] = useState(false);
 
-  // CONFIGURACIÓN PAGO SEGURO
-  const paypalUrl = "https://paypal.me/TU_USUARIO"; 
+  // CONFIGURACIÓN PAGO
+  const paypalUrl = "https://paypal.me/jacobogarver"; 
   const kofiUrl = "https://ko-fi.com/jacobogarver";
 
   const showNotification = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
@@ -117,7 +113,7 @@ function App() {
       const { data } = supabase.storage.from('event-images').getPublicUrl(name);
       setForm({ ...form, image_url: data.publicUrl });
       showNotification("¡Foto subida!");
-    } catch (err) { alert("Error al subir"); }
+    } catch (err) { alert("Error"); }
     finally { setIsProcessing(false); }
   };
 
@@ -153,10 +149,10 @@ function App() {
   const handleImGoing = async () => {
     if (!user || !selectedEvent) return;
     toggleFavorite(selectedEvent);
-    showNotification("¡Confirmado!");
+    showNotification("¡Apuntado!");
   };
 
-  // LOGICA PARA FILTRAR/ELIMINAR EVENTOS PASADOS
+  // FILTRADO AUTOMÁTICO DE EVENTOS PASADOS
   const today = new Date().toISOString().split('T')[0];
   const activeEvents = events.filter(e => e.date >= today);
   const publicEvents = activeEvents.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
@@ -179,11 +175,11 @@ function App() {
           </div>
           <div className="flex items-center gap-4">
             {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
-              <button onClick={() => setView('admin')} className="text-slate-400">
+              <button onClick={() => setView('admin')} className={`p-2 transition ${events.some(e => e.status === 'pending') ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
                 <ShieldCheck size={28}/>
               </button>
             )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 transition-all">
+            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
             {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => {setView('profile'); setShowCoffeeOptions(false);}}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
@@ -192,7 +188,7 @@ function App() {
 
         <main className="flex-1 relative overflow-y-auto no-scrollbar">
           
-          {/* HOME - TAMAÑO COMPACTO PARA VER "VER DETALLES" */}
+          {/* HOME */}
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
@@ -202,16 +198,16 @@ function App() {
               </div>
               <div className="space-y-6">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[400px] border border-slate-800">
-                    <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[410px] border border-slate-800">
+                    <div className="relative h-56 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                       <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-105 transition duration-1000" alt="img" />
                       <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-4 right-4 p-2.5 bg-white rounded-full text-red-500 shadow-xl">
                         <Heart size={18} fill={favorites.includes(String(ev.id)) ? "red" : "none"} />
                       </button>
                     </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center items-center text-center">
+                    <div className="p-5 flex-1 flex flex-col justify-center items-center text-center">
                       <h3 className="text-xl font-black italic uppercase tracking-tighter mb-4">{ev.title}</h3>
-                      <button onClick={() => setSelectedEvent(ev)} className="w-full max-w-[280px] bg-blue-600 text-white py-3.5 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Ver Detalles</button>
+                      <button onClick={() => setSelectedEvent(ev)} className="w-full max-w-[280px] bg-blue-600 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Ver Detalles</button>
                     </div>
                   </div>
                 ))}
@@ -219,14 +215,14 @@ function App() {
             </div>
           )}
 
-          {/* PERFIL SUBIDO Y COMPACTO */}
+          {/* PERFIL SUBIDO Y INICIAL PEQUEÑA */}
           {view === 'profile' && (
-            <div className="max-w-xl mx-auto p-4 pt-4 text-center animate-in slide-in-from-bottom pb-40">
-               <div className="bg-[#0f172a] rounded-[3rem] p-6 shadow-2xl border border-slate-800">
-                  <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black text-white border-2 border-white shadow-xl uppercase">
+            <div className="max-w-xl mx-auto p-4 pt-2 text-center animate-in slide-in-from-bottom pb-40">
+               <div className="bg-[#0f172a] rounded-[2.5rem] p-6 shadow-2xl border border-slate-800">
+                  <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black text-white border-2 border-white shadow-xl shadow-indigo-500/20 uppercase">
                     {user?.email[0]}
                   </div>
-                  <h2 className="text-base font-black mb-6 uppercase tracking-widest text-slate-300 font-black">Apoya el Proyecto</h2>
+                  <h2 className="text-sm font-black mb-6 uppercase tracking-widest text-slate-300">Apoya el Proyecto</h2>
                   
                   <div className="space-y-3">
                     {!showCoffeeOptions ? (
@@ -255,7 +251,7 @@ function App() {
             </div>
           )}
 
-          {/* VISTA MAPA ARCGIS */}
+          {/* VISTA MAPA */}
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#cbd2d3]"> 
               <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
@@ -275,7 +271,7 @@ function App() {
             </div> 
           )}
 
-          {/* FAVORITOS - TÍTULO GRUESO Y RECTO */}
+          {/* FAVORITOS - TÍTULO NEGRITA RECTO */}
           {view === 'favorites' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in text-center">
                <h3 className="text-3xl font-black uppercase tracking-widest text-indigo-600 mb-10">GUARDADOS</h3>
@@ -310,7 +306,7 @@ function App() {
               <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-4 z-50 p-3 bg-white/10 rounded-full text-white active:scale-90 transition shadow-xl"><X size={20} /></button>
               <img src={selectedEvent.image_url} className="h-52 w-full object-cover shrink-0" alt="hero" />
               <div className="p-8 flex flex-col flex-1 overflow-y-auto no-scrollbar">
-                <h2 className="text-2xl font-black mb-6 leading-tight text-slate-800 dark:text-white uppercase italic tracking-tighter text-center">{selectedEvent.title}</h2>
+                <h2 className="text-2xl font-black mb-6 leading-tight text-white uppercase italic tracking-tighter text-center">{selectedEvent.title}</h2>
                 <div className="flex gap-2 mb-8 text-center">
                   <button onClick={handleImGoing} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-2 uppercase italic transition active:scale-95 shadow-indigo-500/20"><Sparkles size={14} /> ¡VOY A IR!</button>
                   <button onClick={() => { if(navigator.share) { navigator.share({title: selectedEvent.title, url: window.location.href}); } else { showNotification("Copiado"); } }} className="p-4 bg-slate-800 text-white rounded-xl active:scale-90 transition"><Share2 size={20} /></button>
@@ -318,7 +314,7 @@ function App() {
                 <div className="space-y-4 font-black">
                   <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.city)}`} target="_blank" rel="noreferrer" className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-[#0f172a] rounded-2xl border border-slate-800 transition active:scale-95">
                     <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-500/20"><MapPin size={20} /></div>
-                    <div className="overflow-hidden"><p className="text-[9px] font-black text-slate-800 dark:text-white uppercase mb-1 tracking-tighter line-clamp-1">{selectedEvent.address}</p><p className="text-[8px] font-black text-indigo-500 uppercase">{selectedEvent.city}</p></div>
+                    <div className="overflow-hidden"><p className="text-[9px] font-black text-white uppercase mb-1 tracking-tighter line-clamp-1">{selectedEvent.address}</p><p className="text-[8px] font-black text-indigo-500 uppercase">{selectedEvent.city}</p></div>
                   </a>
                   <div className="flex gap-2 text-center">
                     <div className="flex-1 flex items-center gap-3 p-4 bg-[#0f172a] border border-slate-800 text-slate-400 text-[9px] font-black tracking-tighter uppercase italic"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
