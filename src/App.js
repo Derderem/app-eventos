@@ -11,17 +11,18 @@ import L from 'leaflet';
 // Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// FIX DRÁSTICO PARA LAS LÍNEAS DEL MAPA (Solapamiento de 1px)
+// FIX RADICAL PARA ELIMINAR LÍNEAS BLANCAS EN EL MAPA
 const mapStyleFix = `
   .leaflet-container {
     background-color: #cbd2d3 !important;
   }
   .leaflet-tile {
-    width: 257px !important;
+    width: 257px !important; /* Solapamiento de 1px para cerrar grietas */
     height: 257px !important;
     margin-left: -0.5px;
     margin-top: -0.5px;
-    filter: brightness(1.02) contrast(1.02);
+    outline: 1px solid transparent;
+    filter: contrast(1.1); /* Mejora la unión visual */
   }
 `;
 
@@ -80,9 +81,8 @@ function App() {
   }, []);
 
   const loadUserData = async (id) => {
-    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
-      setProfile({ role: 'admin' });
-    } else {
+    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
+    else {
       const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single();
       if (prof) setProfile(prof);
     }
@@ -113,7 +113,7 @@ function App() {
       await supabase.storage.from('event-images').upload(name, file);
       const { data } = supabase.storage.from('event-images').getPublicUrl(name);
       setForm({ ...form, image_url: data.publicUrl });
-      showNotification("¡Subida!");
+      showNotification("¡Foto subida!");
     } catch (err) { alert("Error al subir"); }
     finally { setIsProcessing(false); }
   };
@@ -147,7 +147,7 @@ function App() {
     }
   };
 
-  // LÓGICA DE AUTO-ELIMINACIÓN (OCULTAR EVENTOS PASADOS)
+  // LÓGICA DE AUTO-ELIMINACIÓN DE EVENTOS PASADOS
   const today = new Date().toISOString().split('T')[0];
   const activeEvents = events.filter(e => e.date >= today);
   const publicEvents = activeEvents.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
@@ -158,16 +158,16 @@ function App() {
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
         
         {toast && (
-          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top text-center">
+          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top">
+            <CheckCircle2 size={16} className="inline mr-2"/>
             <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
           </div>
         )}
 
-        {/* HEADER CON NUEVO LOGO */}
-        <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-6 z-[2000] shadow-sm">
+        {/* HEADER CON LOGO EVENTORA */}
+        <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000] shadow-sm">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}>
-            {/* AQUÍ EL NUEVO LOGO - Asegúrate de subir la imagen a tu proyecto */}
-            <img src="https://i.ibb.co/3ykG83x/logo-eventora.png" alt="Eventora" className="h-10 w-auto" />
+             <img src="https://i.postimg.cc/85m4m0Ym/logo-eventora.png" alt="EVENTORA" className="h-10 w-auto object-contain" />
           </div>
           <div className="flex items-center gap-4">
             {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
@@ -194,7 +194,7 @@ function App() {
               </div>
               <div className="space-y-6">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[410px] border border-slate-800">
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[420px] border border-slate-800">
                     <div className="relative h-56 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                       <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-105 transition duration-1000" alt="img" />
                       <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-4 right-4 p-2.5 bg-white rounded-full text-red-500 shadow-xl">
@@ -207,6 +207,7 @@ function App() {
                     </div>
                   </div>
                 ))}
+                {publicEvents.length === 0 && <p className="text-center opacity-40 font-black py-10 uppercase text-xs tracking-widest italic">No hay eventos próximos</p>}
               </div>
             </div>
           )}
@@ -220,7 +221,7 @@ function App() {
                   </div>
                   <h2 className="text-sm font-black mb-8 uppercase tracking-widest text-slate-300">Apoya el Proyecto</h2>
                   
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {!showCoffeeOptions ? (
                       <button onClick={() => setShowCoffeeOptions(true)} className="w-full bg-amber-500 text-white p-5 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
                         <Coffee size={20} /> Invitar a un café
@@ -247,7 +248,7 @@ function App() {
             </div>
           )}
 
-          {/* MAPA ARCGIS (EL QUE TE FUNCIONA) */}
+          {/* MAPA ARCGIS SIN LÍNEAS */}
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#cbd2d3]"> 
               <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
@@ -257,7 +258,7 @@ function App() {
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
                       <div className="p-1 text-center" onClick={() => setSelectedEvent(ev)}>
-                        <div className="font-black text-[9px] uppercase text-indigo-600 mb-1">{ev.title}</div>
+                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
                         <p className="text-[8px] font-bold uppercase opacity-60">{ev.city}</p>
                       </div>
                     </Popup>
@@ -267,13 +268,13 @@ function App() {
             </div> 
           )}
 
-          {/* FAVORITOS - TÍTULO NEGRITA RECTO */}
+          {/* FAVORITOS */}
           {view === 'favorites' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in text-center">
                <h3 className="text-3xl font-black uppercase tracking-widest text-indigo-600 mb-10">GUARDADOS</h3>
                <div className="space-y-4 text-left">
                   {activeEvents.filter(e => favorites.includes(String(e.id))).map(ev => (
-                    <div key={ev.id} className="bg-white dark:bg-[#0f172a] p-4 rounded-[1.5rem] border border-slate-800 flex justify-between items-center shadow-lg">
+                    <div key={ev.id} className="bg-[#0f172a] p-4 rounded-[1.5rem] border border-slate-800 flex justify-between items-center shadow-lg">
                        <div className="flex items-center gap-4 cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                           <img src={ev.image_url} className="w-14 h-14 rounded-xl object-cover" alt="ev" />
                           <div>
@@ -284,16 +285,17 @@ function App() {
                        <button onClick={() => toggleFavorite(ev)} className="p-3 text-red-500 active:scale-75 transition-all"><Trash2 size={20} /></button>
                     </div>
                   ))}
+                  {favorites.length === 0 && <p className="text-center opacity-40 font-black py-10 uppercase text-[10px]">No tienes guardados aún</p>}
                </div>
             </div>
           )}
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 transition-all">
-          <button onClick={() => {setView('home'); setSelectedEvent(null);}} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.6)]" : "text-slate-500"}`}><LayoutList size={26}/></button>
-          <button onClick={() => setView('create')} className="p-4 rounded-2xl text-slate-500 hover:text-white"><PlusCircle size={26}/></button>
-          <button onClick={() => {setView('favorites'); setSelectedEvent(null);}} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.6)]" : "text-slate-500"}`}><Heart size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.6)]" : "text-slate-500"}`}><MapIcon size={26}/></button>
+          <button onClick={() => {setView('home'); setSelectedEvent(null);}} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : "text-slate-500"}`}><LayoutList size={26}/></button>
+          <button onClick={() => setView('create')} className="p-4 rounded-2xl text-slate-500 hover:text-white transition-all"><PlusCircle size={26}/></button>
+          <button onClick={() => {setView('favorites'); setSelectedEvent(null);}} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : "text-slate-500"}`}><Heart size={26}/></button>
+          <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : "text-slate-500"}`}><MapIcon size={26}/></button>
         </nav>
       </div>
     </div>
