@@ -11,15 +11,21 @@ import L from 'leaflet';
 // Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// FIX PARA LAS LÍNEAS BLANCAS DEL MAPA Y ICONOS
+// FIX DEFINITIVO PARA LÍNEAS EN EL MAPA (Solapamiento de piezas)
 const mapStyleFix = `
-  .leaflet-tile-container img {
-    outline: 1px solid transparent;
-    border: 1px solid transparent;
+  .leaflet-tile {
+    width: 257px !important;
+    height: 257px !important;
+    margin-top: -0.5px;
+    margin-left: -0.5px;
     -webkit-backface-visibility: hidden;
+  }
+  .leaflet-container {
+    background: #020617 !important;
   }
 `;
 
+// Fix Marcadores Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -58,7 +64,7 @@ function App() {
   const [toast, setToast] = useState(null);
   const [showCoffeeOptions, setShowCoffeeOptions] = useState(false);
 
-  // CONFIGURACIÓN PAGO PRIVADO
+  // CONFIGURACIÓN PAGO SEGURO
   const paypalUrl = "https://paypal.me/TU_USUARIO"; 
   const kofiUrl = "https://ko-fi.com/jacobogarver";
 
@@ -89,12 +95,12 @@ function App() {
   };
 
   const generateIA = () => {
-    if (!form.title) return showNotification("Pon un título ✨");
+    if (!form.title) return showNotification("Escribe un título ✨");
     setIsProcessing(true);
     const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
     img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen IA Lista ✨"); };
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen Lista ✨"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -106,14 +112,14 @@ function App() {
       await supabase.storage.from('event-images').upload(name, file);
       const { data } = supabase.storage.from('event-images').getPublicUrl(name);
       setForm({ ...form, image_url: data.publicUrl });
-      showNotification("¡Foto subida!");
+      showNotification("¡Subida!");
     } catch (err) { alert("Error"); }
     finally { setIsProcessing(false); }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.image_url) return showNotification("Falta la foto ✨");
+    if (!form.image_url) return showNotification("Falta foto ✨");
     setIsSubmitting(true);
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address + ', ' + form.city + ', España')}&limit=1`);
@@ -140,21 +146,10 @@ function App() {
     }
   };
 
-  const handleImGoing = async () => {
-    if (!user || !selectedEvent) return showNotification("Inicia sesión ❤️");
-    const id = String(selectedEvent.id);
-    if (!favorites.includes(id)) {
-      setFavorites(f => [...f, id]);
-      await supabase.from('favorites').insert({ user_id: user.id, event_id: id });
-      showNotification("¡Apuntado!");
-    } else { showNotification("¡Ya estás apuntado!"); }
-  };
-
-  // FILTRADO DE EVENTOS PASADOS
+  // LOGICA PARA ELIMINAR/OCULTAR EVENTOS PASADOS
   const today = new Date().toISOString().split('T')[0];
   const activeEvents = events.filter(e => e.date >= today);
   const publicEvents = activeEvents.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
-  const pendingEvents = events.filter(e => e.status === 'pending');
 
   return (
     <div className={isDark ? "dark" : ""}>
@@ -163,31 +158,32 @@ function App() {
         
         {toast && (
           <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top">
-            <CheckCircle2 size={16} className="inline mr-2"/>
             <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
           </div>
         )}
 
+        {/* HEADER */}
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000] shadow-sm">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
-            <div className="bg-indigo-600 p-2 rounded-xl text-white font-bold shadow-lg shadow-indigo-500/30 text-xl italic">E</div>
+            <div className="bg-indigo-600 p-1.5 rounded-lg text-white font-bold shadow-lg shadow-indigo-500/30 text-xl italic">E</div>
             <h1 className="text-xl font-black uppercase italic tracking-tighter">Eventos</h1>
           </div>
           <div className="flex items-center gap-4">
             {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
-              <button onClick={() => setView('admin')} className={`p-2 transition ${pendingEvents.length > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
+              <button onClick={() => setView('admin')} className={`p-2 transition ${events.some(e => e.status === 'pending') ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
                 <ShieldCheck size={28}/>
               </button>
             )}
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => {setView('profile'); setShowCoffeeOptions(false);}}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
+            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase" onClick={() => {setView('profile'); setShowCoffeeOptions(false);}}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
           </div>
         </nav>
 
         <main className="flex-1 relative overflow-y-auto no-scrollbar">
           
+          {/* HOME */}
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
@@ -205,43 +201,44 @@ function App() {
                       </button>
                     </div>
                     <div className="p-6 flex-1 flex flex-col justify-center items-center text-center">
-                      <h3 className="text-xl font-black italic uppercase tracking-tighter mb-4">{ev.title}</h3>
+                      <h3 className="text-xl font-black italic uppercase tracking-tighter mb-6">{ev.title}</h3>
                       <button onClick={() => setSelectedEvent(ev)} className="w-full max-w-[280px] bg-blue-600 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Ver Detalles</button>
                     </div>
                   </div>
                 ))}
-                {publicEvents.length === 0 && <p className="text-center opacity-40 font-black py-10 uppercase text-xs">No hay eventos próximos</p>}
               </div>
             </div>
           )}
 
+          {/* PERFIL SUBIDO Y COMPACTO */}
           {view === 'profile' && (
             <div className="max-w-xl mx-auto p-4 pt-4 text-center animate-in slide-in-from-bottom pb-40">
-               <div className="bg-[#0f172a] rounded-[3rem] p-6 shadow-2xl border border-slate-800">
-                  <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black text-white border-2 border-white shadow-xl uppercase">
+               <div className="bg-[#0f172a] rounded-[3rem] p-8 shadow-2xl border border-slate-800">
+                  <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl font-black text-white border-2 border-white shadow-xl shadow-indigo-500/20 uppercase">
                     {user?.email[0]}
                   </div>
-                  <h2 className="text-base font-black mb-6 uppercase tracking-widest">Apoya el Proyecto</h2>
+                  <h2 className="text-sm font-black mb-8 uppercase tracking-widest text-slate-300">Apoya el Proyecto</h2>
                   
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {!showCoffeeOptions ? (
                       <button onClick={() => setShowCoffeeOptions(true)} className="w-full bg-amber-500 text-white p-5 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
                         <Coffee size={20} /> Invitar a un café
                       </button>
                     ) : (
-                      <div className="grid grid-cols-1 gap-2 animate-in zoom-in duration-200">
-                        <a href={kofiUrl} target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
-                          <ExternalLink size={16} /> Ko-fi
+                      <div className="grid grid-cols-1 gap-3 animate-in zoom-in duration-200">
+                        <a href={kofiUrl} target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
+                          <ExternalLink size={18} /> Ko-fi
                         </a>
-                        <a href={paypalUrl} target="_blank" rel="noreferrer" className="w-full bg-[#003087] text-white p-4 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
-                          <CreditCard size={16} /> PayPal
+                        <a href={paypalUrl} target="_blank" rel="noreferrer" className="w-full bg-[#003087] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
+                          <CreditCard size={18} /> PayPal
                         </a>
                         <button onClick={() => setShowCoffeeOptions(false)} className="w-full bg-slate-800 text-white p-3 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 mt-2 shadow-lg">
                            <ArrowLeft size={14} /> VOLVER
                         </button>
                       </div>
                     )}
-                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition mt-6">
+                    
+                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition mt-8">
                       <LogOut size={20} /> Cerrar Sesión
                     </button>
                   </div>
@@ -249,6 +246,7 @@ function App() {
             </div>
           )}
 
+          {/* VISTA MAPA ARCGIS */}
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#020617]"> 
               <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
@@ -258,8 +256,8 @@ function App() {
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
                       <div className="p-1 text-center" onClick={() => setSelectedEvent(ev)}>
-                        <div className="font-black text-[9px] uppercase text-indigo-600 mb-1">{ev.title}</div>
-                        <p className="text-[8px] font-black uppercase opacity-60">{ev.city}</p>
+                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1">{ev.title}</div>
+                        <p className="text-[8px] font-bold uppercase opacity-60">{ev.city}</p>
                       </div>
                     </Popup>
                   </Marker>
@@ -268,6 +266,7 @@ function App() {
             </div> 
           )}
 
+          {/* FAVORITOS - TÍTULO NEGRITA Y RECTO */}
           {view === 'favorites' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in text-center">
                <h3 className="text-3xl font-black uppercase tracking-widest text-indigo-600 mb-10">GUARDADOS</h3>
@@ -284,57 +283,7 @@ function App() {
                        <button onClick={() => toggleFavorite(ev)} className="p-3 text-red-500 active:scale-75 transition-all"><Trash2 size={20} /></button>
                     </div>
                   ))}
-                  {favorites.length === 0 && <p className="text-center opacity-40 font-black py-10 uppercase text-[10px]">No tienes favoritos aún</p>}
                </div>
-            </div>
-          )}
-
-          {view === 'create' && (
-            <div className="max-w-xl mx-auto p-4 pb-60 animate-in slide-in-from-bottom text-left">
-              <div className="bg-[#0f172a] rounded-[2.5rem] p-6 border border-slate-800 shadow-2xl">
-                <h2 className="text-xl font-black mb-6 text-indigo-500 text-center uppercase italic underline underline-offset-8 decoration-indigo-500/30">Publicar</h2>
-                <form onSubmit={handleCreate} className="space-y-4">
-                  <input required placeholder="TÍTULO" className="w-full p-4 bg-[#0f172a] rounded-2xl outline-none border border-slate-800 font-bold uppercase text-xs text-white" value={form.title} onChange={e => setForm({...form, title: e.target.value.toUpperCase()})} />
-                  <select className="w-full p-4 bg-[#0f172a] rounded-2xl outline-none border border-slate-800 font-black text-[10px] uppercase text-white" value={form.category} onChange={e => setForm({...form, category: e.target.value})}><option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINOS">TAURINOS</option><option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option><option value="OTROS">OTROS</option></select>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input required placeholder="CIUDAD" className="w-full p-4 bg-[#0f172a] rounded-2xl outline-none border border-slate-800 font-bold uppercase text-[10px] text-white" value={form.city} onChange={e => setForm({...form, city: e.target.value.toUpperCase()})} />
-                    <input required placeholder="DIRECCIÓN" className="w-full p-4 bg-[#0f172a] rounded-2xl outline-none border border-slate-800 font-bold text-[10px] text-white" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
-                  </div>
-                  <div className="flex gap-2">
-                    <input required type="date" className="flex-1 p-4 bg-[#0f172a] rounded-2xl border border-slate-800 text-[10px] font-bold text-white" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
-                    <input required type="time" className="w-24 p-4 bg-[#0f172a] rounded-2xl border border-slate-800 text-[10px] font-bold text-white" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
-                  </div>
-                  <div className="pt-2 text-center">
-                    <div className="h-40 w-full bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-dashed border-indigo-500/20 mb-4">
-                      {isProcessing ? <Loader2 className="animate-spin text-indigo-600"/> : form.image_url ? <img src={form.image_url} className="w-full h-full object-cover" alt="p" /> : <Camera className="text-slate-400" size={30}/>}
-                    </div>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={generateIA} className="flex-1 bg-indigo-600 text-white p-3 rounded-xl font-black text-[8px] uppercase flex items-center justify-center gap-1 shadow-lg shadow-indigo-500/20"><Sparkles size={14}/> GENERAR IA</button>
-                      <label className="flex-1 bg-slate-700 text-white p-3 rounded-xl font-black text-[8px] uppercase flex items-center justify-center gap-1 cursor-pointer"><Upload size={14}/> GALERÍA<input type="file" accept="image/*" className="hidden" onChange={handleGalleryUpload} /></label>
-                    </div>
-                  </div>
-                  <button type="submit" disabled={isSubmitting || isProcessing} className="w-full bg-indigo-600 text-white p-4 rounded-xl font-black shadow-xl mt-4 uppercase text-[9px] active:scale-95 transition-all">PUBLICAR</button>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {view === 'admin' && (
-            <div className="max-w-xl mx-auto p-6 pb-60 text-center animate-in slide-in-from-top">
-              <h2 className="text-xl font-black mb-8 text-amber-500 uppercase italic underline underline-offset-8 decoration-amber-500/30">Moderación</h2>
-              {events.filter(e => e.status === 'pending').map(ev => (
-                <div key={ev.id} className="bg-[#0f172a] rounded-[2rem] mb-6 border border-slate-800 overflow-hidden text-left shadow-xl">
-                  <img src={ev.image_url} className="h-40 w-full object-cover" alt="p"/>
-                  <div className="p-6">
-                    <h4 className="font-black text-lg mb-2 text-white uppercase italic leading-tight">{ev.title}</h4>
-                    <div className="flex gap-4 mt-4">
-                        <button onClick={async () => { await supabase.from('events').update({ status: 'approved' }).eq('id', ev.id); fetchEvents(); showNotification("¡Aprobado!"); }} className="flex-1 bg-green-500 text-white py-3 rounded-xl font-black text-[9px] uppercase tracking-widest">Aprobar</button>
-                        <button onClick={async () => { await supabase.from('events').delete().eq('id', ev.id); fetchEvents(); showNotification("¡Borrado!"); }} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-black text-[9px] opacity-60 uppercase tracking-widest">Borrar</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {events.filter(e => e.status === 'pending').length === 0 && <p className="opacity-40 font-black uppercase text-[10px]">No hay pendientes</p>}
             </div>
           )}
         </main>
@@ -354,7 +303,7 @@ function App() {
               <div className="p-8 flex flex-col flex-1 overflow-y-auto no-scrollbar">
                 <h2 className="text-2xl font-black mb-6 leading-tight text-white uppercase italic tracking-tighter text-center">{selectedEvent.title}</h2>
                 <div className="flex gap-2 mb-8 text-center">
-                  <button onClick={handleImGoing} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-2 uppercase italic transition active:scale-95 shadow-indigo-500/20"><Sparkles size={14} /> ¡VOY A IR!</button>
+                  <button onClick={() => { toggleFavorite(selectedEvent); showNotification("Guardado"); }} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-2 uppercase italic transition active:scale-95 shadow-indigo-500/20"><Sparkles size={14} /> ¡VOY A IR!</button>
                   <button onClick={() => { if(navigator.share) { navigator.share({title: selectedEvent.title, url: window.location.href}); } else { showNotification("Copiado"); } }} className="p-4 bg-slate-800 text-white rounded-xl active:scale-90 transition"><Share2 size={20} /></button>
                 </div>
                 <div className="space-y-4 font-black">
@@ -363,8 +312,8 @@ function App() {
                     <div className="overflow-hidden"><p className="text-[9px] font-black text-white uppercase mb-1 tracking-tighter line-clamp-1">{selectedEvent.address}</p><p className="text-[8px] font-black text-indigo-500 uppercase">{selectedEvent.city}</p></div>
                   </a>
                   <div className="flex gap-2 text-center">
-                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-50 dark:bg-[#0f172a] rounded-2xl border border-slate-800 text-slate-400 text-[9px] font-black tracking-tighter uppercase italic"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
-                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-50 dark:bg-[#0f172a] rounded-2xl border border-slate-800 text-slate-400 text-[9px] font-black tracking-tighter uppercase italic"><Clock size={18} className="text-emerald-500" /> {selectedEvent.time} HS</div>
+                    <div className="flex-1 flex items-center gap-3 p-4 bg-[#0f172a] border border-slate-800 text-slate-400 text-[9px] font-black tracking-tighter uppercase italic"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
+                    <div className="flex-1 flex items-center gap-3 p-4 bg-[#0f172a] border border-slate-800 text-slate-400 text-[9px] font-black tracking-tighter uppercase italic"><Clock size={18} className="text-emerald-500" /> {selectedEvent.time} HS</div>
                   </div>
                 </div>
               </div>
