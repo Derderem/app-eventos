@@ -10,20 +10,34 @@ import L from 'leaflet';
 
 import 'leaflet/dist/leaflet.css';
 
-// FIX DRÁSTICO PARA MAPA Y ESTILOS DE LOGO
-const customStyles = `
+// ESTILOS DE ALTO NIVEL PARA LOGO Y MAPA (SIN LÍNEAS)
+const customStyle = `
   .leaflet-container { background-color: #cbd2d3 !important; }
   .leaflet-tile {
-    width: 257px !important;
-    height: 257px !important;
-    margin-left: -0.5px;
-    margin-top: -0.5px;
-    filter: brightness(1.05);
+    /* FIX DEFINITIVO PARA LÍNEAS BLANCAS/GRISES */
+    width: 258px !important;
+    height: 258px !important;
+    margin-left: -1px !important;
+    margin-top: -1px !important;
+    outline: 1px solid transparent;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    transform: translate3d(0,0,0);
   }
-  .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; }
-  .letter-cian { color: #00d2ff; }
-  .letter-blue { color: #3b82f6; }
-  .letter-purple { color: #8b5cf6; }
+  .logo-eventora {
+    font-family: 'Arial Black', Gadget, sans-serif;
+    font-weight: 900;
+    font-style: italic;
+    letter-spacing: -2px;
+    display: flex;
+    align-items: center;
+    font-size: 26px;
+  }
+  .l-cian { color: #00E5FF; }
+  .l-sky { color: #00B0FF; }
+  .l-blue { color: #2979FF; }
+  .l-indigo { color: #7C4DFF; }
+  .l-purple { color: #AA00FF; }
 `;
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -94,12 +108,12 @@ function App() {
   };
 
   const generateIA = () => {
-    if (!form.title) return showNotification("Pon un título ✨");
+    if (!form.title) return showNotification("Escribe un título ✨");
     setIsProcessing(true);
-    const urlIA = `https://image.pollinations.ai/prompt/professional_event_photo_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
+    const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
     img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("IA: Lista ✨"); };
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen Lista ✨"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -111,7 +125,7 @@ function App() {
       await supabase.storage.from('event-images').upload(name, file);
       const { data } = supabase.storage.from('event-images').getPublicUrl(name);
       setForm({ ...form, image_url: data.publicUrl });
-      showNotification("¡Subida!");
+      showNotification("¡Foto subida!");
     } catch (err) { alert("Error"); }
     finally { setIsProcessing(false); }
   };
@@ -157,7 +171,7 @@ function App() {
 
   return (
     <div className={isDark ? "dark" : ""}>
-      <style>{customStyles}</style>
+      <style>{customStyle}</style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
         
         {toast && (
@@ -166,35 +180,39 @@ function App() {
           </div>
         )}
 
-        <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000] shadow-sm">
+        {/* HEADER CON LOGO RECONSTRUIDO POR CÓDIGO */}
+        <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-6 z-[2000] shadow-sm">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}>
-             {/* LOGO RECONSTRUIDO LETRA A LETRA (IDÉNTICO A TU FOTO) */}
-             <div className="flex items-center logo-font text-2xl tracking-tighter italic">
-                <span className="letter-cian">E</span>
-                <span className="letter-cian">V</span>
-                <span className="letter-blue">E</span>
-                <span className="letter-blue">N</span>
-                <span className="letter-purple">T</span>
-                <span className="letter-purple">O</span>
-                <span className="letter-purple">R</span>
-                <span className="letter-purple">A</span>
-                <div className="ml-2 bg-indigo-500/20 p-1 rounded-lg">
+             <div className="logo-eventora">
+                <span className="l-cian">E</span>
+                <span className="l-cian">V</span>
+                <span className="l-sky">E</span>
+                <span className="l-blue">N</span>
+                <span className="l-indigo">T</span>
+                <span className="l-purple">O</span>
+                <span className="l-indigo">R</span>
+                <span className="l-purple">A</span>
+                <div className="ml-2 bg-indigo-500/20 p-1.5 rounded-lg border border-indigo-500/30">
                   <Calendar className="text-indigo-400" size={20} />
                 </div>
              </div>
           </div>
           <div className="flex items-center gap-4">
             {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
-              <button onClick={() => setView('admin')} className="text-slate-400"><ShieldCheck size={28}/></button>
+              <button onClick={() => setView('admin')} className="text-slate-400">
+                <ShieldCheck size={28}/>
+              </button>
             )}
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => setView('profile')}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
+            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => {setView('profile'); setShowCoffeeOptions(false);}}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
           </div>
         </nav>
 
         <main className="flex-1 relative overflow-y-auto no-scrollbar">
+          
+          {/* HOME */}
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
@@ -213,7 +231,7 @@ function App() {
                     </div>
                     <div className="p-4 flex-1 flex flex-col justify-center items-center text-center">
                       <h3 className="text-xl font-black italic uppercase tracking-tighter mb-4">{ev.title}</h3>
-                      <button onClick={() => setSelectedEvent(ev)} className="w-full max-w-[280px] bg-blue-600 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Ver Detalles</button>
+                      <button onClick={() => setSelectedEvent(ev)} className="w-full max-w-[280px] bg-blue-600 text-white py-3.5 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Ver Detalles</button>
                     </div>
                   </div>
                 ))}
@@ -221,13 +239,15 @@ function App() {
             </div>
           )}
 
+          {/* PERFIL */}
           {view === 'profile' && (
             <div className="max-w-xl mx-auto p-4 pt-2 text-center animate-in slide-in-from-bottom pb-40">
                <div className="bg-[#0f172a] rounded-[3rem] p-6 shadow-2xl border border-slate-800">
-                  <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black text-white border-2 border-white shadow-xl shadow-indigo-500/20 uppercase font-black">
+                  <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black text-white border-2 border-white shadow-xl uppercase">
                     {user?.email[0]}
                   </div>
                   <h2 className="text-sm font-black mb-8 uppercase tracking-widest text-slate-300">Apoya el Proyecto</h2>
+                  
                   <div className="space-y-4">
                     {!showCoffeeOptions ? (
                       <button onClick={() => setShowCoffeeOptions(true)} className="w-full bg-amber-500 text-white p-5 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
@@ -235,10 +255,10 @@ function App() {
                       </button>
                     ) : (
                       <div className="grid grid-cols-1 gap-2 animate-in zoom-in duration-200">
-                        <a href={kofiUrl} target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition shadow-md">
+                        <a href={kofiUrl} target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
                           <ExternalLink size={16} /> Ko-fi
                         </a>
-                        <a href={paypalUrl} target="_blank" rel="noreferrer" className="w-full bg-[#003087] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition shadow-md">
+                        <a href={paypalUrl} target="_blank" rel="noreferrer" className="w-full bg-[#003087] text-white p-4 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
                           <CreditCard size={16} /> PayPal
                         </a>
                         <button onClick={() => setShowCoffeeOptions(false)} className="w-full bg-slate-800 text-white p-3 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 mt-2 shadow-lg">
@@ -246,6 +266,7 @@ function App() {
                         </button>
                       </div>
                     )}
+                    
                     <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition mt-6">
                       <LogOut size={20} /> Cerrar Sesión
                     </button>
@@ -254,6 +275,7 @@ function App() {
             </div>
           )}
 
+          {/* MAPA ARCGIS SIN LÍNEAS */}
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#cbd2d3]"> 
               <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
@@ -273,6 +295,7 @@ function App() {
             </div> 
           )}
 
+          {/* FAVORITOS */}
           {view === 'favorites' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in text-center text-white">
                <h3 className="text-3xl font-black uppercase tracking-widest text-indigo-600 mb-10">GUARDADOS</h3>
