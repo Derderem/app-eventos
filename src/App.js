@@ -3,15 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 import { 
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, X, Trash2, Map as MapIcon, 
   Navigation, Clock, LayoutList, ShieldCheck, Sparkles, Camera, Loader2, CheckCircle2, Share2, Upload,
-  Coffee, LogOut, ExternalLink, Smartphone
+  Coffee, LogOut, ExternalLink, Smartphone, ShieldAlert
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// Fix Marcadores Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -19,7 +17,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Componente para forzar el mapa a centrarse en España
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
@@ -51,11 +48,6 @@ function App() {
   const [toast, setToast] = useState(null);
   const [showCoffeeOptions, setShowCoffeeOptions] = useState(false);
 
-  // ******************************************************
-  // PON AQUÍ TU NÚMERO (No se verá nunca en la pantalla)
-  // ******************************************************
-  const miNumeroBizum = "600000000"; 
-
   const showNotification = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
   useEffect(() => {
@@ -68,9 +60,8 @@ function App() {
   }, []);
 
   const loadUserData = async (id) => {
-    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
-      setProfile({ role: 'admin' });
-    } else {
+    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
+    else {
       const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single();
       if (prof) setProfile(prof);
     }
@@ -89,7 +80,7 @@ function App() {
     const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
     img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen IA Lista ✨"); };
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen Lista ✨"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -102,7 +93,7 @@ function App() {
       const { data } = supabase.storage.from('event-images').getPublicUrl(name);
       setForm({ ...form, image_url: data.publicUrl });
       showNotification("¡Foto subida!");
-    } catch (err) { alert("Error al subir"); }
+    } catch (err) { alert("Error de subida"); }
     finally { setIsProcessing(false); }
   };
 
@@ -135,20 +126,7 @@ function App() {
     }
   };
 
-  const handleImGoing = async () => {
-    if (!user || !selectedEvent) return showNotification("Inicia sesión ❤️");
-    const id = String(selectedEvent.id);
-    if (!favorites.includes(id)) {
-      setFavorites(f => [...f, id]);
-      await supabase.from('favorites').insert({ user_id: user.id, event_id: id });
-      showNotification("¡Apuntado!");
-    } else {
-      showNotification("¡Ya estás apuntado!");
-    }
-  };
-
   const publicEvents = events.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
-  const pendingCount = events.filter(e => e.status === 'pending').length;
 
   return (
     <div className={isDark ? "dark" : ""}>
@@ -160,17 +138,14 @@ function App() {
           </div>
         )}
 
-        {/* HEADER */}
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000] shadow-sm">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
-            <div className="bg-indigo-600 p-2 rounded-xl text-white font-bold shadow-lg shadow-indigo-500/30 text-xl italic">E</div>
+            <div className="bg-indigo-600 p-2 rounded-xl text-white font-bold shadow-lg text-xl italic">E</div>
             <h1 className="text-xl font-black uppercase italic tracking-tighter">Eventos</h1>
           </div>
           <div className="flex items-center gap-4">
             {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
-              <button onClick={() => setView('admin')} className={`p-2 transition ${pendingCount > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
-                <ShieldCheck size={28}/>
-              </button>
+              <button onClick={() => setView('admin')} className="p-2 text-slate-400"><ShieldCheck size={28}/></button>
             )}
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
                <Sun size={24} className="text-yellow-400" />
@@ -194,7 +169,7 @@ function App() {
                   <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[420px] border border-slate-800">
                     <div className="relative h-56 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                       <img src={ev.image_url} className="w-full h-full object-cover" alt="img" />
-                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-4 right-4 p-2.5 bg-white rounded-full text-red-500 shadow-xl">
+                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-4 right-4 p-2.5 bg-white rounded-full text-red-500">
                         <Heart size={18} fill={favorites.includes(String(ev.id)) ? "red" : "none"} />
                       </button>
                     </div>
@@ -208,40 +183,45 @@ function App() {
             </div>
           )}
 
-          {/* PERFIL */}
+          {/* PERFIL - PRIVACIDAD MEJORADA */}
           {view === 'profile' && (
-            <div className="max-w-xl mx-auto p-10 text-center animate-in slide-in-from-bottom">
+            <div className="max-w-xl mx-auto p-10 text-center animate-in slide-in-from-bottom pb-40">
                <div className="bg-[#0f172a] rounded-[3rem] p-8 shadow-2xl border border-slate-800">
                   <div className="w-24 h-24 bg-indigo-600 rounded-full mx-auto mb-8 flex items-center justify-center text-4xl font-black text-white border-4 border-white shadow-xl uppercase">
                     {user?.email[0]}
                   </div>
-                  <h2 className="text-xl font-black mb-10 uppercase tracking-widest">Mi Perfil</h2>
+                  <h2 className="text-xl font-black mb-10 uppercase tracking-widest">Apoya el Proyecto</h2>
                   
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {!showCoffeeOptions ? (
-                      <button onClick={() => setShowCoffeeOptions(true)} className="w-full bg-amber-500 text-white py-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
-                        <Coffee size={20} /> Invitar a un café
+                      <button onClick={() => setShowCoffeeOptions(true)} className="w-full bg-amber-500 text-white p-5 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
+                        <Coffee size={24} /> Invitar a un café
                       </button>
                     ) : (
-                      <div className="grid grid-cols-1 gap-2 animate-in zoom-in duration-200">
-                        <a href="https://ko-fi.com/jacobogarver" target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white py-3 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 shadow-md">
-                          <ExternalLink size={16} /> Ko-fi
+                      <div className="grid grid-cols-1 gap-3 animate-in zoom-in duration-200">
+                        <a href="https://ko-fi.com/jacobogarver" target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md">
+                          <ExternalLink size={18} /> Ko-fi (Privado)
                         </a>
-                        <button onClick={() => {navigator.clipboard.writeText(miNumeroBizum); showNotification("Número copiado al portapapeles");}} className="w-full bg-[#00aae4] text-white py-3 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 shadow-md">
-                          <Smartphone size={16} /> Bizum (Copiar número)
+                        <button onClick={() => showNotification("Contacta con el Admin para Bizum")} className="w-full bg-[#00aae4] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md">
+                          <Smartphone size={18} /> Bizum (Solicitar número)
                         </button>
-                        <button onClick={() => setShowCoffeeOptions(false)} className="text-[10px] uppercase font-black opacity-50 pt-1 italic">Atrás</button>
+                        <div className="p-3 bg-red-500/10 rounded-xl flex items-center gap-2 border border-red-500/20">
+                           <ShieldAlert size={14} className="text-red-500 shrink-0" />
+                           <p className="text-[9px] text-red-200 text-left font-bold">Nota: Bizum siempre muestra tu número real al que paga. Usa Ko-fi para privacidad total.</p>
+                        </div>
+                        <button onClick={() => setShowCoffeeOptions(false)} className="text-[10px] uppercase font-black opacity-50 pt-2 italic">Volver</button>
                       </div>
                     )}
-                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600 text-white py-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
-                      <LogOut size={20} /> Cerrar Sesión
+                    
+                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600 text-white p-5 rounded-[2rem] font-black uppercase flex items-center justify-center gap-3 shadow-lg active:scale-95 transition mt-8">
+                      <LogOut size={24} /> Cerrar Sesión
                     </button>
                   </div>
                </div>
             </div>
           )}
 
-          {/* VISTA MAPA - ESPAÑA ARCGIS */}
+          {/* MAPA */}
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#020617]"> 
               <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
@@ -251,7 +231,7 @@ function App() {
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
                       <div className="p-1 text-center" onClick={() => setSelectedEvent(ev)}>
-                        <div className="font-black text-[9px] uppercase text-indigo-600 mb-1">{ev.title}</div>
+                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1">{ev.title}</div>
                         <p className="text-[8px] font-bold uppercase opacity-60">{ev.city}</p>
                       </div>
                     </Popup>
@@ -278,6 +258,7 @@ function App() {
                        <button onClick={() => toggleFavorite(ev)} className="p-3 text-red-500 active:scale-75 transition-all"><Trash2 size={20} /></button>
                     </div>
                   ))}
+                  {favorites.length === 0 && <p className="opacity-40 font-black uppercase text-center text-[10px]">No hay favoritos</p>}
                </div>
             </div>
           )}
@@ -298,16 +279,16 @@ function App() {
               <div className="p-8 flex flex-col flex-1 overflow-y-auto no-scrollbar">
                 <h2 className="text-2xl font-black mb-6 leading-tight text-white uppercase italic tracking-tighter text-center">{selectedEvent.title}</h2>
                 <div className="flex gap-2 mb-8 text-center">
-                  <button onClick={handleImGoing} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-2 uppercase italic transition active:scale-95 shadow-indigo-500/20"><Sparkles size={14} /> ¡VOY A IR!</button>
+                  <button onClick={() => { toggleFavorite(selectedEvent); showNotification("¡Guardado!"); }} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-2 uppercase italic transition active:scale-95 shadow-indigo-500/20"><Sparkles size={14} /> ¡VOY A IR!</button>
                   <button onClick={() => { if(navigator.share) { navigator.share({title: selectedEvent.title, url: window.location.href}); } else { showNotification("Copiado"); } }} className="p-4 bg-slate-800 text-white rounded-xl active:scale-90 transition"><Share2 size={20} /></button>
                 </div>
-                <div className="space-y-4 font-black">
+                <div className="space-y-4 font-black text-center">
                   <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.city)}`} target="_blank" rel="noreferrer" className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-800 transition active:scale-95">
                     <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-500/20"><MapPin size={20} /></div>
                     <div className="overflow-hidden"><p className="text-[9px] font-black text-white uppercase mb-1 tracking-tighter line-clamp-1">{selectedEvent.address}</p><p className="text-[8px] font-black text-indigo-500 uppercase">{selectedEvent.city}</p></div>
                   </a>
                   <div className="flex gap-2 text-center">
-                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800/40 rounded-2xl border border-slate-800 text-slate-400 text-[9px] font-black tracking-tighter uppercase italic"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
+                    <div className="flex-1 flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-800 text-slate-400 text-[9px] font-black tracking-tighter uppercase italic"><Calendar size={18} className="text-amber-500" /> {selectedEvent.date}</div>
                     <div className="flex-1 flex items-center gap-3 p-4 bg-slate-800/40 rounded-2xl border border-slate-800 text-slate-400 text-[9px] font-black tracking-tighter uppercase italic"><Clock size={18} className="text-emerald-500" /> {selectedEvent.time} HS</div>
                   </div>
                 </div>
