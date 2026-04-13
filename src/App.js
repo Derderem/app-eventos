@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, X, Trash2, Map as MapIcon,
-  Navigation, Clock, LayoutList, ShieldCheck, Sparkles, Camera, Loader2, CheckCircle2, Share2, Upload,
-  Coffee, LogOut, ExternalLink, CreditCard, ArrowLeft
+  Navigation, Clock, LayoutList, ShieldCheck, Sparkles, Camera, Loader2, 
+  CheckCircle2, Share2, Upload, Coffee, LogOut, ExternalLink, CreditCard, ArrowLeft
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -11,95 +11,32 @@ import L from 'leaflet';
 // Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// ============================================================
-// SOLUCIÓN COMPLETA: LÍNEAS BLANCAS + ESPAÑOL + MAPA DE ESPAÑA
-// ============================================================
 const globalStyles = `
-  /* Contenedor principal del mapa */
-  .leaflet-container {
-    background-color: #aad3df !important;
-    border: none !important;
-  }
-
-  /* SOLUCIÓN DEFINITIVA A LAS LÍNEAS BLANCAS */
-  .leaflet-tile-pane {
-    /* Fuerza el repintado de tiles */
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-  }
-
+  .leaflet-container { background-color: #aad3df !important; border: none !important; }
+  
+  /* FIX LÍNEAS BLANCAS: Escala mínima para solapar piezas */
   .leaflet-tile {
-    /* Solapamiento agresivo para eliminar grietas */
-    width: 260px !important;
-    height: 260px !important;
-    margin-left: -2px !important;
-    margin-top: -2px !important;
-    /* Evita optimización del navegador que causa transparencias */
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-    /* Forzar opacidad completa */
-    opacity: 1 !important;
-  }
-
-  /* Cuando un tile termina de cargar, asegurar que se vea */
-  .leaflet-tile-loaded {
-    opacity: 1 !important;
-    filter: none !important;
-  }
-
-  /* Forzar que las imágenes de tiles no tengan bordes ni间隙 */
-  .leaflet-layer {
+    transform: scale(1.015) !important;
+    outline: 1px solid transparent;
     -webkit-backface-visibility: hidden;
   }
 
-  /* Eliminar cualquier espacio entre tiles */
-  .leaflet-tile-container img {
-    margin: 0 !important;
+  /* FIX CUADRO BLANCO: Forzar a las imágenes a no tener bordes */
+  .leaflet-container img {
+    max-width: none !important;
+    max-height: none !important;
     padding: 0 !important;
-    display: block !important;
   }
 
-  /* Contenedor del mapa sin overflow */
-  .map-container-wrapper {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
+  .logo-font { 
+    font-family: 'Arial Black', sans-serif; 
+    font-weight: 900; 
+    font-style: italic; 
+    display: flex; 
+    align-items: center; 
+    letter-spacing: -2px; 
   }
-
-  .logo-font {
-    font-family: 'Arial Black', sans-serif;
-    font-weight: 900;
-    font-style: italic;
-    display: flex;
-    align-items: center;
-    letter-spacing: -2px;
-  }
-
   .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-  /* Personalización de controles y popups en español */
-  .leaflet-control-zoom a {
-    font-family: 'Arial', sans-serif !important;
-    color: #333 !important;
-  }
-
-  .leaflet-popup-content-wrapper {
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  }
-
-  .leaflet-popup-tip {
-    background: white;
-  }
-
-  /* Atribución en español */
-  .leaflet-control-attribution {
-    font-family: 'Arial', sans-serif !important;
-    font-size: 10px !important;
-  }
 `;
 
 // Fix Marcadores Leaflet
@@ -113,26 +50,14 @@ L.Icon.Default.mergeOptions({
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    // InvalidateSize con delay para asegurar que el DOM está listo
-    const timer = setTimeout(() => {
-      map.invalidateSize({ pan: false, debounceMoveend: true });
-      map.setView([40.4167, -3.7037], 6);
-    }, 100);
-    return () => clearTimeout(timer);
+    setTimeout(() => {
+      map.invalidateSize();
+      map.setView([40.4167, -3.7037], 6); 
+    }, 500);
   }, [map]);
-
-  // Prevenir scroll del mapa
-  useEffect(() => {
-    const mapElement = map.getContainer();
-    const handleWheel = (e) => e.stopPropagation();
-    mapElement.addEventListener('wheel', handleWheel, { passive: false });
-    return () => mapElement.removeEventListener('wheel', handleWheel);
-  }, [map]);
-
   return null;
 }
 
-// LOGO EVENTORA ORIGINAL COMPLETO
 const LogoSVG = () => (
   <svg width="170" height="35" viewBox="0 0 240 50">
     <defs>
@@ -162,25 +87,22 @@ export default function App() {
   const [isDark, setIsDark] = useState(true);
   const [view, setView] = useState('home');
   const [activeCategory, setActiveCategory] = useState('TODOS');
-  const [toast, setToast] = useState(null);
-  const [form, setForm] = useState({ title: '', category: 'MÚSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
-
-  const showNotification = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
   useEffect(() => {
     fetchEvents();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        setUser(session.user);
+      if (session) { 
+        setUser(session.user); 
         loadUserData(session.user.id);
-      } else {
-        setUser(null); setProfile(null); setFavorites([]);
+      } else { 
+        setUser(null); setProfile(null); setFavorites([]); 
       }
     });
     return () => subscription.unsubscribe();
   }, []);
 
   const loadUserData = async (id) => {
+    // Verificar Admin por ID
     if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
       setProfile({ role: 'admin' });
     } else {
@@ -196,28 +118,9 @@ export default function App() {
     setEvents(data || []);
   };
 
-  const generateIA = () => {
-    if (!form.title) return showNotification("Pon un título ✨");
-    const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
-    setForm({...form, image_url: urlIA});
-    showNotification("Imagen IA Lista ✨");
-  };
-
-  const toggleFavorite = async (ev) => {
-    if (!user) return showNotification("Inicia sesión ❤️");
-    const id = String(ev.id);
-    if (favorites.includes(id)) {
-      setFavorites(f => f.filter(i => i !== id));
-      await supabase.from('favorites').delete().match({ user_id: user.id, event_id: id });
-    } else {
-      setFavorites(f => [...f, id]);
-      await supabase.from('favorites').insert({ user_id: user.id, event_id: id });
-    }
-  };
-
-  // FILTRO: Solo aprobados y de hoy en adelante (quita eliminados)
+  // FILTRO: Solo aprobados y de hoy en adelante (quita eventos borrados)
   const today = new Date().toISOString().split('T')[0];
-  const publicEvents = events.filter(e =>
+  const publicEvents = events.filter(e => 
     e.status === 'approved' && e.date >= today && (activeCategory === 'TODOS' || e.category === activeCategory)
   );
 
@@ -225,35 +128,30 @@ export default function App() {
     <div className={isDark ? "dark" : ""}>
       <style> {globalStyles} </style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
-
-        {toast && (
-          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl font-black uppercase text-[10px] tracking-widest">{toast}</div>
-        )}
-
+        
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
+            {/* ESCUDO DE ADMIN RESTAURADO */}
             {profile?.role === 'admin' && (
               <button onClick={() => setView('admin')} className="text-indigo-400 p-2">
                 <ShieldCheck size={28} />
               </button>
             )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
+            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            {user ? (
+            {user && (
               <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase" onClick={() => setView('profile')}>
                 {user.email[0]}
               </div>
-            ) : (
-              <button onClick={() => setView('profile')} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>
             )}
           </div>
         </nav>
 
-        <main className="flex-1 relative overflow-y-auto no-scrollbar">
+        <main className="flex-1 relative overflow-hidden">
           {view === 'home' && (
-            <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
+            <div className="max-w-xl mx-auto p-4 pb-40 h-full overflow-y-auto no-scrollbar">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
                   <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
@@ -261,11 +159,11 @@ export default function App() {
               </div>
               <div className="space-y-6">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[415px] border border-slate-800">
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 h-[415px] flex flex-col shadow-2xl">
                     <img src={ev.image_url} className="w-full h-52 object-cover" alt="img" />
                     <div className="p-5 flex-1 flex flex-col justify-center items-center text-center">
-                      <h3 className="text-xl font-black italic uppercase mb-4">{ev.title}</h3>
-                      <button className="w-full max-w-[280px] bg-blue-600 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg">Ver Detalles</button>
+                      <h3 className="text-xl font-black italic uppercase mb-2">{ev.title}</h3>
+                      <span className="text-indigo-400 font-black text-[10px] uppercase tracking-widest">{ev.city}</span>
                     </div>
                   </div>
                 ))}
@@ -273,66 +171,24 @@ export default function App() {
             </div>
           )}
 
-          {view === 'map' && (
-            <div className="absolute inset-0 z-0 map-container-wrapper">
-              <MapContainer
-                center={[40.41, -3.70]}
-                zoom={6}
-                className="h-full w-full"
-                zoomControl={false}
-                zoomSnap={0.5}
-                preferCanvas={true}  // Usa canvas en lugar de DOM para evitar líneas blancas
-                updateWhenIdle={false}
-                updateWhenZooming={true}
-                // Forzar recomputación de tiles
-                retryLimit={3}
-              >
+          {view === 'map' && ( 
+            <div className="absolute inset-0 z-0 bg-[#aad3df]"> 
+              <MapContainer key={view} center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}> 
                 <SpainMapController />
-
-                {/* OPCIÓN 1: CartoDB Positron - Diseño limpio, perfecto para España */}
-                <TileLayer
-                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a> - España'
-                  subdomains="abcd"
-                  maxZoom={19}
-                  tileSize={256}
-                  noWrap={true}
-                  /* Opciones anti-líneas blancas */
-                  keepBuffer={2}
-                  pane="tilePane"
-                />
-
-                {/* Marcadores de eventos */}
+                {/* IDIOMA ESPAÑOL: OpenStreetMap */}
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='ESPAÑA' /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup>
-                      <div className="p-2 text-center font-sans min-w-[150px]">
-                        <div className="font-bold text-sm uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
-                        <p className="text-xs font-bold uppercase opacity-60 text-slate-500">{ev.city}</p>
-                        {ev.date && (
-                          <p className="text-xs text-slate-600 mt-1">{new Date(ev.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                        )}
-                      </div>
-                    </Popup>
+                    <Popup><div className="text-center font-bold text-indigo-600 uppercase text-[10px]">{ev.title}</div></Popup>
                   </Marker>
-                ))}
-              </MapContainer>
-
-              {/* Leyenda del mapa en español */}
-              <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm rounded-xl p-3 shadow-lg z-[1000] max-w-[200px]">
-                <p className="text-xs font-bold text-slate-700 mb-2">MAPA DE ESPAÑA</p>
-                <p className="text-[10px] text-slate-500 leading-relaxed">
-                  Spain Map - OpenStreetMap<br />
-                  Cartografía: OpenStreetMap
-                </p>
-              </div>
-            </div>
+                ))} 
+              </MapContainer> 
+            </div> 
           )}
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
           <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? "bg-blue-600 text-white shadow-lg" : ""}`}><LayoutList size={26}/></button>
-          <button onClick={() => setView('create')} className="p-4 rounded-2xl"><PlusCircle size={26}/></button>
           <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg" : ""}`}><Heart size={26}/></button>
           <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? "bg-blue-600 text-white shadow-lg" : ""}`}><MapIcon size={26}/></button>
         </nav>
