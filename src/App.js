@@ -8,23 +8,36 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
+// Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// FIX DEFINITIVO: Solapamiento agresivo y suavizado de bordes para el mapa
-const customStyles = `
-  .leaflet-container { background-color: #fdfdfd !important; }
+// FIX RADICAL PARA ELIMINAR LÍNEAS BLANCAS Y ESTILO LOGO
+const customGlobalStyles = `
+  .leaflet-container { background-color: #f5f5f5 !important; }
   .leaflet-tile {
-    width: 258px !important; /* Agrandamos 2px para que se pisen */
+    /* SOLUCIÓN DEFINITIVA A LAS LÍNEAS: Solapamiento y suavizado */
+    width: 258px !important;
     height: 258px !important;
     margin-left: -1px !important;
     margin-top: -1px !important;
     outline: 1px solid transparent;
     image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
   }
-  .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; }
+  .logo-eventora {
+    font-family: 'Arial Black', sans-serif;
+    font-weight: 900;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    letter-spacing: -2px;
+    font-size: 26px;
+  }
+  .c-cian { color: #00e5ff; }
+  .c-blue { color: #2979ff; }
+  .c-purple { color: #aa00ff; }
 `;
 
+// Fix Marcadores Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -32,12 +45,13 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+// Componente para forzar el mapa a centrarse en España
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
     setTimeout(() => {
       map.invalidateSize();
-      map.setView([40.4167, -3.7037], 6); 
+      map.setView([40.4167, -3.7037], 6); // Madrid
     }, 500);
   }, [map]);
   return null;
@@ -63,7 +77,8 @@ function App() {
   const [toast, setToast] = useState(null);
   const [showCoffeeOptions, setShowCoffeeOptions] = useState(false);
 
-  const paypalUrl = "https://paypal.me/jacobogarver"; 
+  // CONFIGURACIÓN PAGO SEGURO
+  const paypalUrl = "https://paypal.me/TU_USUARIO"; 
   const kofiUrl = "https://ko-fi.com/jacobogarver";
 
   const showNotification = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
@@ -98,7 +113,7 @@ function App() {
     const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
     img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen IA Lista ✨"); };
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("IA: Lista ✨"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -106,11 +121,11 @@ function App() {
     if (!file) return;
     setIsProcessing(true);
     try {
-      const name = `${Date.now()}_img.jpg`;
+      const name = `${Date.now()}.jpg`;
       await supabase.storage.from('event-images').upload(name, file);
       const { data } = supabase.storage.from('event-images').getPublicUrl(name);
       setForm({ ...form, image_url: data.publicUrl });
-      showNotification("¡Subida!");
+      showNotification("¡Foto subida!");
     } catch (err) { alert("Error"); }
     finally { setIsProcessing(false); }
   };
@@ -125,7 +140,7 @@ function App() {
       let lat = 40.41; let lng = -3.70;
       if (geo && geo.length > 0) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
       await supabase.from('events').insert([{ ...form, lat, lng, status: profile?.role === 'admin' ? 'approved' : 'pending', organizer_id: user?.id }]);
-      showNotification("¡Enviado!");
+      showNotification("¡Publicado!");
       setView('home'); fetchEvents();
       setForm({ title: '', category: 'MUSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
     } catch (err) { alert("Error"); }
@@ -146,12 +161,8 @@ function App() {
 
   const handleImGoing = async () => {
     if (!user || !selectedEvent) return;
-    const id = String(selectedEvent.id);
-    if (!favorites.includes(id)) {
-      setFavorites(f => [...f, id]);
-      await supabase.from('favorites').insert({ user_id: user.id, event_id: id });
-    }
-    showNotification("¡Guardado!");
+    toggleFavorite(selectedEvent);
+    showNotification("¡Apuntado!");
   };
 
   const today = new Date().toISOString().split('T')[0];
@@ -160,40 +171,38 @@ function App() {
 
   return (
     <div className={isDark ? "dark" : ""}>
-      <style>{customStyles}</style>
+      <style>{customGlobalStyles}</style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
         
         {toast && (
           <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top text-center">
+            <CheckCircle2 size={16} className="inline mr-2"/>
             <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
           </div>
         )}
 
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-6 z-[2000] shadow-sm">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}>
-             {/* LOGO EVENTORA IDENTICO A TU FOTO */}
-             <div className="logo-font text-2xl flex items-center">
-                <span style={{color: '#00e5ff'}}>E</span>
-                <span style={{color: '#00e5ff'}}>V</span>
-                <span style={{color: '#38bdf8'}}>E</span>
-                <span style={{color: '#3b82f6'}}>N</span>
-                <span style={{color: '#6366f1'}}>T</span>
-                <span style={{color: '#8b5cf6'}}>O</span>
-                <span style={{color: '#a855f7'}}>R</span>
-                <span style={{color: '#d946ef'}}>A</span>
-                <div className="ml-2 bg-indigo-500/20 p-1 rounded-lg">
-                  <Calendar className="text-indigo-400" size={22} />
-                </div>
+             <div className="logo-eventora">
+                <span className="c-cian">E</span>
+                <span className="c-cian">V</span>
+                <span className="c-blue">E</span>
+                <span className="c-blue">N</span>
+                <span className="c-purple">T</span>
+                <span className="c-purple">O</span>
+                <span className="c-purple">R</span>
+                <span className="c-purple">A</span>
+                <Calendar className="text-indigo-400 ml-2" size={24} />
              </div>
           </div>
           <div className="flex items-center gap-4">
             {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
               <button onClick={() => setView('admin')} className="text-slate-400"><ShieldCheck size={28}/></button>
             )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
+            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => {setView('profile'); setShowCoffeeOptions(false);}}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
+            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => setView('profile')}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
           </div>
         </nav>
 
@@ -224,6 +233,26 @@ function App() {
             </div>
           )}
 
+          {view === 'map' && ( 
+            <div className="absolute inset-0 z-0 bg-[#cbd2d3]"> 
+              <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
+                <SpainMapController />
+                {/* CARTO VOYAGER EN ESPAÑOL */}
+                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{y}/{x}{r}.png" attribution='ESPAÑA' /> 
+                {publicEvents.map(ev => ev.lat && (
+                  <Marker key={ev.id} position={[ev.lat, ev.lng]}>
+                    <Popup>
+                      <div className="p-1 text-center" onClick={() => setSelectedEvent(ev)}>
+                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
+                        <p className="text-[8px] font-bold uppercase opacity-60">{ev.city}</p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))} 
+              </MapContainer> 
+            </div> 
+          )}
+
           {view === 'profile' && (
             <div className="max-w-xl mx-auto p-4 pt-2 text-center animate-in slide-in-from-bottom pb-40">
                <div className="bg-[#0f172a] rounded-[3rem] p-6 shadow-2xl border border-slate-800">
@@ -231,7 +260,7 @@ function App() {
                     {user?.email[0]}
                   </div>
                   <h2 className="text-sm font-black mb-8 uppercase tracking-widest text-slate-300">Apoya el Proyecto</h2>
-                  <div className="space-y-4">
+                  <div className="space-y-4 text-white">
                     {!showCoffeeOptions ? (
                       <button onClick={() => setShowCoffeeOptions(true)} className="w-full bg-amber-500 text-white p-5 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
                         <Coffee size={20} /> Invitar a un café
@@ -247,30 +276,12 @@ function App() {
                         <button onClick={() => setShowCoffeeOptions(false)} className="w-full bg-slate-800 text-white p-3 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 mt-2 shadow-lg"><ArrowLeft size={14} /> VOLVER</button>
                       </div>
                     )}
-                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition mt-6"><LogOut size={20} /> Cerrar Sesión</button>
+                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition mt-6">
+                      <LogOut size={20} /> Cerrar Sesión
+                    </button>
                   </div>
                </div>
             </div>
-          )}
-
-          {view === 'map' && ( 
-            <div className="absolute inset-0 z-0 bg-[#f8f9fa]"> 
-              <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
-                <SpainMapController />
-                {/* SERVIDOR OPENSTREETMAP: Nombres en ESPAÑOL garantizados en España */}
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{y}/{x}.png" attribution='&copy; OSM contributors' /> 
-                {publicEvents.map(ev => ev.lat && (
-                  <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup>
-                      <div className="p-1 text-center" onClick={() => setSelectedEvent(ev)}>
-                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
-                        <p className="text-[8px] font-bold uppercase opacity-60">{ev.city}</p>
-                      </div>
-                    </Popup>
-                  </Marker>
-                ))} 
-              </MapContainer> 
-            </div> 
           )}
 
           {view === 'favorites' && (
@@ -291,11 +302,11 @@ function App() {
           )}
         </main>
 
-        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 transition-all text-slate-500">
-          <button onClick={() => {setView('home'); setSelectedEvent(null);}} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : ""}`}><LayoutList size={26}/></button>
-          <button onClick={() => setView('create')} className="p-4 rounded-2xl hover:text-white"><PlusCircle size={26}/></button>
-          <button onClick={() => {setView('favorites'); setSelectedEvent(null);}} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : ""}`}><Heart size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : ""}`}><MapIcon size={26}/></button>
+        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 transition-all">
+          <button onClick={() => {setView('home'); setSelectedEvent(null);}} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : "text-slate-500"}`}><LayoutList size={26}/></button>
+          <button onClick={() => setView('create')} className="p-4 rounded-2xl text-slate-500 hover:text-white transition-all"><PlusCircle size={26}/></button>
+          <button onClick={() => {setView('favorites'); setSelectedEvent(null);}} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : "text-slate-500"}`}><Heart size={26}/></button>
+          <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : "text-slate-500"}`}><MapIcon size={26}/></button>
         </nav>
       </div>
     </div>
