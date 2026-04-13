@@ -11,12 +11,14 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 /* =========================
-   SOLO FIX MAPA (NO TOCO MÁS)
+   FIX MAPA (SIN ROMPER UI)
 ========================= */
 const customGlobalStyles = `
-  .leaflet-container { background-color: #f5f5f5 !important; }
+  .leaflet-container {
+    background-color: #f5f5f5 !important;
+  }
 
-  /* FIX LÍNEAS BLANCAS REAL */
+  /* FIX REAL DE LÍNEAS BLANCAS (SIN HACKS RAROS) */
   .leaflet-tile {
     image-rendering: auto;
     transform: translate3d(0,0,0);
@@ -36,11 +38,15 @@ const customGlobalStyles = `
     letter-spacing: -2px;
     font-size: 26px;
   }
+
   .c-cian { color: #00e5ff; }
   .c-blue { color: #2979ff; }
   .c-purple { color: #aa00ff; }
 `;
 
+/* =========================
+   FIX ICONOS LEAFLET
+========================= */
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -49,7 +55,7 @@ L.Icon.Default.mergeOptions({
 });
 
 /* =========================
-   MAPA ESPAÑA (FIX SOLO AQUÍ)
+   🇪🇸 CENTRAR ESPAÑA
 ========================= */
 function SpainMapController() {
   const map = useMap();
@@ -80,14 +86,17 @@ function App() {
   const [view, setView] = useState('home');
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [activeCategory, setActiveCategory] = useState('TODOS');
-  const [form, setForm] = useState({ title: '', category: 'MUSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [showCoffeeOptions, setShowCoffeeOptions] = useState(false);
+  const [form, setForm] = useState({
+    title: '',
+    category: 'MUSICA',
+    city: '',
+    address: '',
+    date: '',
+    time: '21:00',
+    image_url: ''
+  });
 
-  const paypalUrl = "https://paypal.me/TU_USUARIO"; 
-  const kofiUrl = "https://ko-fi.com/jacobogarver";
+  const [toast, setToast] = useState(null);
 
   const showNotification = (msg) => {
     setToast(msg);
@@ -96,10 +105,18 @@ function App() {
 
   useEffect(() => {
     fetchEvents();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) { setUser(session.user); loadUserData(session.user.id); }
-      else { setUser(null); setProfile(null); setFavorites([]); }
+      if (session) {
+        setUser(session.user);
+        loadUserData(session.user.id);
+      } else {
+        setUser(null);
+        setProfile(null);
+        setFavorites([]);
+      }
     });
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -107,8 +124,8 @@ function App() {
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single();
     if (prof) setProfile(prof);
 
-    const { data: f } = await supabase.from('favorites').select('event_id').eq('user_id', id);
-    if (f) setFavorites(f.map(i => String(i.event_id)));
+    const { data: favs } = await supabase.from('favorites').select('event_id').eq('user_id', id);
+    if (favs) setFavorites(favs.map(f => String(f.event_id)));
   };
 
   const fetchEvents = async () => {
@@ -117,9 +134,12 @@ function App() {
   };
 
   const today = new Date().toISOString().split('T')[0];
+
   const activeEvents = events.filter(e => e.date >= today);
+
   const publicEvents = activeEvents.filter(
-    e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory)
+    e => e.status === 'approved' &&
+    (activeCategory === 'TODOS' || e.category === activeCategory)
   );
 
   return (
@@ -135,42 +155,45 @@ function App() {
           </div>
         )}
 
-        {/* NAV ORIGINAL INTACTO */}
+        {/* NAVBAR ORIGINAL */}
         <nav className="h-[70px] flex items-center justify-between px-6 bg-[#0f172a] border-b border-slate-800">
-          <div className="logo-eventora" onClick={() => setView('home')}>
+          <div className="logo-eventora cursor-pointer" onClick={() => setView('home')}>
             EVENTORA
           </div>
 
-          <button onClick={() => setIsDark(!isDark)}>
-            {isDark ? <Sun /> : <Moon />}
-          </button>
+          <div className="flex gap-3">
+            <button onClick={() => setIsDark(!isDark)}>
+              {isDark ? <Sun /> : <Moon />}
+            </button>
+          </div>
         </nav>
 
         <main className="flex-1 relative overflow-hidden">
 
-          {/* HOME (NO TOCADO) */}
+          {/* HOME */}
           {view === 'home' && (
             <div className="p-4">
               {publicEvents.map(ev => (
                 <div key={ev.id} className="bg-[#0f172a] p-4 rounded-xl mb-3">
-                  {ev.title}
+                  <h3>{ev.title}</h3>
                 </div>
               ))}
             </div>
           )}
 
-          {/* MAPA (ÚNICO CAMBIO REAL) */}
+          {/* MAPA (FIX FINAL SIN ROMPER NADA) */}
           {view === 'map' && (
-            <div className="absolute inset-0 bg-[#cbd2d3]">
+            <div className="absolute inset-0">
               <MapContainer
                 center={[40.4167, -3.7037]}
                 zoom={6}
                 preferCanvas={true}
                 className="h-full w-full"
+                zoomControl={false}
               >
                 <SpainMapController />
 
-                {/* 🔥 MAPA SIN LÍNEAS */}
+                {/* 🔥 MAPA LIMPIO SIN LÍNEAS */}
                 <TileLayer
                   url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
                   attribution="© OpenStreetMap © CARTO"
@@ -179,20 +202,22 @@ function App() {
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
-                      <div>
-                        <b>{ev.title}</b><br/>
+                      <div className="text-center">
+                        <b>{ev.title}</b>
+                        <br />
                         {ev.city}
                       </div>
                     </Popup>
                   </Marker>
                 ))}
+
               </MapContainer>
             </div>
           )}
 
         </main>
 
-        {/* NAV INFERIOR (NO TOCADO) */}
+        {/* NAV INFERIOR ORIGINAL */}
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] bg-[#0f172a] h-[80px] rounded-2xl flex justify-around items-center">
           <button onClick={() => setView('home')}>
             <LayoutList />
