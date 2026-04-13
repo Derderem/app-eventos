@@ -8,46 +8,16 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// Estilos obligatorios de Leaflet
 import 'leaflet/dist/leaflet.css';
 
-// ============================================================
-// FIX TOTAL: DISEÑO, SIN LÍNEAS Y EN ESPAÑOL
-// ============================================================
 const globalStyles = `
-  .leaflet-container { 
-    background-color: #f1f4f5 !important; 
-    height: 100% !important; 
-    width: 100% !important; 
-  }
-  
-  /* ELIMINAR LÍNEAS BLANCAS: Solapamiento por escala interna */
-  .leaflet-tile {
-    transform: scale(1.02) !important;
-    outline: 1px solid transparent;
-    -webkit-backface-visibility: hidden;
-    image-rendering: -webkit-optimize-contrast;
-  }
-
-  /* ELIMINAR CUADRO BLANCO */
-  .leaflet-container img {
-    max-width: none !important;
-    max-height: none !important;
-  }
-
-  .logo-font { 
-    font-family: 'Arial Black', sans-serif; 
-    font-weight: 900; 
-    font-style: italic; 
-    display: flex; 
-    align-items: center; 
-    letter-spacing: -2px; 
-  }
+  .leaflet-container { background-color: #f8f9fa !important; height: 100% !important; width: 100% !important; }
+  .leaflet-tile { transform: scale(1.02) !important; outline: 1px solid transparent; -webkit-backface-visibility: hidden; }
+  .leaflet-container img { max-width: none !important; max-height: none !important; }
+  .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
-// Fix Marcadores (Pines)
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -55,14 +25,10 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Forzar que el mapa se centre y se cargue bien
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    setTimeout(() => {
-      map.invalidateSize();
-      map.setView([40.4167, -3.7037], 6); 
-    }, 500);
+    setTimeout(() => { map.invalidateSize(); map.setView([40.4167, -3.7037], 6); }, 500);
   }, [map]);
   return null;
 }
@@ -92,7 +58,6 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [events, setEvents] = useState([]);
-  const [favorites, setFavorites] = useState([]);
   const [view, setView] = useState('home');
   const [isDark, setIsDark] = useState(true);
 
@@ -102,67 +67,37 @@ export default function App() {
       if (session) {
         setUser(session.user);
         if (session.user.id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
-        loadFavorites(session.user.id);
-      } else {
-        setUser(null); setProfile(null); setFavorites([]);
-      }
+      } else { setUser(null); setProfile(null); }
     });
   }, []);
 
   const fetchEvents = async () => {
-    const { data } = await supabase.from('events').select('*').eq('status', 'approved').order('date', { ascending: true });
+    const { data } = await supabase.from('events').select('*').eq('status', 'approved');
     if (data) setEvents(data);
   };
-
-  const loadFavorites = async (userId) => {
-    const { data } = await supabase.from('favorites').select('event_id').eq('user_id', userId);
-    if (data) setFavorites(data.map(f => String(f.event_id)));
-  };
-
-  const today = new Date().toISOString().split('T')[0];
-  const publicEvents = events.filter(e => e.date >= today);
 
   return (
     <div className={isDark ? "dark" : ""}>
       <style>{globalStyles}</style>
-      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500 font-sans">
+      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all">
         
-        {/* BARRA SUPERIOR: Escudo Admin visible si eres tú */}
-        <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
-          <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
+        <nav className="h-[70px] shrink-0 bg-slate-900 border-b border-indigo-500 flex justify-between items-center px-8 z-[2000]">
+          <LogoSVG onClick={() => setView('home')} />
           <div className="flex items-center gap-4">
-            {profile?.role === 'admin' && (
-              <button onClick={() => setView('admin')} className="text-indigo-400 p-2 hover:bg-slate-800 rounded-full transition">
-                <ShieldCheck size={28} />
-              </button>
-            )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
-               {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
-            </button>
-            {user && (
-              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase shadow-lg" onClick={() => setView('profile')}>
-                {user.email[0]}
-              </div>
-            )}
+             <span className="text-[10px] font-bold text-indigo-400 bg-indigo-400/10 px-2 py-1 rounded">V3</span>
+             {profile?.role === 'admin' && <ShieldCheck size={28} className="text-indigo-400" />}
+             <button onClick={() => setIsDark(!isDark)}><Sun size={24} /></button>
+             {user && <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center font-bold" onClick={() => setView('profile')}>{user.email[0].toUpperCase()}</div>}
           </div>
         </nav>
 
         <main className="flex-1 relative overflow-hidden">
           {view === 'home' && (
-            <div className="max-w-xl mx-auto p-4 h-full overflow-y-auto no-scrollbar pb-40">
-              <h2 className="text-center text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Próximos Eventos</h2>
-              {publicEvents.map(ev => (
-                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl transition-transform active:scale-[0.98]">
-                  <div className="relative h-52 overflow-hidden">
-                    <img src={ev.image_url} className="w-full h-full object-cover" alt="" />
-                    <button className={`absolute top-5 right-5 p-3 rounded-full shadow-xl transition ${favorites.includes(String(ev.id)) ? 'bg-red-500 text-white' : 'bg-white text-red-500'}`}>
-                      <Heart size={20} fill={favorites.includes(String(ev.id)) ? "currentColor" : "none"} />
-                    </button>
-                  </div>
-                  <div className="p-6 text-center">
-                    <h3 className="text-xl font-black uppercase italic tracking-tighter mb-1">{ev.title}</h3>
-                    <p className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em]">{ev.city}</p>
-                  </div>
+            <div className="p-4 h-full overflow-y-auto pb-40">
+              {events.map(ev => (
+                <div key={ev.id} className="bg-slate-900 rounded-[2rem] overflow-hidden border border-slate-800 mb-6">
+                  <img src={ev.image_url} className="w-full h-52 object-cover" alt="" />
+                  <div className="p-6 text-center font-black uppercase italic text-xl">{ev.title}</div>
                 </div>
               ))}
             </div>
@@ -170,39 +105,25 @@ export default function App() {
 
           {view === 'map' && (
             <div className="absolute inset-0 z-0">
-              <MapContainer key="map-ign-es" center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}>
+              <MapContainer key="mapa-españa-ign" center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}>
                 <SpainMapController />
-                {/* MAPA OFICIAL IGN ESPAÑA - SIEMPRE EN ESPAÑOL */}
                 <TileLayer
                   url="https://www.ign.es/wmts/mapa-raster?layer=MTN&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}"
                   attribution='IGN España'
                 />
-                {publicEvents.map(ev => ev.lat && (
-                  <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup>
-                      <div className="p-1 text-center font-sans">
-                         <div className="font-black uppercase text-indigo-600 text-xs">{ev.title}</div>
-                         <div className="text-[10px] text-slate-400 font-bold uppercase">{ev.city}</div>
-                      </div>
-                    </Popup>
-                  </Marker>
-                ))}
+                {events.map(ev => ev.lat && <Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup>{ev.title}</Popup></Marker>)}
               </MapContainer>
             </div>
           )}
-
-          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase italic text-slate-700">Crear Evento</div>}
-          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase italic text-slate-700">Mis Guardados</div>}
-          {view === 'admin' && <div className="h-full flex items-center justify-center font-black uppercase italic text-indigo-600">Panel de Control</div>}
-          {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase italic text-slate-700">Mi Perfil</div>}
+          {view === 'create' && <div className="p-20 text-center font-black">PANTALLA CREAR</div>}
+          {view === 'favorites' && <div className="p-20 text-center font-black">PANTALLA FAVORITOS</div>}
         </main>
 
-        {/* NAVEGACIÓN INFERIOR: Los 4 botones de tu diseño original */}
-        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
-          <button onClick={() => setView('home')} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><LayoutList size={26}/></button>
-          <button onClick={() => setView('create')} className={`p-4 rounded-2xl transition-all ${view === 'create' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><PlusCircle size={26}/></button>
-          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><Heart size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><MapIcon size={26}/></button>
+        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-slate-900 border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4">
+          <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? "bg-blue-600 text-white" : "text-slate-500"}`}><LayoutList size={26}/></button>
+          <button onClick={() => setView('create')} className={`p-4 rounded-2xl ${view === 'create' ? "bg-blue-600 text-white" : "text-slate-500"}`}><PlusCircle size={26}/></button>
+          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl ${view === 'favorites' ? "bg-blue-600 text-white" : "text-slate-500"}`}><Heart size={26}/></button>
+          <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? "bg-blue-600 text-white" : "text-slate-500"}`}><MapIcon size={26}/></button>
         </nav>
       </div>
     </div>
