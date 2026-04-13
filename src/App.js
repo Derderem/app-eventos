@@ -12,23 +12,35 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX DEFINITIVO: LÍNEAS BLANCAS Y DISEÑO
+// FIX NUCLEAR: ELIMINACIÓN TOTAL DE LÍNEAS BLANCAS
 // ============================================================
 const globalStyles = `
+  /* 1. Fondo del contenedor igual al color predominante del mapa IGN */
   .leaflet-container { 
-    background-color: #f8f9fa !important; 
+    background-color: #e3eaef !important; 
     border: none !important;
   }
   
-  /* SOLUCIÓN PARA LAS LÍNEAS BLANCAS: Solapamiento de píxeles */
+  /* 2. SOLUCIÓN DEFINITIVA: Solapamiento y renderizado duro */
   .leaflet-tile {
-    width: 257.5px !important;
-    height: 257.5px !important;
-    margin-left: -0.5px !important;
-    margin-top: -0.5px !important;
-    filter: brightness(1.02);
+    /* Forzamos a que las baldosas sean 2px más grandes y se pisen 1px */
+    width: 258px !important;
+    height: 258px !important;
+    margin-left: -1px !important;
+    margin-top: -1px !important;
+    
+    /* Evita el antialiasing (suavizado) que crea la línea transparente */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    
+    /* Forzar renderizado sólido */
     outline: 1px solid transparent;
     -webkit-backface-visibility: hidden;
+  }
+
+  /* Elimina el efecto de parpadeo al cargar */
+  .leaflet-tile-loaded {
+    display: block;
   }
 
   .logo-font { 
@@ -58,7 +70,7 @@ function SpainMapController() {
     setTimeout(() => {
       map.invalidateSize();
       map.setView([40.4167, -3.7037], 6); 
-    }, 600);
+    }, 500);
   }, [map]);
   return null;
 }
@@ -171,7 +183,7 @@ export default function App() {
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
+                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
                 ))}
               </div>
               <div className="space-y-6">
@@ -189,17 +201,18 @@ export default function App() {
           )}
 
           {view === 'map' && ( 
-            <div className="absolute inset-0 z-0"> 
+            <div className="absolute inset-0 z-0 bg-[#aad3df]"> 
               <MapContainer 
                 center={[40.41, -3.70]} 
                 zoom={6} 
                 className="h-full w-full" 
                 zoomControl={false}
                 zoomSnap={1}
+                fadeAnimation={false} // SECRETO PARA ELIMINAR LÍNEAS AL CARGAR
               > 
                 <SpainMapController />
                 
-                {/* CAPA OFICIAL DEL IGN ESPAÑA (Mapa Callejero) */}
+                {/* MAPA OFICIAL IGN ESPAÑA */}
                 <TileLayer
                   url="https://www.ign.es/wmts/mapa-raster?layer=MTN&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}"
                   attribution='&copy; Instituto Geográfico Nacional'
@@ -208,7 +221,7 @@ export default function App() {
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
-                      <div className="p-1 text-center">
+                      <div className="p-1 text-center font-sans">
                         <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
                         <p className="text-[8px] font-bold uppercase opacity-60 text-slate-500">{ev.city}</p>
                       </div>
@@ -221,10 +234,10 @@ export default function App() {
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
-          <button onClick={() => setView('home')} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-lg" : ""}`}><LayoutList size={26}/></button>
+          <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? "bg-blue-600 text-white shadow-lg" : ""}`}><LayoutList size={26}/></button>
           <button onClick={() => setView('create')} className="p-4 rounded-2xl"><PlusCircle size={26}/></button>
-          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg" : ""}`}><Heart size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-lg" : ""}`}><MapIcon size={26}/></button>
+          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg" : ""}`}><Heart size={26}/></button>
+          <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? "bg-blue-600 text-white shadow-lg" : ""}`}><MapIcon size={26}/></button>
         </nav>
       </div>
     </div>
