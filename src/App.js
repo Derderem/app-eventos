@@ -12,7 +12,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX ATÓMICO FINAL PARA LAS LÍNEAS BLANCAS
+// FIX NUCLEAR PARA LÍNEAS BLANCAS (SIN OUTLINES)
 // ============================================================
 const globalStyles = `
   .leaflet-container { 
@@ -20,19 +20,21 @@ const globalStyles = `
     border: none !important;
   }
   
-  /* SOLUCIÓN TÉCNICA: Borde de sangrado y solapamiento */
+  /* SOLUCIÓN FINAL: Escala fraccional y solapamiento */
   .leaflet-tile {
-    width: 257px !important;
-    height: 257px !important;
-    margin-left: -0.5px !important;
-    margin-top: -0.5px !important;
-    
-    /* El truco: un borde sutil del color del agua para tapar la grieta */
-    outline: 0.5px solid #aad3df; 
+    /* Hacemos que la baldosa sea un pelín más grande para solapar */
+    transform: scale(1.02) !important; 
     
     /* Evita el antialiasing transparente de Chrome */
     -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
     image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+
+  /* Asegura que no haya bordes internos en los contenedores de Leaflet */
+  .leaflet-tile-container {
+    will-change: transform;
   }
 
   .logo-font { 
@@ -67,7 +69,7 @@ function SpainMapController() {
   return null;
 }
 
-// LOGO EVENTORA ORIGINAL COMPLETO (Con rect y paths)
+// LOGO EVENTORA ORIGINAL COMPLETO
 const LogoSVG = () => (
   <svg width="170" height="35" viewBox="0 0 240 50">
     <defs>
@@ -98,7 +100,6 @@ export default function App() {
   const [view, setView] = useState('home');
   const [activeCategory, setActiveCategory] = useState('TODOS');
   const [toast, setToast] = useState(null);
-  const [form, setForm] = useState({ title: '', category: 'MÚSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
 
   const showNotification = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
@@ -116,6 +117,7 @@ export default function App() {
   }, []);
 
   const loadUserData = async (id) => {
+    // ADMIN CHECK
     if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
       setProfile({ role: 'admin' });
     } else {
@@ -157,19 +159,14 @@ export default function App() {
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
         
         {toast && (
-          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl font-black uppercase text-[10px] tracking-widest">
-            {toast}
-          </div>
+          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl font-black uppercase text-[10px] tracking-widest">{toast}</div>
         )}
 
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
-            {/* ESCUDO DE ADMIN RECUPERADO */}
             {profile?.role === 'admin' && (
-              <button onClick={() => setView('admin')} className="text-indigo-400 p-2">
-                <ShieldCheck size={28} />
-              </button>
+              <button onClick={() => setView('admin')} className="text-indigo-400 p-2"><ShieldCheck size={28} /></button>
             )}
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
@@ -237,10 +234,10 @@ export default function App() {
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
-          <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? "bg-blue-600 text-white shadow-lg" : ""}`}><LayoutList size={26}/></button>
+          <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? "bg-blue-600 text-white" : ""}`}><LayoutList size={26}/></button>
           <button onClick={() => setView('create')} className="p-4 rounded-2xl"><PlusCircle size={26}/></button>
-          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg" : ""}`}><Heart size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? "bg-blue-600 text-white shadow-lg" : ""}`}><MapIcon size={26}/></button>
+          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl ${view === 'favorites' ? "bg-blue-600 text-white" : ""}`}><Heart size={26}/></button>
+          <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? "bg-blue-600 text-white" : ""}`}><MapIcon size={26}/></button>
         </nav>
       </div>
     </div>
