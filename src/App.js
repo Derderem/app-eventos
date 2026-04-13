@@ -12,24 +12,30 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX DEFINITIVO LÍNEAS BLANCAS Y DISEÑO
+// FIX RADICAL: ELIMINACIÓN TOTAL DE LÍNEAS BLANCAS
 // ============================================================
 const globalStyles = `
+  /* 1. Color de fondo igual al del mapa para que las grietas sean invisibles */
   .leaflet-container { 
     background-color: #aad3df !important; 
     border: none !important;
+    outline: none !important;
   }
   
-  /* SOLUCIÓN FINAL A LAS LÍNEAS: Solapamos baldosas 1px */
+  /* 2. SOLUCIÓN MAESTRA: Solapamiento de 2 píxeles (Fuerza bruta) */
   .leaflet-tile {
-    width: 257px !important;
-    height: 257px !important;
-    margin-left: -0.5px !important;
-    margin-top: -0.5px !important;
-    outline: 1px solid transparent;
+    width: 258px !important; /* 2px más grande que el estándar */
+    height: 258px !important;
+    margin-left: -1px !important;
+    margin-top: -1px !important;
     filter: brightness(1.02);
+    /* Evita que el navegador suavice los bordes */
+    outline: 1px solid transparent;
     -webkit-backface-visibility: hidden;
+    image-rendering: -webkit-optimize-contrast;
   }
+
+  .leaflet-tile-container { will-change: transform; }
 
   .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -44,7 +50,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Componente para forzar el mapa a centrarse en España
+// Forzar centro en España
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
@@ -56,7 +62,6 @@ function SpainMapController() {
   return null;
 }
 
-// LOGO EVENTORA
 const LogoSVG = () => (
   <svg width="170" height="35" viewBox="0 0 240 50">
     <defs>
@@ -83,35 +88,25 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [events, setEvents] = useState([]);
   const [favorites, setFavorites] = useState([]);
-  const [isDark, setIsDark] = useState(true);
   const [view, setView] = useState('home');
   const [activeCategory, setActiveCategory] = useState('TODOS');
+  const [isDark, setIsDark] = useState(true);
   const [toast, setToast] = useState(null);
-  const [showCoffeeOptions, setShowCoffeeOptions] = useState(false);
+  const [form, setForm] = useState({ title: '', category: 'MÚSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
 
   const showNotification = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
   useEffect(() => {
     fetchEvents();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) { 
-        setUser(session.user); 
-        loadUserData(session.user.id);
-      } else { 
-        setUser(null); setProfile(null); setFavorites([]); 
-      }
+      if (session) { setUser(session.user); loadUserData(session.user.id); }
+      else { setUser(null); setProfile(null); setFavorites([]); }
     });
     return () => subscription.unsubscribe();
   }, []);
 
   const loadUserData = async (id) => {
-    // ID Administrador proporcionado
-    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
-      setProfile({ role: 'admin' });
-    } else {
-      const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single();
-      if (prof) setProfile(prof);
-    }
+    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
     const { data: f } = await supabase.from('favorites').select('event_id').eq('user_id', id);
     if (f) setFavorites(f.map(item => String(item.event_id)));
   };
@@ -119,6 +114,13 @@ export default function App() {
   const fetchEvents = async () => {
     const { data } = await supabase.from('events').select('*').order('date', { ascending: true });
     setEvents(data || []);
+  };
+
+  const generateIA = () => {
+    if (!form.title) return showNotification("Pon un título ✨");
+    const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
+    setForm({...form, image_url: urlIA});
+    showNotification("Imagen IA Lista ✨");
   };
 
   const toggleFavorite = async (ev) => {
@@ -133,9 +135,7 @@ export default function App() {
     }
   };
 
-  const today = new Date().toISOString().split('T')[0];
-  const activeEvents = events.filter(e => e.date >= today);
-  const publicEvents = activeEvents.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
+  const publicEvents = events.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
 
   return (
     <div className={isDark ? "dark" : ""}>
@@ -143,26 +143,23 @@ export default function App() {
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
         
         {toast && (
-          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl text-center animate-bounce">
-            <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
+          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-bounce text-[10px] font-black uppercase tracking-widest">
+            {toast}
           </div>
         )}
 
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
-          <div className="flex items-center cursor-pointer" onClick={() => setView('home')}>
-             <LogoSVG />
-          </div>
+          <div className="cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
-            {profile?.role === 'admin' && <ShieldCheck size={24} className="text-indigo-500" />}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
+            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
             {user ? (
-              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white cursor-pointer" onClick={() => setView('profile')}>
+              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer" onClick={() => setView('profile')}>
                 {user.email[0].toUpperCase()}
               </div>
             ) : (
-              <button onClick={() => showNotification("Inicia sesión en el perfil")} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>
+              <button onClick={() => showNotification("Login en Perfil")} className="bg-indigo-600 px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>
             )}
           </div>
         </nav>
@@ -178,14 +175,14 @@ export default function App() {
               </div>
               <div className="space-y-6">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 shadow-2xl flex flex-col h-[415px]">
-                    <div className="relative h-52 overflow-hidden">
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 shadow-2xl h-[415px] flex flex-col">
+                    <div className="relative h-52">
                       <img src={ev.image_url} className="w-full h-full object-cover" alt="img" />
                       <button onClick={() => toggleFavorite(ev)} className="absolute top-4 right-4 p-2.5 bg-white rounded-full text-red-500 shadow-xl">
                         <Heart size={18} fill={favorites.includes(String(ev.id)) ? "red" : "none"} />
                       </button>
                     </div>
-                    <div className="p-5 flex-1 flex flex-col justify-center items-center text-center text-white">
+                    <div className="p-5 flex-1 flex flex-col justify-center items-center text-center">
                       <h3 className="text-xl font-black italic uppercase tracking-tighter mb-4">{ev.title}</h3>
                       <button className="w-full max-w-[280px] bg-blue-600 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg">Ver Detalles</button>
                     </div>
@@ -196,16 +193,15 @@ export default function App() {
           )}
 
           {view === 'map' && ( 
-            <div className="absolute inset-0 z-0 bg-[#aad3df]"> 
+            <div className="absolute inset-0 z-0"> 
               <MapContainer 
                 center={[40.41, -3.70]} 
                 zoom={6} 
                 className="h-full w-full" 
                 zoomControl={false}
-                zoomSnap={1}
+                zoomSnap={1} // EVITA LÍNEAS AL FORZAR ZOOM ENTERO
               > 
                 <SpainMapController />
-                {/* TILELAYER DE OPENSTREETMAP: Nombres en ESPAÑOL */}
                 <TileLayer 
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
                   attribution='&copy; España'
@@ -214,7 +210,7 @@ export default function App() {
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
                       <div className="p-1 text-center font-sans">
-                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
+                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1">{ev.title}</div>
                         <p className="text-[8px] font-bold uppercase opacity-60 text-slate-500">{ev.city}</p>
                       </div>
                     </Popup>
@@ -225,36 +221,22 @@ export default function App() {
           )}
 
           {view === 'profile' && (
-            <div className="max-w-xl mx-auto p-4 pt-2 text-center pb-40">
-               <div className="bg-[#0f172a] rounded-[3rem] p-6 shadow-2xl border border-slate-800">
-                  <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black text-white border-2 border-white shadow-xl uppercase">
+            <div className="max-w-xl mx-auto p-4 text-center pb-40">
+               <div className="bg-[#0f172a] rounded-[3rem] p-6 border border-slate-800 shadow-2xl">
+                  <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black text-white border-2 border-white shadow-xl shadow-indigo-500/20 uppercase">
                     {user?.email[0]}
                   </div>
-                  <h2 className="text-sm font-black mb-8 uppercase tracking-widest text-slate-300">Mi Perfil</h2>
-                  <div className="space-y-4">
-                    {!showCoffeeOptions ? (
-                      <button onClick={() => setShowCoffeeOptions(true)} className="w-full bg-amber-500 text-white p-5 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3">
-                        <Coffee size={20} /> Invitar a un café
-                      </button>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-2">
-                        <a href="https://ko-fi.com/jacobogarver" target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3"><ExternalLink size={16} /> Ko-fi</a>
-                        <a href="https://paypal.me/jacobogarver" target="_blank" rel="noreferrer" className="w-full bg-[#003087] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3"><CreditCard size={16} /> PayPal</a>
-                        <button onClick={() => setShowCoffeeOptions(false)} className="text-slate-500 text-[10px] font-bold mt-2 uppercase">Volver</button>
-                      </div>
-                    )}
-                    <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 mt-6"><LogOut size={20} /> Cerrar Sesión</button>
-                  </div>
+                  <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 mt-6"><LogOut size={20} /> Cerrar Sesión</button>
                </div>
             </div>
           )}
         </main>
 
-        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 transition-all text-slate-500">
-          <button onClick={() => setView('home')} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><LayoutList size={26}/></button>
+        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
+          <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? "bg-blue-600 text-white shadow-lg" : ""}`}><LayoutList size={26}/></button>
           <button onClick={() => setView('create')} className="p-4 rounded-2xl"><PlusCircle size={26}/></button>
-          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><Heart size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><MapIcon size={26}/></button>
+          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg" : ""}`}><Heart size={26}/></button>
+          <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? "bg-blue-600 text-white shadow-lg" : ""}`}><MapIcon size={26}/></button>
         </nav>
       </div>
     </div>
