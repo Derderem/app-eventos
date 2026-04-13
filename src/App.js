@@ -8,28 +8,16 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
 const globalStyles = `
-  .leaflet-container { background-color: #f8f9fa !important; height: 100% !important; width: 100% !important; }
-  
-  /* FIX RADICAL LÍNEAS BLANCAS: Solapamiento */
-  .leaflet-tile {
-    transform: scale(1.02) !important;
-    outline: 1px solid transparent;
-    -webkit-backface-visibility: hidden;
-  }
-
-  /* FIX CUADRO BLANCO */
+  .leaflet-container { background-color: #f1f4f5 !important; height: 100% !important; width: 100% !important; }
+  .leaflet-tile { transform: scale(1.02) !important; outline: 1px solid transparent; -webkit-backface-visibility: hidden; }
   .leaflet-container img { max-width: none !important; max-height: none !important; }
-
   .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
-// Fix Marcadores
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -93,19 +81,18 @@ export default function App() {
   return (
     <div className={isDark ? "dark" : ""}>
       <style>{globalStyles}</style>
-      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500">
+      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden font-sans">
         
-        {/* CABECERA CON ESCUDO */}
-        <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
+        <nav className="h-[70px] shrink-0 bg-slate-900 border-b border-indigo-500/30 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
             {profile?.role === 'admin' && <ShieldCheck size={28} className="text-indigo-400" />}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
+            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
             {user && (
-              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase" onClick={() => setView('profile')}>
-                {user.email[0]}
+              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer" onClick={() => setView('profile')}>
+                {user.email[0].toUpperCase()}
               </div>
             )}
           </div>
@@ -115,7 +102,7 @@ export default function App() {
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 h-full overflow-y-auto no-scrollbar pb-32">
               {events.map(ev => (
-                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl">
+                <div key={ev.id} className="bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl">
                   <div className="relative">
                     <img src={ev.image_url} className="w-full h-52 object-cover" alt="" />
                     <button className="absolute top-4 right-4 p-2 bg-white rounded-full text-red-500 shadow-xl"><Heart size={20} /></button>
@@ -127,10 +114,9 @@ export default function App() {
           )}
 
           {view === 'map' && (
-            <div className="absolute inset-0 z-0 bg-[#aad3df]">
+            <div className="absolute inset-0 z-0">
               <MapContainer key="mapa-españa-ign" center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}>
                 <SpainMapController />
-                {/* MAPA OFICIAL IGN (ESPAÑOL) */}
                 <TileLayer
                   url="https://www.ign.es/wmts/mapa-raster?layer=MTN&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}"
                   attribution='IGN España'
@@ -144,16 +130,15 @@ export default function App() {
             </div>
           )}
 
-          {view === 'create' && <div className="p-20 text-center">Pantalla Crear Evento</div>}
-          {view === 'favorites' && <div className="p-20 text-center">Pantalla Favoritos</div>}
+          {view === 'create' && <div className="p-20 text-center font-black uppercase italic text-2xl text-slate-700">Crear Evento</div>}
+          {view === 'favorites' && <div className="p-20 text-center font-black uppercase italic text-2xl text-slate-700">Tus Favoritos</div>}
         </main>
 
-        {/* NAVEGACIÓN INFERIOR CON LOS 4 BOTONES */}
-        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
-          <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><LayoutList size={26}/></button>
-          <button onClick={() => setView('create')} className={`p-4 rounded-2xl ${view === 'create' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><PlusCircle size={26}/></button>
-          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><Heart size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><MapIcon size={26}/></button>
+        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-slate-900 border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
+          <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? "bg-blue-600 text-white" : ""}`}><LayoutList size={26}/></button>
+          <button onClick={() => setView('create')} className={`p-4 rounded-2xl ${view === 'create' ? "bg-blue-600 text-white" : ""}`}><PlusCircle size={26}/></button>
+          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl ${view === 'favorites' ? "bg-blue-600 text-white" : ""}`}><Heart size={26}/></button>
+          <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? "bg-blue-600 text-white" : ""}`}><MapIcon size={26}/></button>
         </nav>
       </div>
     </div>
