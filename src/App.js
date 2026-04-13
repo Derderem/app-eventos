@@ -11,14 +11,36 @@ import L from 'leaflet';
 // CSS obligatorio de Leaflet
 import 'leaflet/dist/leaflet.css';
 
-// FIX VISUAL: Sin líneas blancas, sin bordes, mapa limpio
+// ==========================================
+// SOLUCIÓN DEFINITIVA LÍNEAS BLANCAS (CSS)
+// ==========================================
 const globalStyles = `
-  .leaflet-container { background-color: #cbd2d3 !important; border: none !important; outline: none !important; }
-  .leaflet-tile { 
-    width: 257px !important; height: 257px !important; 
-    margin-left: -0.5px !important; margin-top: -0.5px !important; 
-    filter: brightness(1.05); 
+  /* 1. Fondo del contenedor del mismo color que el mapa para disimular */
+  .leaflet-container { 
+    background-color: #aad3df !important; 
+    border: none !important; 
+    outline: none !important; 
   }
+
+  /* 2. Fix de las teselas (cuadros del mapa) */
+  .leaflet-tile {
+    /* Forzamos un solapamiento de 1 píxel para tapar la línea blanca */
+    width: 257px !important;
+    height: 257px !important;
+    margin-left: -0.5px !important;
+    margin-top: -0.5px !important;
+    
+    /* Evita el suavizado que crea las líneas transparentes */
+    image-rendering: -webkit-optimize-contrast;
+    filter: brightness(1.0);
+    outline: 1px solid transparent;
+  }
+
+  /* 3. Eliminar bordes de carga */
+  .leaflet-tile-container {
+    will-change: transform;
+  }
+
   .leaflet-container img { max-width: none !important; }
   .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; letter-spacing: -2px; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -33,7 +55,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Controlador de mapa centrado en España
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
@@ -82,7 +103,7 @@ export default function App() {
   return (
     <div className={isDark ? "dark" : ""}>
       <style>{globalStyles}</style>
-      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-colors duration-500">
+      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden font-sans">
         
         <nav className="h-[70px] bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
@@ -93,7 +114,7 @@ export default function App() {
 
         <main className="flex-1 relative overflow-y-auto no-scrollbar">
           {view === 'home' && (
-            <div className="p-4 max-w-xl mx-auto space-y-6 pb-32">
+            <div className="p-4 max-w-xl mx-auto space-y-6 pb-32 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
                   <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
@@ -112,17 +133,27 @@ export default function App() {
           )}
 
           {view === 'map' && (
-            <div className="absolute inset-0 z-0 bg-[#cbd2d3]">
-              <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}>
+            <div className="absolute inset-0 z-0">
+              <MapContainer 
+                center={[40.41, -3.70]} 
+                zoom={6} 
+                className="h-full w-full" 
+                zoomControl={false}
+                // Evita que el zoom fraccionado cause líneas
+                zoomSnap={1}
+                zoomDelta={1}
+              >
                 <SpainMapController />
-                {/* TileLayer en ESPAÑOL */}
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; España' />
+                <TileLayer 
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+                  attribution='&copy; España'
+                />
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
-                      <div className="text-center font-sans">
+                      <div className="text-center">
                         <div className="font-bold text-indigo-600 uppercase text-xs">{ev.title}</div>
-                        <div className="text-[10px] text-slate-400">{ev.city}</div>
+                        <div className="text-[10px] text-slate-400 font-bold">{ev.city}</div>
                       </div>
                     </Popup>
                   </Marker>
@@ -133,8 +164,8 @@ export default function App() {
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-xl border border-slate-800 h-[80px] rounded-[2.5rem] flex items-center justify-around z-[2000] shadow-2xl px-4 text-slate-500">
-          <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50' : ''}`}><LayoutList size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50' : ''}`}><MapIcon size={26}/></button>
+          <button onClick={() => setView('home')} className={`p-4 rounded-2xl transition-all ${view === 'home' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50' : ''}`}><LayoutList size={26}/></button>
+          <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50' : ''}`}><MapIcon size={26}/></button>
           <button className="p-4"><PlusCircle size={26}/></button>
           <button className="p-4"><Heart size={26}/></button>
         </nav>
