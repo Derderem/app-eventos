@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
   Heart,
@@ -89,6 +89,7 @@ const supabase = createClient(
 );
 
 function App() {
+  const mapRef = useRef(null);
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [events, setEvents] = useState([]);
@@ -134,6 +135,15 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (view === 'map' && mapRef.current) {
+      setTimeout(() => {
+        mapRef.current.invalidateSize();
+        mapRef.current.setView([40.4167, -3.7037], 6);
+      }, 250);
+    }
+  }, [view]);
+
   const loadUserData = async (id) => {
     if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
       setProfile({ role: 'admin' });
@@ -141,7 +151,6 @@ function App() {
       const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single();
       if (prof) setProfile(prof);
     }
-
     const { data: f } = await supabase.from('favorites').select('event_id').eq('user_id', id);
     if (f) setFavorites(f.map(item => String(item.event_id)));
   };
@@ -262,83 +271,26 @@ function App() {
               {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
             {user ? (
-              <div
-                className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20"
-                onClick={() => {
-                  setView('profile');
-                  setShowCoffeeOptions(false);
-                }}
-              >
+              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => { setView('profile'); setShowCoffeeOptions(false); }}>
                 {user.email[0]}
               </div>
             ) : (
-              <button
-                onClick={() => {
-                  const e = window.prompt("Email:");
-                  if (e) supabase.auth.signInWithOtp({ email: e });
-                }}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg"
-              >
+              <button onClick={() => { const e = window.prompt("Email:"); if (e) supabase.auth.signInWithOtp({ email: e }); }} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">
                 Entrar
               </button>
             )}
           </div>
         </nav>
 
-        <main className="flex-1 relative overflow-y-auto no-scrollbar">
-          {view === 'home' && (
-            <div className="max-w-xl mx-auto p-4 pb-40">
-              <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
-                {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setActiveCategory(cat)}
-                    className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${
-                      activeCategory === cat ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-slate-800/40 text-slate-400'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-              <div className="space-y-6">
-                {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[410px] border border-slate-800">
-                    <div className="relative h-52 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
-                      <img src={ev.image_url} className="w-full h-full object-cover" alt="img" />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite(ev);
-                        }}
-                        className="absolute top-4 right-4 p-2.5 bg-white rounded-full text-red-500 shadow-xl"
-                      >
-                        <Heart size={18} fill={favorites.includes(String(ev.id)) ? "red" : "none"} />
-                      </button>
-                    </div>
-                    <div className="p-5 flex-1 flex flex-col justify-center items-center text-center text-white">
-                      <h3 className="text-xl font-black italic uppercase tracking-tighter mb-4">{ev.title}</h3>
-                      <button
-                        onClick={() => setSelectedEvent(ev)}
-                        className="w-full max-w-[280px] bg-blue-600 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all"
-                      >
-                        Ver Detalles
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
+        <main className="flex-1 relative overflow-hidden">
           {view === 'map' && (
             <div className="absolute inset-0 z-0 bg-[#cbd2d3]">
               <MapContainer
-                key={`map-spain-${view}`}
+                whenCreated={(map) => (mapRef.current = map)}
                 center={[40.4167, -3.7037]}
                 zoom={6}
                 className="h-full w-full"
-                zoomControl={false}
+                zoomControl={true}
               >
                 <SpainMapController />
                 <TileLayer
@@ -360,36 +312,6 @@ function App() {
             </div>
           )}
         </main>
-
-        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 transition-all text-slate-500">
-          <button
-            onClick={() => {
-              setView('home');
-              setSelectedEvent(null);
-            }}
-            className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : ""}`}
-          >
-            <LayoutList size={26} />
-          </button>
-          <button onClick={() => setView('create')} className="p-4 rounded-2xl hover:text-white transition-all">
-            <PlusCircle size={26} />
-          </button>
-          <button
-            onClick={() => {
-              setView('favorites');
-              setSelectedEvent(null);
-            }}
-            className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : ""}`}
-          >
-            <Heart size={26} />
-          </button>
-          <button
-            onClick={() => setView('map')}
-            className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : ""}`}
-          >
-            <MapIcon size={26} />
-          </button>
-        </nav>
       </div>
     </div>
   );
