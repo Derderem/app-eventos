@@ -8,21 +8,22 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// FIX TÉCNICO: Elimina líneas blancas/grises y diseña el logo
-const appStyles = `
+// ✅ FIX REAL (SIN HACK 258px)
+const finalMapStyles = `
   .leaflet-container { background-color: #cbd2d3 !important; }
+
   .leaflet-tile {
-    width: 257px !important;
-    height: 257px !important;
-    margin-left: -0.5px;
-    margin-top: -0.5px;
-    outline: 1px solid transparent;
-    filter: brightness(1.02);
+    image-rendering: auto;
+    transform: translateZ(0);
   }
-  .logo-text {
+
+  .leaflet-map-pane {
+    will-change: transform;
+  }
+
+  .logo-text-style {
     font-family: 'Arial Black', sans-serif;
     font-weight: 900;
     font-style: italic;
@@ -34,7 +35,6 @@ const appStyles = `
   }
 `;
 
-// Fix Marcadores
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -42,36 +42,17 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// COMPONENTE PARA FORZAR EL MAPA A ESPAÑA
+// ✅ CONTROLLER MEJORADO
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    // Retraso para asegurar que el móvil ha renderizado el contenedor
-    const timer = setTimeout(() => {
+    setTimeout(() => {
       map.invalidateSize();
-      map.setView([40.4167, -3.7037], 6); 
-    }, 600);
-    return () => clearTimeout(timer);
+      map.setView([40.4167, -3.7037], 6, { animate: false });
+    }, 300);
   }, [map]);
   return null;
 }
-
-// LOGO EVENTORA EN CÓDIGO PURO (NO FALLARÁ)
-const LogoSVG = () => (
-  <svg width="170" height="35" viewBox="0 0 240 50">
-    <defs>
-      <linearGradient id="lgrad" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" style={{stopColor:'#00e5ff'}} />
-        <stop offset="50%" style={{stopColor:'#2979ff'}} />
-        <stop offset="100%" style={{stopColor:'#aa00ff'}} />
-      </linearGradient>
-    </defs>
-    <text x="0" y="38" fontFamily="Arial Black, sans-serif" fontSize="34" fontWeight="900" fontStyle="italic" fill="url(#lgrad)" letterSpacing="-2">EVENTORA</text>
-    <rect x="210" y="10" width="26" height="26" rx="5" fill="#4f46e520" stroke="#6366f1" strokeWidth="2" />
-    <path d="M210 18 H236 M216 10 V14 M230 10 V14" stroke="#6366f1" strokeWidth="2" />
-    <path d="M223 30 L225 26 L229 24 L225 22 L223 18 L221 22 L217 24 L221 26 Z" fill="#6366f1" />
-  </svg>
-);
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL, 
@@ -93,7 +74,6 @@ function App() {
   const [toast, setToast] = useState(null);
   const [showCoffeeOptions, setShowCoffeeOptions] = useState(false);
 
-  // CONFIGURACIÓN PAGO
   const paypalUrl = "https://paypal.me/jacobogarver"; 
   const kofiUrl = "https://ko-fi.com/jacobogarver";
 
@@ -109,9 +89,8 @@ function App() {
   }, []);
 
   const loadUserData = async (id) => {
-    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
-      setProfile({ role: 'admin' });
-    } else {
+    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
+    else {
       const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single();
       if (prof) setProfile(prof);
     }
@@ -130,7 +109,7 @@ function App() {
     const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
     img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen Lista ✨"); };
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen IA Lista ✨"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -138,12 +117,12 @@ function App() {
     if (!file) return;
     setIsProcessing(true);
     try {
-      const name = `${Date.now()}.jpg`;
+      const name = `${Date.now()}_img.jpg`;
       await supabase.storage.from('event-images').upload(name, file);
       const { data } = supabase.storage.from('event-images').getPublicUrl(name);
       setForm({ ...form, image_url: data.publicUrl });
       showNotification("¡Foto subida!");
-    } catch (err) { alert("Error"); }
+    } catch (err) { alert("Error al subir"); }
     finally { setIsProcessing(false); }
   };
 
@@ -176,118 +155,57 @@ function App() {
     }
   };
 
-  // AUTO-ELIMINACIÓN DE EVENTOS PASADOS
   const today = new Date().toISOString().split('T')[0];
   const activeEvents = events.filter(e => e.date >= today);
   const publicEvents = activeEvents.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
 
   return (
     <div className={isDark ? "dark" : ""}>
-      <style>{appStyles}</style>
+      <style>{finalMapStyles}</style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
         
         {toast && (
-          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top">
+          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top text-center">
+            <CheckCircle2 size={16} className="inline mr-2"/>
             <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
           </div>
         )}
 
-        {/* HEADER */}
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-6 z-[2000] shadow-sm">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}>
-             <LogoSVG />
+             <div className="logo-text-style">EVENTORA <Calendar className="ml-2"/></div>
           </div>
-          <div className="flex items-center gap-4">
-            {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
-              <button onClick={() => setView('admin')} className="text-slate-400">
-                <ShieldCheck size={28}/>
-              </button>
-            )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
-               {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
-            </button>
-            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer shadow-indigo-500/20" onClick={() => {setView('profile'); setShowCoffeeOptions(false);}}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
-          </div>
+          <button onClick={() => setIsDark(!isDark)}>
+             {isDark ? <Sun size={24}/> : <Moon size={24}/>}
+          </button>
         </nav>
 
-        <main className="flex-1 relative overflow-y-auto no-scrollbar">
-          {view === 'home' && (
-            <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
-              <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
-                {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
-                ))}
-              </div>
-              <div className="space-y-6">
-                {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[410px] border border-slate-800">
-                    <div className="relative h-52 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
-                      <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-105 transition duration-1000" alt="img" />
-                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-4 right-4 p-2.5 bg-white rounded-full text-red-500 shadow-xl">
-                        <Heart size={18} fill={favorites.includes(String(ev.id)) ? "red" : "none"} />
-                      </button>
-                    </div>
-                    <div className="p-5 flex-1 flex flex-col justify-center items-center text-center">
-                      <h3 className="text-xl font-black italic uppercase tracking-tighter mb-4 text-white line-clamp-1">{ev.title}</h3>
-                      <button onClick={() => setSelectedEvent(ev)} className="w-full max-w-[280px] bg-blue-600 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Ver Detalles</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {view === 'profile' && (
-            <div className="max-w-xl mx-auto p-4 pt-2 text-center animate-in slide-in-from-bottom pb-40">
-               <div className="bg-[#0f172a] rounded-[3rem] p-6 shadow-2xl border border-slate-800">
-                  <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black text-white border-2 border-white shadow-xl shadow-indigo-500/20 uppercase font-black">
-                    {user?.email[0]}
-                  </div>
-                  <h2 className="text-sm font-black mb-8 uppercase tracking-widest text-slate-300">Apoya el Proyecto</h2>
-                  
-                  <div className="space-y-4">
-                    {!showCoffeeOptions ? (
-                      <button onClick={() => setShowCoffeeOptions(true)} className="w-full bg-amber-500 text-white p-5 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
-                        <Coffee size={20} /> Invitar a un café
-                      </button>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-2 animate-in zoom-in duration-200">
-                        <a href={kofiUrl} target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
-                          <ExternalLink size={16} /> Ko-fi
-                        </a>
-                        <a href={paypalUrl} target="_blank" rel="noreferrer" className="w-full bg-[#003087] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
-                          <CreditCard size={16} /> PayPal
-                        </a>
-                        <button onClick={() => setShowCoffeeOptions(false)} className="w-full bg-slate-800 text-white p-3 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 mt-2 shadow-lg">
-                           <ArrowLeft size={14} /> VOLVER
-                        </button>
-                      </div>
-                    )}
-                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition mt-6">
-                      <LogOut size={20} /> Cerrar Sesión
-                    </button>
-                  </div>
-               </div>
-            </div>
-          )}
+        <main className="flex-1 relative overflow-y-auto">
 
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#cbd2d3]"> 
               <MapContainer 
-                key={view} // ESTO OBLIGA AL MAPA A REINICIARSE CADA VEZ
                 center={[40.41, -3.70]} 
                 zoom={6} 
+                preferCanvas={true}
                 className="h-full w-full" 
                 zoomControl={false}
               > 
                 <SpainMapController />
-                <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" attribution='ESPAÑA' /> 
+
+                <TileLayer 
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution="© OpenStreetMap"
+                /> 
+
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
-                      <div className="p-1 text-center" onClick={() => setSelectedEvent(ev)}>
-                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
-                        <p className="text-[8px] font-bold uppercase opacity-60">{ev.city}</p>
+                      <div className="p-1 text-center">
+                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1">
+                          {ev.title}
+                        </div>
+                        <p className="text-[8px] opacity-60">{ev.city}</p>
                       </div>
                     </Popup>
                   </Marker>
@@ -296,30 +214,7 @@ function App() {
             </div> 
           )}
 
-          {view === 'favorites' && (
-            <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in text-center text-white">
-               <h3 className="text-3xl font-black uppercase tracking-widest text-indigo-600 mb-10">GUARDADOS</h3>
-               <div className="space-y-4 text-left">
-                  {activeEvents.filter(e => favorites.includes(String(e.id))).map(ev => (
-                    <div key={ev.id} className="bg-[#0f172a] p-4 rounded-[1.5rem] border border-slate-800 flex justify-between items-center shadow-lg">
-                       <div className="flex items-center gap-4 cursor-pointer" onClick={() => setSelectedEvent(ev)}>
-                          <img src={ev.image_url} className="w-14 h-14 rounded-xl object-cover" alt="ev" />
-                          <div><span className="font-black text-sm block uppercase tracking-tighter text-white line-clamp-1">{ev.title}</span><span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{ev.city}</span></div>
-                       </div>
-                       <button onClick={() => toggleFavorite(ev)} className="p-3 text-red-500 active:scale-75 transition-all"><Trash2 size={20} /></button>
-                    </div>
-                  ))}
-               </div>
-            </div>
-          )}
         </main>
-
-        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 transition-all text-slate-500">
-          <button onClick={() => {setView('home'); setSelectedEvent(null);}} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : ""}`}><LayoutList size={26}/></button>
-          <button onClick={() => setView('create')} className="p-4 rounded-2xl hover:text-white transition-all"><PlusCircle size={26}/></button>
-          <button onClick={() => {setView('favorites'); setSelectedEvent(null);}} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : ""}`}><Heart size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : ""}`}><MapIcon size={26}/></button>
-        </nav>
       </div>
     </div>
   );
