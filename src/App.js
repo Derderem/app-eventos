@@ -12,39 +12,94 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX FINAL: LÍNEAS BLANCAS, IDIOMA ESPAÑOL Y DISEÑO
+// SOLUCIÓN COMPLETA: LÍNEAS BLANCAS + ESPAÑOL + MAPA DE ESPAÑA
 // ============================================================
 const globalStyles = `
-  .leaflet-container { 
-    background-color: #aad3df !important; 
+  /* Contenedor principal del mapa */
+  .leaflet-container {
+    background-color: #aad3df !important;
     border: none !important;
   }
-  
-  /* SOLUCIÓN RADICAL A LAS LÍNEAS BLANCAS */
-  .leaflet-tile {
-    /* Forzamos solapamiento de 2px para que no haya grietas */
-    width: 258px !important;
-    height: 258px !important;
-    margin-left: -1px !important;
-    margin-top: -1px !important;
-    filter: brightness(1.02);
-    /* Evita que el navegador intente suavizar y cree transparencias */
-    outline: 1px solid transparent;
+
+  /* SOLUCIÓN DEFINITIVA A LAS LÍNEAS BLANCAS */
+  .leaflet-tile-pane {
+    /* Fuerza el repintado de tiles */
     -webkit-backface-visibility: hidden;
-    image-rendering: -webkit-optimize-contrast;
+    backface-visibility: hidden;
   }
 
-  .logo-font { 
-    font-family: 'Arial Black', sans-serif; 
-    font-weight: 900; 
-    font-style: italic; 
-    display: flex; 
-    align-items: center; 
-    letter-spacing: -2px; 
+  .leaflet-tile {
+    /* Solapamiento agresivo para eliminar grietas */
+    width: 260px !important;
+    height: 260px !important;
+    margin-left: -2px !important;
+    margin-top: -2px !important;
+    /* Evita optimización del navegador que causa transparencias */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    /* Forzar opacidad completa */
+    opacity: 1 !important;
   }
-  
+
+  /* Cuando un tile termina de cargar, asegurar que se vea */
+  .leaflet-tile-loaded {
+    opacity: 1 !important;
+    filter: none !important;
+  }
+
+  /* Forzar que las imágenes de tiles no tengan bordes ni间隙 */
+  .leaflet-layer {
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* Eliminar cualquier espacio entre tiles */
+  .leaflet-tile-container img {
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  /* Contenedor del mapa sin overflow */
+  .map-container-wrapper {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .logo-font {
+    font-family: 'Arial Black', sans-serif;
+    font-weight: 900;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    letter-spacing: -2px;
+  }
+
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Personalización de controles y popups en español */
+  .leaflet-control-zoom a {
+    font-family: 'Arial', sans-serif !important;
+    color: #333 !important;
+  }
+
+  .leaflet-popup-content-wrapper {
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  .leaflet-popup-tip {
+    background: white;
+  }
+
+  /* Atribución en español */
+  .leaflet-control-attribution {
+    font-family: 'Arial', sans-serif !important;
+    font-size: 10px !important;
+  }
 `;
 
 // Fix Marcadores Leaflet
@@ -58,11 +113,22 @@ L.Icon.Default.mergeOptions({
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    setTimeout(() => {
-      map.invalidateSize();
-      map.setView([40.4167, -3.7037], 6); 
-    }, 500);
+    // InvalidateSize con delay para asegurar que el DOM está listo
+    const timer = setTimeout(() => {
+      map.invalidateSize({ pan: false, debounceMoveend: true });
+      map.setView([40.4167, -3.7037], 6);
+    }, 100);
+    return () => clearTimeout(timer);
   }, [map]);
+
+  // Prevenir scroll del mapa
+  useEffect(() => {
+    const mapElement = map.getContainer();
+    const handleWheel = (e) => e.stopPropagation();
+    mapElement.addEventListener('wheel', handleWheel, { passive: false });
+    return () => mapElement.removeEventListener('wheel', handleWheel);
+  }, [map]);
+
   return null;
 }
 
@@ -104,11 +170,11 @@ export default function App() {
   useEffect(() => {
     fetchEvents();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) { 
-        setUser(session.user); 
+      if (session) {
+        setUser(session.user);
         loadUserData(session.user.id);
-      } else { 
-        setUser(null); setProfile(null); setFavorites([]); 
+      } else {
+        setUser(null); setProfile(null); setFavorites([]);
       }
     });
     return () => subscription.unsubscribe();
@@ -151,7 +217,7 @@ export default function App() {
 
   // FILTRO: Solo aprobados y de hoy en adelante (quita eliminados)
   const today = new Date().toISOString().split('T')[0];
-  const publicEvents = events.filter(e => 
+  const publicEvents = events.filter(e =>
     e.status === 'approved' && e.date >= today && (activeCategory === 'TODOS' || e.category === activeCategory)
   );
 
@@ -159,7 +225,7 @@ export default function App() {
     <div className={isDark ? "dark" : ""}>
       <style> {globalStyles} </style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
-        
+
         {toast && (
           <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl font-black uppercase text-[10px] tracking-widest">{toast}</div>
         )}
@@ -207,33 +273,60 @@ export default function App() {
             </div>
           )}
 
-          {view === 'map' && ( 
-            <div className="absolute inset-0 z-0 bg-[#aad3df]"> 
-              <MapContainer 
-                center={[40.41, -3.70]} 
-                zoom={6} 
-                className="h-full w-full" 
+          {view === 'map' && (
+            <div className="absolute inset-0 z-0 map-container-wrapper">
+              <MapContainer
+                center={[40.41, -3.70]}
+                zoom={6}
+                className="h-full w-full"
                 zoomControl={false}
-                zoomSnap={1}
-              > 
+                zoomSnap={0.5}
+                preferCanvas={true}  // Usa canvas en lugar de DOM para evitar líneas blancas
+                updateWhenIdle={false}
+                updateWhenZooming={true}
+                // Forzar recomputación de tiles
+                retryLimit={3}
+              >
                 <SpainMapController />
-                {/* IDIOMA ESPAÑOL: OpenStreetMap es el mejor para esto */}
-                <TileLayer 
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
-                  attribution='ESPAÑA' 
-                /> 
+
+                {/* OPCIÓN 1: CartoDB Positron - Diseño limpio, perfecto para España */}
+                <TileLayer
+                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a> - España'
+                  subdomains="abcd"
+                  maxZoom={19}
+                  tileSize={256}
+                  noWrap={true}
+                  /* Opciones anti-líneas blancas */
+                  keepBuffer={2}
+                  pane="tilePane"
+                />
+
+                {/* Marcadores de eventos */}
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
-                      <div className="p-1 text-center font-sans">
-                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
-                        <p className="text-[8px] font-bold uppercase opacity-60 text-slate-500">{ev.city}</p>
+                      <div className="p-2 text-center font-sans min-w-[150px]">
+                        <div className="font-bold text-sm uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
+                        <p className="text-xs font-bold uppercase opacity-60 text-slate-500">{ev.city}</p>
+                        {ev.date && (
+                          <p className="text-xs text-slate-600 mt-1">{new Date(ev.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                        )}
                       </div>
                     </Popup>
                   </Marker>
-                ))} 
-              </MapContainer> 
-            </div> 
+                ))}
+              </MapContainer>
+
+              {/* Leyenda del mapa en español */}
+              <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm rounded-xl p-3 shadow-lg z-[1000] max-w-[200px]">
+                <p className="text-xs font-bold text-slate-700 mb-2">MAPA DE ESPAÑA</p>
+                <p className="text-[10px] text-slate-500 leading-relaxed">
+                  Spain Map - OpenStreetMap<br />
+                  Cartografía: OpenStreetMap
+                </p>
+              </div>
+            </div>
           )}
         </main>
 
