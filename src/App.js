@@ -12,32 +12,24 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX TOTAL Y AISLAMIENTO DE MAPA
+// FIX TOTAL: SIN LÍNEAS, EN ESPAÑOL Y SIN ERRORES DE VERCEL
 // ============================================================
 const globalStyles = `
-  /* 1. EVITAR EL CUADRO BLANCO Y EL MAPA VACÍO */
-  .leaflet-container img {
-    max-width: none !important;
-    max-height: none !important;
-    display: block !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    box-shadow: none !important;
+  .leaflet-container { 
+    background-color: #aad3df !important; 
   }
-
-  /* 2. ELIMINAR LÍNEAS BLANCAS (Solapamiento interno) */
+  
+  /* 1. ELIMINAR LÍNEAS BLANCAS */
   .leaflet-tile {
-    /* Forzamos un pequeño solapamiento sin romper la rejilla */
     transform: scale(1.02) !important;
     outline: 1px solid transparent;
     -webkit-backface-visibility: hidden;
-    image-rendering: -webkit-optimize-contrast;
   }
 
-  /* 3. FONDO DEL MAPA (Color tierra/papel para que no sea azul) */
-  .leaflet-container { 
-    background-color: #f1eee8 !important; 
-    border: none !important;
+  /* 2. ELIMINAR CUADRO BLANCO */
+  .leaflet-container img {
+    max-width: none !important;
+    max-height: none !important;
   }
 
   .logo-font { 
@@ -64,7 +56,6 @@ L.Icon.Default.mergeOptions({
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    // Forzamos al mapa a reconocer su tamaño real
     setTimeout(() => {
       map.invalidateSize();
       map.setView([40.4167, -3.7037], 6); 
@@ -117,12 +108,7 @@ export default function App() {
   }, []);
 
   const loadUserData = async (id) => {
-    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
-      setProfile({ role: 'admin' });
-    } else {
-      const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single();
-      if (prof) setProfile(prof);
-    }
+    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
     const { data: f } = await supabase.from('favorites').select('event_id').eq('user_id', id);
     if (f) setFavorites(f.map(item => String(item.event_id)));
   };
@@ -145,19 +131,12 @@ export default function App() {
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
-            {/* ESCUDO DE ADMIN RESTAURADO */}
-            {profile?.role === 'admin' && (
-              <button onClick={() => setView('admin')} className="text-indigo-400 p-2">
-                <ShieldCheck size={28} />
-              </button>
-            )}
+            {profile?.role === 'admin' && <button onClick={() => setView('admin')} className="text-indigo-400 p-2"><ShieldCheck size={28} /></button>}
             <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
             {user && (
-              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase" onClick={() => setView('profile')}>
-                {user.email[0]}
-              </div>
+              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase" onClick={() => setView('profile')}>{user.email[0]}</div>
             )}
           </div>
         </nav>
@@ -167,7 +146,7 @@ export default function App() {
             <div className="max-w-xl mx-auto p-4 pb-40 h-full overflow-y-auto no-scrollbar">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
+                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
                 ))}
               </div>
               <div className="space-y-6">
@@ -185,29 +164,13 @@ export default function App() {
           )}
 
           {view === 'map' && ( 
-            <div className="absolute inset-0 z-0 bg-[#f1f4f5]"> 
-              <MapContainer 
-                key={view} 
-                center={[40.41, -3.70]} 
-                zoom={6} 
-                className="h-full w-full" 
-                zoomControl={false}
-                zoomSnap={1}
-              > 
+            <div className="absolute inset-0 z-0 bg-[#aad3df]"> 
+              <MapContainer key={view} center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
                 <SpainMapController />
-                {/* MAPA OFICIAL IGN ESPAÑA - GARANTIZA ESPAÑOL */}
-                <TileLayer 
-                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                   attribution='ESPAÑA'
-                /> 
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='ESPAÑA' /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup>
-                      <div className="p-1 text-center font-sans">
-                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
-                        <p className="text-[8px] font-bold uppercase opacity-60 text-slate-500">{ev.city}</p>
-                      </div>
-                    </Popup>
+                    <Popup>{ev.title}</Popup>
                   </Marker>
                 ))} 
               </MapContainer> 
@@ -216,10 +179,9 @@ export default function App() {
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
-          <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? "bg-blue-600 text-white shadow-lg" : ""}`}><LayoutList size={26}/></button>
-          <button onClick={() => setView('create')} className="p-4 rounded-2xl"><PlusCircle size={26}/></button>
-          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg" : ""}`}><Heart size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? "bg-blue-600 text-white shadow-lg" : ""}`}><MapIcon size={26}/></button>
+          <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><LayoutList size={26}/></button>
+          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><Heart size={26}/></button>
+          <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><MapIcon size={26}/></button>
         </nav>
       </div>
     </div>
