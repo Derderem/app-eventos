@@ -12,36 +12,25 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX NUCLEAR: ELIMINACIÓN TOTAL DE LÍNEAS BLANCAS
+// FIX DEFINITIVO: MAPA IGN ESPAÑA SIN LÍNEAS
 // ============================================================
 const globalStyles = `
-  /* 1. Fondo del contenedor igual al color predominante del mapa IGN */
   .leaflet-container { 
-    background-color: #e3eaef !important; 
+    background-color: #f1f4f5 !important; 
     border: none !important;
   }
   
-  /* 2. SOLUCIÓN DEFINITIVA: Solapamiento y renderizado duro */
+  /* ELIMINAR LÍNEAS: Técnica de solapamiento por escala */
   .leaflet-tile {
-    /* Forzamos a que las baldosas sean 2px más grandes y se pisen 1px */
-    width: 258px !important;
-    height: 258px !important;
-    margin-left: -1px !important;
-    margin-top: -1px !important;
-    
-    /* Evita el antialiasing (suavizado) que crea la línea transparente */
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
-    
-    /* Forzar renderizado sólido */
+    /* Escalamos un 1% para que las piezas se pisen entre ellas */
+    transform: scale(1.01) !important;
+    filter: brightness(1.02);
     outline: 1px solid transparent;
     -webkit-backface-visibility: hidden;
   }
 
-  /* Elimina el efecto de parpadeo al cargar */
-  .leaflet-tile-loaded {
-    display: block;
-  }
+  /* Asegura que el mapa ocupe todo el espacio sin bordes blancos */
+  .leaflet-tile-container { will-change: transform; }
 
   .logo-font { 
     font-family: 'Arial Black', sans-serif; 
@@ -107,8 +96,6 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('TODOS');
   const [toast, setToast] = useState(null);
 
-  const showNotification = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
-
   useEffect(() => {
     fetchEvents();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -123,7 +110,12 @@ export default function App() {
   }, []);
 
   const loadUserData = async (id) => {
-    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
+    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
+      setProfile({ role: 'admin' });
+    } else {
+      const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single();
+      if (prof) setProfile(prof);
+    }
     const { data: f } = await supabase.from('favorites').select('event_id').eq('user_id', id);
     if (f) setFavorites(f.map(item => String(item.event_id)));
   };
@@ -134,7 +126,7 @@ export default function App() {
   };
 
   const toggleFavorite = async (ev) => {
-    if (!user) return showNotification("Inicia sesión ❤️");
+    if (!user) return;
     const id = String(ev.id);
     if (favorites.includes(id)) {
       setFavorites(f => f.filter(i => i !== id));
@@ -155,17 +147,12 @@ export default function App() {
       <style> {globalStyles} </style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
         
-        {toast && (
-          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl font-black uppercase text-[10px] tracking-widest">{toast}</div>
-        )}
-
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
+            {/* ESCUDO ADMIN RECUPERADO */}
             {profile?.role === 'admin' && (
-              <button onClick={() => setView('admin')} className="text-indigo-400 p-2">
-                <ShieldCheck size={28} />
-              </button>
+              <button onClick={() => setView('admin')} className="text-indigo-400 p-2"><ShieldCheck size={28} /></button>
             )}
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
@@ -183,7 +170,7 @@ export default function App() {
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
+                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
                 ))}
               </div>
               <div className="space-y-6">
@@ -191,7 +178,7 @@ export default function App() {
                   <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[415px] border border-slate-800">
                     <img src={ev.image_url} className="w-full h-52 object-cover" alt="img" />
                     <div className="p-5 flex-1 flex flex-col justify-center items-center text-center">
-                      <h3 className="text-xl font-black italic uppercase mb-2 tracking-tighter">{ev.title}</h3>
+                      <h3 className="text-xl font-black italic uppercase mb-2">{ev.title}</h3>
                       <span className="text-indigo-400 font-black text-[10px] uppercase tracking-widest">{ev.city}</span>
                     </div>
                   </div>
@@ -201,21 +188,21 @@ export default function App() {
           )}
 
           {view === 'map' && ( 
-            <div className="absolute inset-0 z-0 bg-[#aad3df]"> 
+            <div className="absolute inset-0 z-0 bg-[#f1f4f5]"> 
               <MapContainer 
                 center={[40.41, -3.70]} 
                 zoom={6} 
                 className="h-full w-full" 
                 zoomControl={false}
                 zoomSnap={1}
-                fadeAnimation={false} // SECRETO PARA ELIMINAR LÍNEAS AL CARGAR
+                fadeAnimation={false}
               > 
                 <SpainMapController />
                 
-                {/* MAPA OFICIAL IGN ESPAÑA */}
+                {/* MAPA OFICIAL IGN ESPAÑA (Idioma Castellano) */}
                 <TileLayer
                   url="https://www.ign.es/wmts/mapa-raster?layer=MTN&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}"
-                  attribution='&copy; Instituto Geográfico Nacional'
+                  attribution='&copy; IGN España'
                 />
 
                 {publicEvents.map(ev => ev.lat && (
