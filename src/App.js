@@ -11,18 +11,18 @@ import L from 'leaflet';
 // Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// FIX DRÁSTICO PARA ELIMINAR LÍNEAS EN EL MAPA Y ESTILO LOGO
+// FIX DRÁSTICO PARA ELIMINAR LÍNEAS BLANCAS (Overlap forzado)
 const globalStyles = `
   .leaflet-container { background-color: #cbd2d3 !important; }
   .leaflet-tile {
+    /* ESTO CIERRA LAS LÍNEAS BLANCAS: Agrandamos la pieza 1px para que se solape */
     width: 257px !important;
     height: 257px !important;
     margin-left: -0.5px !important;
     margin-top: -0.5px !important;
     outline: 1px solid transparent;
-    image-rendering: -webkit-optimize-contrast;
+    -webkit-backface-visibility: hidden;
   }
-  .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; }
 `;
 
 // Fix Marcadores Leaflet
@@ -39,26 +39,26 @@ function SpainMapController() {
   useEffect(() => {
     setTimeout(() => {
       map.invalidateSize();
-      map.setView([40.4167, -3.7037], 6); // Madrid, Centro de España
+      map.setView([40.4167, -3.7037], 6); 
     }, 500);
   }, [map]);
   return null;
 }
 
-// LOGO EVENTORA SVG - DISEÑO EXACTO A TU FOTO
+// LOGO EVENTORA SVG (IDÉNTICO A TU FOTO Y NUNCA FALLARÁ)
 const LogoSVG = () => (
   <svg width="170" height="35" viewBox="0 0 240 50">
     <defs>
-      <linearGradient id="gLogo" x1="0%" y1="0%" x2="100%" y2="0%">
+      <linearGradient id="logoG" x1="0%" y1="0%" x2="100%" y2="0%">
         <stop offset="0%" style={{stopColor:'#00e5ff'}} />
         <stop offset="50%" style={{stopColor:'#2979ff'}} />
         <stop offset="100%" style={{stopColor:'#aa00ff'}} />
       </linearGradient>
     </defs>
-    <text x="0" y="38" fontFamily="Arial Black, sans-serif" fontSize="34" fontWeight="900" fontStyle="italic" fill="url(#gLogo)" letterSpacing="-2">EVENTORA</text>
-    <rect x="210" y="8" width="28" height="28" rx="6" fill="#4f46e520" stroke="#6366f1" strokeWidth="2" />
-    <path d="M210 18 H238 M217 8 V12 M231 8 V12" stroke="#6366f1" strokeWidth="2" />
-    <path d="M224 29 L226 25 L230 23 L226 21 L224 17 L222 21 L218 23 L222 25 Z" fill="#6366f1" />
+    <text x="0" y="38" fontFamily="Arial Black, sans-serif" fontSize="34" fontWeight="900" fontStyle="italic" fill="url(#logoG)" letterSpacing="-2">EVENTORA</text>
+    <rect x="205" y="8" width="28" height="28" rx="6" fill="#4f46e520" stroke="#6366f1" strokeWidth="2" />
+    <path d="M205 18 H233 M212 8 V12 M226 8 V12" stroke="#6366f1" strokeWidth="2" />
+    <path d="M219 29 L221 25 L225 23 L221 21 L219 17 L217 21 L213 23 L217 25 Z" fill="#6366f1" />
   </svg>
 );
 
@@ -82,7 +82,6 @@ function App() {
   const [toast, setToast] = useState(null);
   const [showCoffeeOptions, setShowCoffeeOptions] = useState(false);
 
-  // CONFIGURACIÓN PAGO
   const paypalUrl = "https://paypal.me/jacobogarver"; 
   const kofiUrl = "https://ko-fi.com/jacobogarver";
 
@@ -113,12 +112,12 @@ function App() {
   };
 
   const generateIA = () => {
-    if (!form.title) return showNotification("Pon un título ✨");
+    if (!form.title) return showNotification("Escribe un título ✨");
     setIsProcessing(true);
-    const urlIA = `https://image.pollinations.ai/prompt/professional_event_photo_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
+    const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
     img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("IA: Lista ✨"); };
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen IA Lista ✨"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -137,7 +136,7 @@ function App() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.image_url) return showNotification("Falta foto ✨");
+    if (!form.image_url) return showNotification("Falta la foto ✨");
     setIsSubmitting(true);
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address + ', ' + form.city + ', España')}&limit=1`);
@@ -167,10 +166,9 @@ function App() {
   const handleImGoing = async () => {
     if (!user || !selectedEvent) return;
     toggleFavorite(selectedEvent);
-    showNotification("¡Confirmado!");
+    showNotification("¡Guardado!");
   };
 
-  // LÓGICA DE AUTO-ELIMINACIÓN DE EVENTOS PASADOS
   const today = new Date().toISOString().split('T')[0];
   const activeEvents = events.filter(e => e.date >= today);
   const publicEvents = activeEvents.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
@@ -192,11 +190,9 @@ function App() {
           </div>
           <div className="flex items-center gap-4">
             {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
-              <button onClick={() => setView('admin')} className="text-slate-400">
-                <ShieldCheck size={28}/>
-              </button>
+              <button onClick={() => setView('admin')} className="text-slate-400"><ShieldCheck size={28}/></button>
             )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
+            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50 transition-all">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
             {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => {setView('profile'); setShowCoffeeOptions(false);}}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
@@ -204,8 +200,6 @@ function App() {
         </nav>
 
         <main className="flex-1 relative overflow-y-auto no-scrollbar">
-          
-          {/* HOME */}
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
@@ -215,7 +209,7 @@ function App() {
               </div>
               <div className="space-y-6">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[410px] border border-slate-800">
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[420px] border border-slate-800">
                     <div className="relative h-52 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                       <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-105 transition duration-1000" alt="img" />
                       <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-4 right-4 p-2.5 bg-white rounded-full text-red-500 shadow-xl">
@@ -232,7 +226,6 @@ function App() {
             </div>
           )}
 
-          {/* PERFIL */}
           {view === 'profile' && (
             <div className="max-w-xl mx-auto p-4 pt-2 text-center animate-in slide-in-from-bottom pb-40">
                <div className="bg-[#0f172a] rounded-[3rem] p-6 shadow-2xl border border-slate-800">
@@ -240,8 +233,7 @@ function App() {
                     {user?.email[0]}
                   </div>
                   <h2 className="text-sm font-black mb-8 uppercase tracking-widest text-slate-300">Apoya el Proyecto</h2>
-                  
-                  <div className="space-y-4">
+                  <div className="space-y-4 text-white">
                     {!showCoffeeOptions ? (
                       <button onClick={() => setShowCoffeeOptions(true)} className="w-full bg-amber-500 text-white p-5 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
                         <Coffee size={20} /> Invitar a un café
@@ -254,31 +246,30 @@ function App() {
                         <a href={paypalUrl} target="_blank" rel="noreferrer" className="w-full bg-[#003087] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
                           <CreditCard size={16} /> PayPal
                         </a>
-                        <button onClick={() => setShowCoffeeOptions(false)} className="w-full bg-slate-800 text-white p-3 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 mt-2 shadow-lg">
-                           <ArrowLeft size={14} /> VOLVER
-                        </button>
+                        <button onClick={() => setShowCoffeeOptions(false)} className="w-full bg-slate-800 text-white p-3 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 mt-2 shadow-lg"><ArrowLeft size={14} /> VOLVER</button>
                       </div>
                     )}
-                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition mt-6">
-                      <LogOut size={20} /> Cerrar Sesión
-                    </button>
+                    <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition mt-6"><LogOut size={20} /> Cerrar Sesión</button>
                   </div>
                </div>
             </div>
           )}
 
-          {/* MAPA ARCGIS (SOLUCIÓN DEFINITIVA LÍNEAS) */}
+          {/* VISTA MAPA - SOLUCIÓN TUYA + SOLAPAMIENTO */}
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#cbd2d3]"> 
               <MapContainer 
-                key={Date.now()} // RESET TOTAL AL ENTRAR
+                key={`map-spain-${view}`} // RESET TOTAL
                 center={[40.4167, -3.7037]} 
                 zoom={6} 
                 className="h-full w-full" 
                 zoomControl={false}
               > 
                 <SpainMapController />
-                <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" attribution='ESPAÑA' /> 
+                <TileLayer 
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='© OpenStreetMap'
+                /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
@@ -293,7 +284,7 @@ function App() {
             </div> 
           )}
 
-          {/* FAVORITOS */}
+          {/* FAVORITOS - TÍTULO NEGRITA RECTO */}
           {view === 'favorites' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in text-center text-white">
                <h3 className="text-3xl font-black uppercase tracking-widest text-indigo-600 mb-10">GUARDADOS</h3>
