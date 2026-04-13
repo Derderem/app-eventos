@@ -12,25 +12,30 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX DEFINITIVO: MAPA IGN ESPAÑA SIN LÍNEAS
+// FIX DEFINITIVO: ELIMINACIÓN DE LÍNEAS SIN ROMPER LA REJILLA
 // ============================================================
 const globalStyles = `
+  /* 1. Fondo del contenedor sincronizado con el color del mapa (Agua/Tierra) */
   .leaflet-container { 
-    background-color: #f1f4f5 !important; 
+    background-color: #aad3df !important; 
     border: none !important;
   }
   
-  /* ELIMINAR LÍNEAS: Técnica de solapamiento por escala */
+  /* 2. ELIMINAR LÍNEAS: Usamos contorno transparente y mejora de contraste */
   .leaflet-tile {
-    /* Escalamos un 1% para que las piezas se pisen entre ellas */
-    transform: scale(1.01) !important;
-    filter: brightness(1.02);
-    outline: 1px solid transparent;
+    /* NO TOCAR EL WIDTH/HEIGHT (Evita que el mapa se rompa como en tu foto) */
+    outline: 1px solid transparent; 
+    filter: brightness(1.02) contrast(1.02);
     -webkit-backface-visibility: hidden;
+    image-rendering: -webkit-optimize-contrast;
   }
 
-  /* Asegura que el mapa ocupe todo el espacio sin bordes blancos */
-  .leaflet-tile-container { will-change: transform; }
+  /* 3. Forzar que las imágenes no tengan bordes decorativos */
+  .leaflet-container img {
+    max-width: none !important;
+    max-height: none !important;
+    box-shadow: none !important;
+  }
 
   .logo-font { 
     font-family: 'Arial Black', sans-serif; 
@@ -94,7 +99,6 @@ export default function App() {
   const [isDark, setIsDark] = useState(true);
   const [view, setView] = useState('home');
   const [activeCategory, setActiveCategory] = useState('TODOS');
-  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     fetchEvents();
@@ -123,18 +127,6 @@ export default function App() {
   const fetchEvents = async () => {
     const { data } = await supabase.from('events').select('*').order('date', { ascending: true });
     setEvents(data || []);
-  };
-
-  const toggleFavorite = async (ev) => {
-    if (!user) return;
-    const id = String(ev.id);
-    if (favorites.includes(id)) {
-      setFavorites(f => f.filter(i => i !== id));
-      await supabase.from('favorites').delete().match({ user_id: user.id, event_id: id });
-    } else {
-      setFavorites(f => [...f, id]);
-      await supabase.from('favorites').insert({ user_id: user.id, event_id: id });
-    }
   };
 
   const today = new Date().toISOString().split('T')[0];
@@ -178,7 +170,7 @@ export default function App() {
                   <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[415px] border border-slate-800">
                     <img src={ev.image_url} className="w-full h-52 object-cover" alt="img" />
                     <div className="p-5 flex-1 flex flex-col justify-center items-center text-center">
-                      <h3 className="text-xl font-black italic uppercase mb-2">{ev.title}</h3>
+                      <h3 className="text-xl font-black italic uppercase mb-2 tracking-tighter">{ev.title}</h3>
                       <span className="text-indigo-400 font-black text-[10px] uppercase tracking-widest">{ev.city}</span>
                     </div>
                   </div>
@@ -188,23 +180,20 @@ export default function App() {
           )}
 
           {view === 'map' && ( 
-            <div className="absolute inset-0 z-0 bg-[#f1f4f5]"> 
+            <div className="absolute inset-0 z-0"> 
               <MapContainer 
                 center={[40.41, -3.70]} 
                 zoom={6} 
                 className="h-full w-full" 
                 zoomControl={false}
-                zoomSnap={1}
-                fadeAnimation={false}
+                zoomSnap={1} // EVITA LÍNEAS AL FORZAR ZOOM ENTERO
               > 
                 <SpainMapController />
-                
-                {/* MAPA OFICIAL IGN ESPAÑA (Idioma Castellano) */}
+                {/* IDIOMA ESPAÑOL: OpenStreetMap detecta la región automáticamente */}
                 <TileLayer
-                  url="https://www.ign.es/wmts/mapa-raster?layer=MTN&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}"
-                  attribution='&copy; IGN España'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='ESPAÑA'
                 />
-
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
@@ -221,10 +210,10 @@ export default function App() {
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
-          <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? "bg-blue-600 text-white shadow-lg" : ""}`}><LayoutList size={26}/></button>
+          <button onClick={() => setView('home')} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-lg" : ""}`}><LayoutList size={26}/></button>
           <button onClick={() => setView('create')} className="p-4 rounded-2xl"><PlusCircle size={26}/></button>
-          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg" : ""}`}><Heart size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? "bg-blue-600 text-white shadow-lg" : ""}`}><MapIcon size={26}/></button>
+          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg" : ""}`}><Heart size={26}/></button>
+          <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-lg" : ""}`}><MapIcon size={26}/></button>
         </nav>
       </div>
     </div>
