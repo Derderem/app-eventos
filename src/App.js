@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, X, Trash2, Map as MapIcon,
-  Navigation, Clock, LayoutList, ShieldCheck, Sparkles, Camera, Loader2, CheckCircle2, Share2, Upload,
-  Coffee, LogOut, ExternalLink, CreditCard, ArrowLeft
+  Navigation, Clock, LayoutList, ShieldCheck, Sparkles, Camera, Loader2, 
+  CheckCircle2, Share2, Upload, Coffee, LogOut, ExternalLink, CreditCard, ArrowLeft
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -11,22 +11,18 @@ import L from 'leaflet';
 // Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// ============================================================
-// FIX TOTAL: SIN LÍNEAS, EN ESPAÑOL Y SIN ERRORES DE VERCEL
-// ============================================================
 const globalStyles = `
-  .leaflet-container { 
-    background-color: #aad3df !important; 
-  }
+  .leaflet-container { background-color: #aad3df !important; }
   
-  /* 1. ELIMINAR LÍNEAS BLANCAS */
+  /* FIX LÍNEAS BLANCAS: Escala fraccional para solapar piezas */
   .leaflet-tile {
     transform: scale(1.02) !important;
     outline: 1px solid transparent;
     -webkit-backface-visibility: hidden;
+    image-rendering: -webkit-optimize-contrast;
   }
 
-  /* 2. ELIMINAR CUADRO BLANCO */
+  /* FIX CUADRO BLANCO: Anular reglas de Vercel/Tailwind */
   .leaflet-container img {
     max-width: none !important;
     max-height: none !important;
@@ -40,12 +36,10 @@ const globalStyles = `
     align-items: center; 
     letter-spacing: -2px; 
   }
-  
   .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
-// Fix Marcadores Leaflet
+// Fix Marcadores
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -97,12 +91,8 @@ export default function App() {
   useEffect(() => {
     fetchEvents();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) { 
-        setUser(session.user); 
-        loadUserData(session.user.id);
-      } else { 
-        setUser(null); setProfile(null); setFavorites([]); 
-      }
+      if (session) { setUser(session.user); loadUserData(session.user.id); }
+      else { setUser(null); setProfile(null); setFavorites([]); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -126,7 +116,7 @@ export default function App() {
   return (
     <div className={isDark ? "dark" : ""}>
       <style> {globalStyles} </style>
-      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
+      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden">
         
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
@@ -146,17 +136,14 @@ export default function App() {
             <div className="max-w-xl mx-auto p-4 pb-40 h-full overflow-y-auto no-scrollbar">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
+                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
                 ))}
               </div>
               <div className="space-y-6">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 h-[415px] flex flex-col">
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 h-[415px] flex flex-col shadow-2xl">
                     <img src={ev.image_url} className="w-full h-52 object-cover" alt="img" />
-                    <div className="p-5 flex-1 flex flex-col justify-center items-center text-center">
-                      <h3 className="text-xl font-black italic uppercase mb-2">{ev.title}</h3>
-                      <span className="text-indigo-400 font-black text-[10px] uppercase tracking-widest">{ev.city}</span>
-                    </div>
+                    <div className="p-5 flex-1 flex flex-col justify-center items-center text-center font-black uppercase italic text-xl">{ev.title}</div>
                   </div>
                 ))}
               </div>
@@ -165,12 +152,12 @@ export default function App() {
 
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#aad3df]"> 
-              <MapContainer key={view} center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
+              <MapContainer key={view} center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}> 
                 <SpainMapController />
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='ESPAÑA' /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup>{ev.title}</Popup>
+                    <Popup><div className="text-center font-bold text-indigo-600 uppercase text-[10px]">{ev.title}</div></Popup>
                   </Marker>
                 ))} 
               </MapContainer> 
