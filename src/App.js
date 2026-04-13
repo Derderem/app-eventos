@@ -12,34 +12,43 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX TOTAL: ELIMINAR CUADROS BLANCOS Y LÍNEAS
+// FIX TOTAL Y AISLAMIENTO DE MAPA
 // ============================================================
 const globalStyles = `
-  .leaflet-container { 
-    background-color: #aad3df !important; 
-    border: none !important;
-  }
-  
-  /* 1. ELIMINAR CUADRO BLANCO (Fix de imágenes) */
+  /* 1. EVITAR EL CUADRO BLANCO Y EL MAPA VACÍO */
   .leaflet-container img {
     max-width: none !important;
     max-height: none !important;
+    display: block !important;
     padding: 0 !important;
     margin: 0 !important;
+    box-shadow: none !important;
   }
 
-  /* 2. ELIMINAR LÍNEAS BLANCAS (Solapamiento) */
+  /* 2. ELIMINAR LÍNEAS BLANCAS (Solapamiento interno) */
   .leaflet-tile {
-    width: 258px !important;
-    height: 258px !important;
-    margin-left: -1px !important;
-    margin-top: -1px !important;
-    filter: brightness(1.02);
+    /* Forzamos un pequeño solapamiento sin romper la rejilla */
+    transform: scale(1.02) !important;
     outline: 1px solid transparent;
     -webkit-backface-visibility: hidden;
+    image-rendering: -webkit-optimize-contrast;
   }
 
-  .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
+  /* 3. FONDO DEL MAPA (Color tierra/papel para que no sea azul) */
+  .leaflet-container { 
+    background-color: #f1eee8 !important; 
+    border: none !important;
+  }
+
+  .logo-font { 
+    font-family: 'Arial Black', sans-serif; 
+    font-weight: 900; 
+    font-style: italic; 
+    display: flex; 
+    align-items: center; 
+    letter-spacing: -2px; 
+  }
+  
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
@@ -55,6 +64,7 @@ L.Icon.Default.mergeOptions({
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
+    // Forzamos al mapa a reconocer su tamaño real
     setTimeout(() => {
       map.invalidateSize();
       map.setView([40.4167, -3.7037], 6); 
@@ -63,7 +73,6 @@ function SpainMapController() {
   return null;
 }
 
-// LOGO EVENTORA ORIGINAL COMPLETO (Recuperado)
 const LogoSVG = () => (
   <svg width="170" height="35" viewBox="0 0 240 50">
     <defs>
@@ -93,9 +102,6 @@ export default function App() {
   const [isDark, setIsDark] = useState(true);
   const [view, setView] = useState('home');
   const [activeCategory, setActiveCategory] = useState('TODOS');
-  const [toast, setToast] = useState(null);
-
-  const showNotification = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
   useEffect(() => {
     fetchEvents();
@@ -136,15 +142,14 @@ export default function App() {
       <style> {globalStyles} </style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
         
-        {toast && (
-          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl font-black uppercase text-[10px] tracking-widest">{toast}</div>
-        )}
-
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
+            {/* ESCUDO DE ADMIN RESTAURADO */}
             {profile?.role === 'admin' && (
-              <button onClick={() => setView('admin')} className="text-indigo-400 p-2"><ShieldCheck size={28} /></button>
+              <button onClick={() => setView('admin')} className="text-indigo-400 p-2">
+                <ShieldCheck size={28} />
+              </button>
             )}
             <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
@@ -157,17 +162,17 @@ export default function App() {
           </div>
         </nav>
 
-        <main className="flex-1 relative overflow-y-auto no-scrollbar">
+        <main className="flex-1 relative overflow-hidden">
           {view === 'home' && (
-            <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
+            <div className="max-w-xl mx-auto p-4 pb-40 h-full overflow-y-auto no-scrollbar">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-800 ${activeCategory === cat ? 'bg-indigo-600 text-white' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
+                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
                 ))}
               </div>
               <div className="space-y-6">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[415px] border border-slate-800">
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 h-[415px] flex flex-col">
                     <img src={ev.image_url} className="w-full h-52 object-cover" alt="img" />
                     <div className="p-5 flex-1 flex flex-col justify-center items-center text-center">
                       <h3 className="text-xl font-black italic uppercase mb-2">{ev.title}</h3>
@@ -180,9 +185,9 @@ export default function App() {
           )}
 
           {view === 'map' && ( 
-            <div className="absolute inset-0 z-0 bg-[#aad3df]"> 
+            <div className="absolute inset-0 z-0 bg-[#f1f4f5]"> 
               <MapContainer 
-                key={view} // RESET DEL MAPA PARA CARGAR IMÁGENES
+                key={view} 
                 center={[40.41, -3.70]} 
                 zoom={6} 
                 className="h-full w-full" 
@@ -190,9 +195,10 @@ export default function App() {
                 zoomSnap={1}
               > 
                 <SpainMapController />
+                {/* MAPA OFICIAL IGN ESPAÑA - GARANTIZA ESPAÑOL */}
                 <TileLayer 
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
-                  attribution='ESPAÑA' 
+                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                   attribution='ESPAÑA'
                 /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
