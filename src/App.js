@@ -11,11 +11,11 @@ import L from 'leaflet';
 // Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// FIX PARA ELIMINAR LÍNEAS BLANCAS Y ESTILOS GLOBALES
+// FIX RADICAL PARA EL MAPA (Elimina líneas y prepara logo)
 const globalStyles = `
-  .leaflet-container { background: #e5e7eb !important; }
+  .leaflet-container { background-color: #cbd2d3 !important; }
   .leaflet-tile {
-    width: 257px !important; /* Solapamiento para eliminar líneas blancas */
+    width: 257px !important;
     height: 257px !important;
     margin-left: -0.5px;
     margin-top: -0.5px;
@@ -32,14 +32,15 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// CONTROLADOR PARA ESPAÑA
+// Componente que garantiza que el mapa mire a España
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       map.invalidateSize();
-      map.setView([40.4167, -3.7037], 6); 
-    }, 500);
+      map.setView([40.4167, -3.7037], 6); // Madrid
+    }, 400);
+    return () => clearTimeout(timer);
   }, [map]);
   return null;
 }
@@ -116,7 +117,7 @@ function App() {
     const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
     const img = new Image();
     img.src = urlIA;
-    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen Lista ✨"); };
+    img.onload = () => { setForm({...form, image_url: urlIA}); setIsProcessing(false); showNotification("Imagen IA Lista ✨"); };
   };
 
   const handleGalleryUpload = async (e) => {
@@ -135,7 +136,7 @@ function App() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.image_url) return showNotification("Falta la foto ✨");
+    if (!form.image_url) return showNotification("Falta foto ✨");
     setIsSubmitting(true);
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address + ', ' + form.city + ', España')}&limit=1`);
@@ -162,6 +163,12 @@ function App() {
     }
   };
 
+  const handleImGoing = async () => {
+    if (!user || !selectedEvent) return;
+    toggleFavorite(selectedEvent);
+    showNotification("¡Guardado!");
+  };
+
   const today = new Date().toISOString().split('T')[0];
   const activeEvents = events.filter(e => e.date >= today);
   const publicEvents = activeEvents.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
@@ -172,7 +179,7 @@ function App() {
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
         
         {toast && (
-          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top text-center">
+          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top">
             <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
           </div>
         )}
@@ -183,14 +190,12 @@ function App() {
           </div>
           <div className="flex items-center gap-4">
             {(profile?.role === 'admin' || user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') && (
-              <button onClick={() => setView('admin')} className="text-slate-400">
-                <ShieldCheck size={28}/>
-              </button>
+              <button onClick={() => setView('admin')} className="text-slate-400"><ShieldCheck size={28}/></button>
             )}
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => setView('profile')}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
+            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => {setView('profile'); setShowCoffeeOptions(false);}}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
           </div>
         </nav>
 
@@ -250,11 +255,18 @@ function App() {
             </div>
           )}
 
+          {/* VISTA MAPA - SOLUCIÓN RE-MONTAJE FORZADO */}
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#cbd2d3]"> 
-              <MapContainer center={[40.4167, -3.7037]} zoom={6} className="h-full w-full" zoomControl={false}> 
+              <MapContainer 
+                key={`map-spain-${view}`} // ESTO OBLIGA AL MAPA A REINICIARSE EN ESPAÑA
+                center={[40.4167, -3.7037]} 
+                zoom={6} 
+                className="h-full w-full" 
+                zoomControl={false}
+              > 
                 <SpainMapController />
-                {/* SERVIDOR CARTO VOYAGER: Nombres en ESPAÑOL y sin líneas blancas */}
+                {/* SERVIDOR CARTO VOYAGER EN ESPAÑOL */}
                 <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{y}/{x}{r}.png" attribution='ESPAÑA' /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
@@ -283,7 +295,6 @@ function App() {
                        <button onClick={() => toggleFavorite(ev)} className="p-3 text-red-500 active:scale-75 transition-all"><Trash2 size={20} /></button>
                     </div>
                   ))}
-                  {favorites.length === 0 && <p className="opacity-40 font-black uppercase text-center text-[10px]">No hay favoritos</p>}
                </div>
             </div>
           )}
