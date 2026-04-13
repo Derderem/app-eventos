@@ -31,17 +31,16 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const globalStyles = `
-html, body, #root {
-  height: 100%;
-  margin: 0;
-}
 .leaflet-container {
-  width: 100%;
-  height: 100%;
   background-color: #cbd2d3 !important;
 }
 .leaflet-tile {
+  width: 257px !important;
+  height: 257px !important;
+  margin-left: -0.5px;
+  margin-top: -0.5px;
   outline: 1px solid transparent;
+  image-rendering: -webkit-optimize-contrast;
 }
 `;
 
@@ -54,16 +53,13 @@ L.Icon.Default.mergeOptions({
 
 function SpainMapController() {
   const map = useMap();
-
   useEffect(() => {
     const timer = setTimeout(() => {
       map.invalidateSize();
       map.setView([40.4167, -3.7037], 6);
     }, 300);
-
     return () => clearTimeout(timer);
   }, [map]);
-
   return null;
 }
 
@@ -140,7 +136,7 @@ function App() {
       setTimeout(() => {
         mapRef.current.invalidateSize();
         mapRef.current.setView([40.4167, -3.7037], 6);
-      }, 250);
+      }, 300);
     }
   }, [view]);
 
@@ -223,22 +219,27 @@ function App() {
         image_url: ''
       });
     } catch (err) {
-      alert("Error");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const toggleFavorite = async (ev) => {
-    if (!user) return showNotification("Inicia sesión ❤️");
-    const id = String(ev.id);
-    if (favorites.includes(id)) {
+      alert("Esert([{
+        ...form,
+        lat,
+        lng,
+        status: profile?.role === 'admin' ? 'approved' : 'pending',
+        organizer_id: user?.id
+      }]);
+      showNotification("¡Enviado!");
+      setView('s.includes(id)) {
       setFavorites(f => f.filter(i => i !== id));
       await supabase.from('favorites').delete().match({ user_id: user.id, event_id: id });
     } else {
       setFavorites(f => [...f, id]);
       await supabase.from('favorites').insert({ user_id: user.id, event_id: id });
     }
+  };
+
+  const handleImGoing = async () => {
+    if (!user || !selectedEvent) return;
+    toggleFavorite(selectedEvent);
+    showNotification("¡Guardado!");
   };
 
   const today = new Date().toISOString().split('T')[0];
@@ -249,9 +250,9 @@ function App() {
     <div className={isDark ? "dark" : ""}>
       <style>{globalStyles}</style>
 
-      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden">
+      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
         {toast && (
-          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl">
+          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-2xl animate-in slide-in-from-top">
             <span className="font-black uppercase text-[10px] tracking-widest">{toast}</span>
           </div>
         )}
@@ -282,7 +283,81 @@ function App() {
           </div>
         </nav>
 
-        <main className="flex-1 relative overflow-hidden">
+        <main className="flex-1 relative overflow-y-auto no-scrollbar">
+          {view === 'home' && (
+            <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
+              <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
+                {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-slate-800/40 text-slate-400'}`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-6">
+                {publicEvents.map(ev => (
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[410px] border border-slate-800">
+                    <div className="relative h-52 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
+                      <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-105 transition duration-1000" alt="img" />
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }}
+                        className="absolute top-4 right-4 p-2.5 bg-white rounded-full text-red-500 shadow-xl"
+                      >
+                        <Heart size={18} fill={favorites.includes(String(ev.id)) ? "red" : "none"} />
+                      </button>
+                    </div>
+                    <div className="p-5 flex-1 flex flex-col justify-center items-center text-center text-white">
+                      <h3 className="text-xl font-black italic uppercase tracking-tighter mb-4">{ev.title}</h3>
+                      <button
+                        onClick={() => setSelectedEvent(ev)}
+                        className="w-full max-w-[280px] bg-blue-600 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all"
+                      >
+                        Ver Detalles
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {view === 'profile' && (
+            <div className="max-w-xl mx-auto p-4 pt-2 text-center animate-in slide-in-from-bottom pb-40">
+              <div className="bg-[#0f172a] rounded-[3rem] p-6 shadow-2xl border border-slate-800">
+                <div className="w-16 h-16 bg-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black text-white border-2 border-white shadow-xl shadow-indigo-500/20 uppercase">
+                  {user?.email[0]}
+                </div>
+                <h2 className="text-sm font-black mb-8 uppercase tracking-widest text-slate-300">Apoya el Proyecto</h2>
+                <div className="space-y-4 text-white">
+                  {!showCoffeeOptions ? (
+                    <button onClick={() => setShowCoffeeOptions(true)} className="w-full bg-amber-500 text-white p-5 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 shadow-lg active:scale-95 transition">
+                      <Coffee size={20} /> Invitar a un café
+                    </button>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 animate-in zoom-in duration-200">
+                      <a href={kofiUrl} target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
+                        <ExternalLink size={16} /> Ko-fi
+                      </a>
+                      <a href={paypalUrl} target="_blank" rel="noreferrer" className="w-full bg-[#003087] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md active:scale-95 transition">
+                        <CreditCard size={16} /> PayPal
+                      </a>
+                      <button onClick={() => setShowCoffeeOptions(false)} className="w-full bg-slate-800 text-white p-3 rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 mt-2 shadow-lg">
+                        <ArrowLeft size={14} /> VOLVER
+                      </button>
+                    </div>
+                  )}
+                  <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full bg-red-600/20 text-red-500 border border-red-500/30 p-4 rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition mt-6">
+                    <LogOut size={20} /> Cerrar Sesión
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {view === 'map' && (
             <div className="absolute inset-0 z-0 bg-[#cbd2d3]">
               <MapContainer
@@ -290,13 +365,13 @@ function App() {
                 center={[40.4167, -3.7037]}
                 zoom={6}
                 className="h-full w-full"
-                zoomControl={true}
+                zoomControl={false}
               >
                 <SpainMapController />
                 <TileLayer
-                  url="https://ide.ign.gob.ar/geoservicios/rest/services/Mapas_IGN/mapa_topografico/MapServer/tile/{z}/{y}/{x}"
-                  attribution='Mapa base IGN'
-                  maxZoom={18}
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; OpenStreetMap contributors'
+                  maxZoom={19}
                 />
                 {publicEvents.map(ev => ev.lat && ev.lng && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
@@ -311,7 +386,49 @@ function App() {
               </MapContainer>
             </div>
           )}
+
+          {view === 'favorites' && (
+            <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in text-center text-white">
+              <h3 className="text-3xl font-black uppercase tracking-widest text-indigo-600 mb-10sert([{
+        ...form,
+        lat,
+        lng,
+        status: profile?.role === 'admin' ? 'approved' : 'pending',
+        organizer_id: user?.id
+      }]);
+      showNotification("¡Enviado!");
+      setView('a] p-4 rounded-[1.5rem] border border-slate-800 flex justify-between items-center shadow-lg">
+                    <div className="flex items-center gap-4 cursor-pointer" onClick={() => setSelectedEvent(ev)}>
+                      <img src={ev.image_url} className="w-14 h-14 rounded-xl object-cover" alt="ev" />
+                      <div>
+                        <span className="font-black text-sm block uppercase tracking-tighter text-white line-clamp-1">{ev.title}</span>
+                        <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{ev.city}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => toggleFavorite(ev)} className="p-3 text-red-500 active:scale-75 transition-all">
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </main>
+
+        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 transition-all text-slate-500">
+          <button onClick={() => { setView('home'); setSelectedEvent(null); }} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : ""}`}>
+            <LayoutList size={26} />
+          </button>
+          <button onClick={() => setView('create')} className="p-4 rounded-2xl hover:text-white transition-all">
+            <PlusCircle size={26} />
+          </button>
+          <button onClick={() => { setView('favorites'); setSelectedEvent(null); }} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : ""}`}>
+            <Heart size={26} />
+          </button>
+          <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.6)]" : ""}`}>
+            <MapIcon size={26} />
+          </button>
+        </nav>
       </div>
     </div>
   );
