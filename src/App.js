@@ -20,10 +20,10 @@ const globalStyles = `
     border: none !important;
   }
   
-  /* SOLUCIÓN FINAL PARA LAS LÍNEAS BLANCAS EN CHROME/VERCEL */
+  /* SOLUCIÓN RADICAL PARA LAS LÍNEAS BLANCAS */
   .leaflet-tile {
-    width: 257px !important;
-    height: 257px !important;
+    width: 257.5px !important;
+    height: 257.5px !important;
     margin-left: -0.5px !important;
     margin-top: -0.5px !important;
     filter: brightness(1.02);
@@ -64,7 +64,7 @@ function SpainMapController() {
   return null;
 }
 
-// LOGO EVENTORA ORIGINAL
+// LOGO EVENTORA ORIGINAL COMPLETO
 const LogoSVG = () => (
   <svg width="170" height="35" viewBox="0 0 240 50">
     <defs>
@@ -96,6 +96,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('TODOS');
   const [toast, setToast] = useState(null);
   const [showCoffeeOptions, setShowCoffeeOptions] = useState(false);
+  const [form, setForm] = useState({ title: '', category: 'MÚSICA', city: '', address: '', date: '', time: '21:00', image_url: '' });
 
   const showNotification = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
@@ -113,7 +114,13 @@ export default function App() {
   }, []);
 
   const loadUserData = async (id) => {
-    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
+    // Verificar si es el admin por el ID
+    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
+      setProfile({ role: 'admin' });
+    } else {
+      const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single();
+      if (prof) setProfile(prof);
+    }
     const { data: f } = await supabase.from('favorites').select('event_id').eq('user_id', id);
     if (f) setFavorites(f.map(item => String(item.event_id)));
   };
@@ -121,6 +128,13 @@ export default function App() {
   const fetchEvents = async () => {
     const { data } = await supabase.from('events').select('*').order('date', { ascending: true });
     setEvents(data || []);
+  };
+
+  const generateIA = () => {
+    if (!form.title) return showNotification("Pon un título ✨");
+    const urlIA = `https://image.pollinations.ai/prompt/professional_event_photography_of_${encodeURIComponent(form.title)}?width=800&height=1000&seed=${Date.now()}&nologo=true`;
+    setForm({...form, image_url: urlIA});
+    showNotification("Imagen IA Lista ✨");
   };
 
   const toggleFavorite = async (ev) => {
@@ -135,7 +149,13 @@ export default function App() {
     }
   };
 
-  const publicEvents = events.filter(e => e.status === 'approved' && (activeCategory === 'TODOS' || e.category === activeCategory));
+  // FILTRO ESTRICTO: Solo aprobados y que no hayan pasado (hoy o futuro)
+  const today = new Date().toISOString().split('T')[0];
+  const publicEvents = events.filter(e => 
+    e.status === 'approved' && 
+    e.date >= today &&
+    (activeCategory === 'TODOS' || e.category === activeCategory)
+  );
 
   return (
     <div className={isDark ? "dark" : ""}>
@@ -153,6 +173,12 @@ export default function App() {
              <LogoSVG />
           </div>
           <div className="flex items-center gap-4">
+            {/* ESCUDO DE ADMINISTRADOR RECUPERADO */}
+            {profile?.role === 'admin' && (
+              <button onClick={() => setView('admin')} className="text-indigo-400 p-2">
+                <ShieldCheck size={28} />
+              </button>
+            )}
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
@@ -172,7 +198,7 @@ export default function App() {
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
+                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
                 ))}
               </div>
               <div className="space-y-6">
@@ -186,7 +212,7 @@ export default function App() {
                     </div>
                     <div className="p-5 flex-1 flex flex-col justify-center items-center text-center text-white">
                       <h3 className="text-xl font-black italic uppercase tracking-tighter mb-4">{ev.title}</h3>
-                      <button className="w-full max-w-[280px] bg-blue-600 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg">Ver Detalles</button>
+                      <button className="w-full max-w-[280px] bg-blue-600 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Ver Detalles</button>
                     </div>
                   </div>
                 ))}
@@ -197,11 +223,11 @@ export default function App() {
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#aad3df]"> 
               <MapContainer 
-                center={[40.4167, -3.7037]} 
+                center={[40.41, -3.70]} 
                 zoom={6} 
                 className="h-full w-full" 
                 zoomControl={false}
-                zoomSnap={1}
+                zoomSnap={1} // FORZAR ZOOM ENTERO PARA EVITAR LÍNEAS
               > 
                 <SpainMapController />
                 <TileLayer 
@@ -212,7 +238,7 @@ export default function App() {
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
                       <div className="p-1 text-center">
-                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1">{ev.title}</div>
+                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
                         <p className="text-[8px] font-bold uppercase opacity-60 text-slate-500">{ev.city}</p>
                       </div>
                     </Popup>
@@ -236,8 +262,8 @@ export default function App() {
                       </button>
                     ) : (
                       <div className="grid grid-cols-1 gap-2">
-                        <a href="https://ko-fi.com/jacobogarver" target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md">Ko-fi</a>
-                        <a href="https://paypal.me/jacobogarver" target="_blank" rel="noreferrer" className="w-full bg-[#003087] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 shadow-md">PayPal</a>
+                        <a href="https://ko-fi.com/jacobogarver" target="_blank" rel="noreferrer" className="w-full bg-[#29abe0] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3">Ko-fi</a>
+                        <a href="https://paypal.me/jacobogarver" target="_blank" rel="noreferrer" className="w-full bg-[#003087] text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3">PayPal</a>
                         <button onClick={() => setShowCoffeeOptions(false)} className="text-slate-500 text-[10px] font-black uppercase mt-4">Volver</button>
                       </div>
                     )}
