@@ -8,34 +8,23 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// FIX DRÁSTICO PARA ELIMINAR LAS LÍNEAS BLANCAS (Overlap forzado)
-const globalStyles = `
-  .leaflet-container { 
-    background-color: #cbd2d3 !important; /* Color camuflaje para el fondo */
-  }
+// FIX DEFINITIVO: Solapamiento agresivo y suavizado de bordes para el mapa
+const customStyles = `
+  .leaflet-container { background-color: #fdfdfd !important; }
   .leaflet-tile {
-    /* OBLIGA A LAS PIEZAS A SOLAPARSE PARA CERRAR LAS GRIETAS */
-    width: 257px !important;
-    height: 257px !important;
-    margin-left: -0.5px !important;
-    margin-top: -0.5px !important;
+    width: 258px !important; /* Agrandamos 2px para que se pisen */
+    height: 258px !important;
+    margin-left: -1px !important;
+    margin-top: -1px !important;
     outline: 1px solid transparent;
-    -webkit-backface-visibility: hidden;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
   }
-  .logo-font {
-    font-family: 'Arial Black', sans-serif;
-    font-weight: 900;
-    font-style: italic;
-    display: flex;
-    align-items: center;
-    letter-spacing: -2px;
-  }
+  .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; }
 `;
 
-// Fix Marcadores Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -74,7 +63,6 @@ function App() {
   const [toast, setToast] = useState(null);
   const [showCoffeeOptions, setShowCoffeeOptions] = useState(false);
 
-  // CONFIGURACIÓN PAGO
   const paypalUrl = "https://paypal.me/jacobogarver"; 
   const kofiUrl = "https://ko-fi.com/jacobogarver";
 
@@ -163,7 +151,7 @@ function App() {
       setFavorites(f => [...f, id]);
       await supabase.from('favorites').insert({ user_id: user.id, event_id: id });
     }
-    showNotification("¡Apuntado!");
+    showNotification("¡Guardado!");
   };
 
   const today = new Date().toISOString().split('T')[0];
@@ -172,7 +160,7 @@ function App() {
 
   return (
     <div className={isDark ? "dark" : ""}>
-      <style>{globalStyles}</style>
+      <style>{customStyles}</style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white font-sans overflow-hidden transition-all duration-500">
         
         {toast && (
@@ -205,7 +193,7 @@ function App() {
             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => setView('profile')}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
+            {user ? <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black border-2 border-white shadow-xl cursor-pointer uppercase shadow-indigo-500/20" onClick={() => {setView('profile'); setShowCoffeeOptions(false);}}>{user.email[0]}</div> : <button onClick={() => {const e = window.prompt("Email:"); if(e) supabase.auth.signInWithOtp({email:e})}} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>}
           </div>
         </nav>
 
@@ -219,15 +207,15 @@ function App() {
               </div>
               <div className="space-y-6">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[410px] border border-slate-800">
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[415px] border border-slate-800">
                     <div className="relative h-52 overflow-hidden cursor-pointer" onClick={() => setSelectedEvent(ev)}>
                       <img src={ev.image_url} className="w-full h-full object-cover group-hover:scale-105 transition duration-1000" alt="img" />
                       <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev); }} className="absolute top-4 right-4 p-2.5 bg-white rounded-full text-red-500 shadow-xl">
                         <Heart size={18} fill={favorites.includes(String(ev.id)) ? "red" : "none"} />
                       </button>
                     </div>
-                    <div className="p-5 flex-1 flex flex-col justify-center items-center text-center text-white">
-                      <h3 className="text-xl font-black italic uppercase tracking-tighter mb-4">{ev.title}</h3>
+                    <div className="p-5 flex-1 flex flex-col justify-center items-center text-center">
+                      <h3 className="text-xl font-black italic uppercase tracking-tighter mb-4 text-white line-clamp-1">{ev.title}</h3>
                       <button onClick={() => setSelectedEvent(ev)} className="w-full max-w-[280px] bg-blue-600 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Ver Detalles</button>
                     </div>
                   </div>
@@ -266,10 +254,11 @@ function App() {
           )}
 
           {view === 'map' && ( 
-            <div className="absolute inset-0 z-0 bg-[#cbd2d3]"> 
+            <div className="absolute inset-0 z-0 bg-[#f8f9fa]"> 
               <MapContainer center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false}> 
                 <SpainMapController />
-                <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" attribution='ESPAÑA' /> 
+                {/* SERVIDOR OPENSTREETMAP: Nombres en ESPAÑOL garantizados en España */}
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{y}/{x}.png" attribution='&copy; OSM contributors' /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup>
