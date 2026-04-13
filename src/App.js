@@ -12,7 +12,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX NUCLEAR PARA LÍNEAS BLANCAS (SIN OUTLINES)
+// FIX DEFINITIVO: MAPA VISIBLE Y SIN LÍNEAS
 // ============================================================
 const globalStyles = `
   .leaflet-container { 
@@ -20,21 +20,19 @@ const globalStyles = `
     border: none !important;
   }
   
-  /* SOLUCIÓN FINAL: Escala fraccional y solapamiento */
+  /* Evita el cuadro blanco y las líneas */
   .leaflet-tile {
-    /* Hacemos que la baldosa sea un pelín más grande para solapar */
-    transform: scale(1.02) !important; 
-    
-    /* Evita el antialiasing transparente de Chrome */
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
+    width: 257px !important;
+    height: 257px !important;
+    margin-left: -0.5px !important;
+    margin-top: -0.5px !important;
+    filter: brightness(1.05);
   }
 
-  /* Asegura que no haya bordes internos en los contenedores de Leaflet */
-  .leaflet-tile-container {
-    will-change: transform;
+  /* Fix para que las imágenes no se rompan */
+  .leaflet-container img {
+    max-width: none !important;
+    max-height: none !important;
   }
 
   .logo-font { 
@@ -69,7 +67,6 @@ function SpainMapController() {
   return null;
 }
 
-// LOGO EVENTORA ORIGINAL COMPLETO
 const LogoSVG = () => (
   <svg width="170" height="35" viewBox="0 0 240 50">
     <defs>
@@ -106,24 +103,14 @@ export default function App() {
   useEffect(() => {
     fetchEvents();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) { 
-        setUser(session.user); 
-        loadUserData(session.user.id);
-      } else { 
-        setUser(null); setProfile(null); setFavorites([]); 
-      }
+      if (session) { setUser(session.user); loadUserData(session.user.id); }
+      else { setUser(null); setProfile(null); setFavorites([]); }
     });
     return () => subscription.unsubscribe();
   }, []);
 
   const loadUserData = async (id) => {
-    // ADMIN CHECK
-    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
-      setProfile({ role: 'admin' });
-    } else {
-      const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single();
-      if (prof) setProfile(prof);
-    }
+    if (id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
     const { data: f } = await supabase.from('favorites').select('event_id').eq('user_id', id);
     if (f) setFavorites(f.map(item => String(item.event_id)));
   };
@@ -133,24 +120,9 @@ export default function App() {
     setEvents(data || []);
   };
 
-  const toggleFavorite = async (ev) => {
-    if (!user) return showNotification("Inicia sesión ❤️");
-    const id = String(ev.id);
-    if (favorites.includes(id)) {
-      setFavorites(f => f.filter(i => i !== id));
-      await supabase.from('favorites').delete().match({ user_id: user.id, event_id: id });
-    } else {
-      setFavorites(f => [...f, id]);
-      await supabase.from('favorites').insert({ user_id: user.id, event_id: id });
-    }
-  };
-
-  // FILTRO: Solo aprobados y de hoy en adelante
   const today = new Date().toISOString().split('T')[0];
   const publicEvents = events.filter(e => 
-    e.status === 'approved' && 
-    e.date >= today && 
-    (activeCategory === 'TODOS' || e.category === activeCategory)
+    e.status === 'approved' && e.date >= today && (activeCategory === 'TODOS' || e.category === activeCategory)
   );
 
   return (
@@ -165,39 +137,29 @@ export default function App() {
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
-            {profile?.role === 'admin' && (
-              <button onClick={() => setView('admin')} className="text-indigo-400 p-2"><ShieldCheck size={28} /></button>
-            )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl bg-slate-800/50">
+            {profile?.role === 'admin' && <button onClick={() => setView('admin')} className="text-indigo-400 p-2"><ShieldCheck size={28} /></button>}
+            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            {user ? (
-              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase" onClick={() => setView('profile')}>
-                {user.email[0]}
-              </div>
-            ) : (
-              <button onClick={() => setView('profile')} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase shadow-lg">Entrar</button>
+            {user && (
+              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase" onClick={() => setView('profile')}>{user.email[0]}</div>
             )}
           </div>
         </nav>
 
         <main className="flex-1 relative overflow-y-auto no-scrollbar">
-          
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 pb-40 animate-in fade-in">
               <div className="flex gap-2 overflow-x-auto pb-6 no-scrollbar pt-2">
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINOS', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
+                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-xl font-bold text-[10px] tracking-widest transition-all shrink-0 border border-slate-700 ${activeCategory === cat ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-slate-800/40 text-slate-400'}`}>{cat}</button>
                 ))}
               </div>
               <div className="space-y-6">
                 {publicEvents.map(ev => (
-                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[415px] border border-slate-800">
+                  <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 h-[415px] flex flex-col shadow-2xl">
                     <img src={ev.image_url} className="w-full h-52 object-cover" alt="img" />
-                    <div className="p-5 flex-1 flex flex-col justify-center items-center text-center">
-                      <h3 className="text-xl font-black italic uppercase mb-4">{ev.title}</h3>
-                      <button className="w-full max-w-[280px] bg-blue-600 text-white py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg">Ver Detalles</button>
-                    </div>
+                    <div className="p-5 flex-1 flex flex-col justify-center items-center text-center font-black uppercase italic text-xl">{ev.title}</div>
                   </div>
                 ))}
               </div>
@@ -207,25 +169,20 @@ export default function App() {
           {view === 'map' && ( 
             <div className="absolute inset-0 z-0 bg-[#aad3df]"> 
               <MapContainer 
+                key={view} // ESTO OBLIGA AL MAPA A REFRESCARSE
                 center={[40.41, -3.70]} 
                 zoom={6} 
                 className="h-full w-full" 
                 zoomControl={false}
-                zoomSnap={1}
               > 
                 <SpainMapController />
                 <TileLayer 
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" 
                   attribution='ESPAÑA' 
                 /> 
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup>
-                      <div className="p-1 text-center font-sans">
-                        <div className="font-bold text-[10px] uppercase text-indigo-600 mb-1 leading-tight">{ev.title}</div>
-                        <p className="text-[8px] font-bold uppercase opacity-60 text-slate-500">{ev.city}</p>
-                      </div>
-                    </Popup>
+                    <Popup><div className="text-center font-bold text-indigo-600 uppercase text-[10px]">{ev.title}</div></Popup>
                   </Marker>
                 ))} 
               </MapContainer> 
@@ -234,10 +191,10 @@ export default function App() {
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
-          <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? "bg-blue-600 text-white" : ""}`}><LayoutList size={26}/></button>
+          <button onClick={() => setView('home')} className={`p-4 rounded-2xl ${view === 'home' ? "bg-blue-600 text-white shadow-lg" : ""}`}><LayoutList size={26}/></button>
           <button onClick={() => setView('create')} className="p-4 rounded-2xl"><PlusCircle size={26}/></button>
-          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl ${view === 'favorites' ? "bg-blue-600 text-white" : ""}`}><Heart size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? "bg-blue-600 text-white" : ""}`}><MapIcon size={26}/></button>
+          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg" : ""}`}><Heart size={26}/></button>
+          <button onClick={() => setView('map')} className={`p-4 rounded-2xl ${view === 'map' ? "bg-blue-600 text-white shadow-lg" : ""}`}><MapIcon size={26}/></button>
         </nav>
       </div>
     </div>
