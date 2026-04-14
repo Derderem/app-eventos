@@ -8,17 +8,38 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
+// Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
+// ============================================================
+// FIX TOTAL: ELIMINAR CUADROS BLANCOS Y LÍNEAS
+// ============================================================
 const globalStyles = `
-  .leaflet-container { background-color: #f1f4f5 !important; height: 100% !important; width: 100% !important; }
-  .leaflet-tile { transform: scale(1.02) !important; outline: 1px solid transparent; -webkit-backface-visibility: hidden; }
-  .leaflet-container img { max-width: none !important; max-height: none !important; }
+  /* 1. FORZAR QUE LAS IMÁGENES DEL MAPA NO SE ROMPAN */
+  .leaflet-container img.leaflet-tile {
+    max-width: none !important;
+    max-height: none !important;
+    width: 257px !important; /* Fix líneas blancas */
+    height: 257px !important; /* Fix líneas blancas */
+    margin-left: -0.5px !important;
+    margin-top: -0.5px !important;
+    padding: 0 !important;
+    filter: brightness(1.03);
+    -webkit-backface-visibility: hidden;
+  }
+
+  .leaflet-container { 
+    background-color: #aad3df !important; 
+    height: 100% !important;
+    width: 100% !important;
+  }
+
   .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
+// Fix Marcadores
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -29,7 +50,10 @@ L.Icon.Default.mergeOptions({
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    setTimeout(() => { map.invalidateSize(); map.setView([40.4167, -3.7037], 6); }, 500);
+    setTimeout(() => {
+      map.invalidateSize();
+      map.setView([40.4167, -3.7037], 6); 
+    }, 500);
   }, [map]);
   return null;
 }
@@ -70,28 +94,22 @@ export default function App() {
       if (session) {
         setUser(session.user);
         if (session.user.id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
-        loadFavorites(session.user.id);
       } else {
-        setUser(null); setProfile(null); setFavorites([]);
+        setUser(null); setProfile(null);
       }
     });
   }, []);
 
   const fetchEvents = async () => {
-    const { data } = await supabase.from('events').select('*').eq('status', 'approved').order('date', { ascending: true });
+    const { data } = await supabase.from('events').select('*').eq('status', 'approved');
     if (data) setEvents(data);
-  };
-
-  const loadFavorites = async (userId) => {
-    const { data } = await supabase.from('favorites').select('event_id').eq('user_id', userId);
-    if (data) setFavorites(data.map(f => String(f.event_id)));
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) alert("Error: " + error.message);
-    else alert("¡Revisa tu email para entrar!");
+    if (error) alert(error.message);
+    else alert("Revisa tu email");
   };
 
   const today = new Date().toISOString().split('T')[0];
@@ -100,17 +118,17 @@ export default function App() {
   return (
     <div className={isDark ? "dark" : ""}>
       <style>{globalStyles}</style>
-      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all font-sans">
+      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500 font-sans">
         
-        {/* CABECERA */}
+        {/* BARRA SUPERIOR */}
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
-            {profile?.role === 'admin' && <ShieldCheck size={28} className="text-indigo-400" onClick={() => setView('admin')} />}
+            {profile?.role === 'admin' && <ShieldCheck size={26} className="text-indigo-400" />}
             <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase" onClick={() => setView('profile')}>
+            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase shadow-lg" onClick={() => setView('profile')}>
                 {user ? user.email[0] : '?'}
             </div>
           </div>
@@ -123,7 +141,7 @@ export default function App() {
                 <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl">
                   <div className="relative h-52">
                     <img src={ev.image_url} className="w-full h-full object-cover" alt="" />
-                    <button className="absolute top-5 right-5 p-3 bg-white rounded-full text-red-500 shadow-xl"><Heart size={20} /></button>
+                    <button className="absolute top-5 right-5 p-3 bg-white rounded-full shadow-xl text-red-500"><Heart size={20} /></button>
                   </div>
                   <div className="p-6 text-center italic font-black uppercase tracking-tighter text-xl">{ev.title}</div>
                 </div>
@@ -132,28 +150,33 @@ export default function App() {
           )}
 
           {view === 'map' && (
-            <div className="absolute inset-0 z-0 bg-[#f1f4f5]">
-              <MapContainer key="map-ign-pro" center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}>
+            <div className="absolute inset-0 z-0 bg-[#aad3df]">
+              <MapContainer key="mapa-españa-v4" center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}>
                 <SpainMapController />
+                {/* SERVIDOR CARTO VOYAGER: 100% compatible, en español y sin cuadros blancos */}
                 <TileLayer
-                  url="https://www.ign.es/wmts/mapa-raster?layer=MTN&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}"
-                  attribution='IGN España'
+                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                  attribution='ESPAÑA'
                 />
-                {publicEvents.map(ev => ev.lat && <Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup>{ev.title}</Popup></Marker>)}
+                {publicEvents.map(ev => ev.lat && (
+                  <Marker key={ev.id} position={[ev.lat, ev.lng]}>
+                    <Popup><div className="text-center font-bold text-indigo-600">{ev.title}</div></Popup>
+                  </Marker>
+                ))}
               </MapContainer>
             </div>
           )}
 
           {view === 'profile' && (
-            <div className="max-w-md mx-auto p-10 text-center space-y-6">
+            <div className="max-w-md mx-auto p-10 text-center">
               {!user ? (
-                <form onSubmit={handleLogin} className="space-y-4 bg-slate-900 p-8 rounded-[2rem] border border-slate-800 shadow-2xl">
-                  <h2 className="font-black uppercase italic text-xl">Iniciar Sesión</h2>
-                  <input type="email" placeholder="Tu email" className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white" value={email} onChange={e => setEmail(e.target.value)} required />
-                  <button type="submit" className="w-full bg-indigo-600 p-4 rounded-2xl font-bold uppercase tracking-widest">Enviar enlace</button>
+                <form onSubmit={handleLogin} className="space-y-4 bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl">
+                  <h2 className="font-black uppercase italic text-xl">Mi Cuenta</h2>
+                  <input type="email" placeholder="Email" className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white" value={email} onChange={e => setEmail(e.target.value)} required />
+                  <button type="submit" className="w-full bg-indigo-600 p-4 rounded-2xl font-bold uppercase">Entrar</button>
                 </form>
               ) : (
-                <div className="bg-slate-900 p-8 rounded-[2rem] border border-slate-800 shadow-2xl space-y-4">
+                <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl space-y-4">
                   <p className="font-bold">{user.email}</p>
                   <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-600/20 text-red-500 p-4 rounded-2xl font-bold uppercase">Cerrar Sesión</button>
                 </div>
@@ -161,8 +184,8 @@ export default function App() {
             </div>
           )}
 
-          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Próximamente: Crear</div>}
-          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Próximamente: Favoritos</div>}
+          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Crear</div>}
+          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Favoritos</div>}
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
