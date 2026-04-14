@@ -8,7 +8,6 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
 const globalStyles = `
@@ -63,12 +62,7 @@ export default function App() {
   const [isDark, setIsDark] = useState(true);
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      const { data } = await supabase.from('events').select('*').eq('status', 'approved');
-      if (data) setEvents(data);
-    };
     fetchEvents();
-
     supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         setUser(session.user);
@@ -77,10 +71,15 @@ export default function App() {
     });
   }, []);
 
+  const fetchEvents = async () => {
+    const { data } = await supabase.from('events').select('*').eq('status', 'approved');
+    if (data) setEvents(data);
+  };
+
   return (
     <div className={isDark ? "dark" : ""}>
       <style>{globalStyles}</style>
-      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden font-sans">
+      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500">
         
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
@@ -98,11 +97,8 @@ export default function App() {
             <div className="max-w-xl mx-auto p-4 h-full overflow-y-auto no-scrollbar pb-40">
               {events.map(ev => (
                 <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl">
-                  <div className="relative h-52 overflow-hidden">
-                    <img src={ev.image_url} className="w-full h-full object-cover" alt="" />
-                    <button className="absolute top-4 right-4 p-2 bg-white rounded-full text-red-500 shadow-xl"><Heart size={20} /></button>
-                  </div>
-                  <div className="p-6 text-center italic font-black uppercase tracking-tighter text-xl">{ev.title}</div>
+                  <img src={ev.image_url} className="w-full h-52 object-cover" alt="" />
+                  <div className="p-6 text-center font-black uppercase italic tracking-tighter text-xl">{ev.title}</div>
                 </div>
               ))}
             </div>
@@ -110,7 +106,7 @@ export default function App() {
 
           {view === 'map' && (
             <div className="absolute inset-0 z-0 bg-[#f1f4f5]">
-              <MapContainer key="map-ign-es" center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}>
+              <MapContainer key="mapa-ign-es" center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}>
                 <SpainMapController />
                 <TileLayer
                   url="https://www.ign.es/wmts/mapa-raster?layer=MTN&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}"
@@ -120,8 +116,9 @@ export default function App() {
               </MapContainer>
             </div>
           )}
-          {view === 'create' && <div className="h-full flex items-center justify-center font-black italic text-2xl text-slate-700">CREAR EVENTO</div>}
-          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black italic text-2xl text-slate-700">MIS GUARDADOS</div>}
+          {view === 'create' && <div className="h-full flex items-center justify-center font-black italic text-2xl text-slate-700 uppercase">Crear Evento</div>}
+          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black italic text-2xl text-slate-700 uppercase">Mis Guardados</div>}
+          {view === 'profile' && <div className="h-full flex items-center justify-center font-black italic text-2xl text-slate-700 uppercase">Mi Perfil</div>}
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
