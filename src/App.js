@@ -12,10 +12,24 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX DEFINITIVO: CERO LÍNEAS, CERO BORDES, IDIOMA ESPAÑOL
+// FIX ABSOLUTO: AISLAMIENTO TOTAL CONTRA CUADROS BLANCOS
 // ============================================================
 const globalStyles = `
-  /* 1. ELIMINAR EL BORDE Y LA SOMBRA EXTERIOR DEL MAPA */
+  /* 1. ELIMINAR EL CUADRADO BLANCO (Reset de imágenes del mapa) */
+  .leaflet-container img.leaflet-tile {
+    max-width: none !important;
+    max-height: none !important;
+    width: 257px !important; /* Solapa 1px para quitar líneas blancas */
+    height: 257px !important;
+    margin: -0.5px !important;
+    padding: 0 !important;
+    display: block !important;
+    box-shadow: none !important;
+    border: none !important;
+    filter: brightness(1.02);
+  }
+
+  /* 2. ELIMINAR BORDES Y SOMBRAS EXTERIORES */
   .leaflet-container { 
     background-color: #aad3df !important; 
     border: none !important;
@@ -25,22 +39,8 @@ const globalStyles = `
     width: 100% !important;
   }
   
-  /* 2. ELIMINAR LÍNEAS BLANCAS (Solapamiento por escala) */
-  .leaflet-tile {
-    /* Forzamos que la pieza crezca un 2% para que pise a la de al lado y tape la grieta */
-    transform: scale(1.02) !important;
-    filter: brightness(1.02);
-    outline: 1px solid transparent;
+  .leaflet-tile-pane {
     -webkit-backface-visibility: hidden;
-    image-rendering: -webkit-optimize-contrast;
-  }
-
-  /* 3. EVITAR QUE REGLAS EXTERNAS ROMPAN EL MAPA */
-  .leaflet-container img {
-    max-width: none !important;
-    max-height: none !important;
-    box-shadow: none !important;
-    border: none !important;
   }
 
   .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
@@ -48,7 +48,7 @@ const globalStyles = `
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
-// Fix Marcadores (Pines)
+// Fix Marcadores
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -59,10 +59,12 @@ L.Icon.Default.mergeOptions({
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    setTimeout(() => {
+    // Forzamos al mapa a reconocer su tamaño real de inmediato
+    const timer = setTimeout(() => {
       map.invalidateSize();
       map.setView([40.4167, -3.7037], 6); 
-    }, 500);
+    }, 700);
+    return () => clearTimeout(timer);
   }, [map]);
   return null;
 }
@@ -92,10 +94,8 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [events, setEvents] = useState([]);
-  const [favorites, setFavorites] = useState([]);
   const [view, setView] = useState('home');
   const [isDark, setIsDark] = useState(true);
-  const [email, setEmail] = useState('');
 
   useEffect(() => {
     fetchEvents();
@@ -112,13 +112,6 @@ export default function App() {
   const fetchEvents = async () => {
     const { data } = await supabase.from('events').select('*').eq('status', 'approved');
     if (data) setEvents(data);
-  };
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) alert(error.message);
-    else alert("¡Revisa tu email!");
   };
 
   const today = new Date().toISOString().split('T')[0];
@@ -138,7 +131,7 @@ export default function App() {
                 <ShieldCheck size={28} />
               </button>
             )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl transition">
+            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
             <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase shadow-lg" onClick={() => setView('profile')}>
@@ -165,7 +158,7 @@ export default function App() {
           {view === 'map' && (
             <div className="absolute inset-0 z-0 bg-[#aad3df]">
               <MapContainer 
-                key="map-final-no-lines" 
+                key="mapa-españa-vFinal" 
                 center={[40.41, -3.70]} 
                 zoom={6} 
                 className="h-full w-full" 
@@ -186,24 +179,8 @@ export default function App() {
             </div>
           )}
 
-          {view === 'profile' && (
-            <div className="max-w-md mx-auto p-10 text-center">
-              {!user ? (
-                <form onSubmit={handleLogin} className="space-y-4 bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl">
-                  <h2 className="font-black uppercase italic text-xl">Mi Perfil</h2>
-                  <input type="email" placeholder="Email" className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white" value={email} onChange={e => setEmail(e.target.value)} required />
-                  <button type="submit" className="w-full bg-indigo-600 p-4 rounded-2xl font-bold uppercase">Entrar</button>
-                </form>
-              ) : (
-                <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl space-y-4">
-                  <p className="font-bold">{user.email}</p>
-                  <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-600/20 text-red-500 p-4 rounded-2xl font-bold uppercase">Cerrar Sesión</button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Pantalla Crear</div>}
+          {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Pantalla Perfil</div>}
+          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Crear Evento</div>}
           {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Favoritos</div>}
           {view === 'admin' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-indigo-600 italic">Panel Admin</div>}
         </main>
