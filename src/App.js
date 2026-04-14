@@ -12,10 +12,10 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX TOTAL: CERO LÍNEAS, CERO BORDES Y IDIOMA ESPAÑOL
+// FIX ABSOLUTO: SIN LÍNEAS, SIN BORDES, IDIOMA ESPAÑOL
 // ============================================================
 const globalStyles = `
-  /* 1. ELIMINAR EL BODE EXTERIOR DEL MAPA */
+  /* 1. ELIMINAR CUALQUIER BORDE O SOMBRA DEL MAPA */
   .leaflet-container { 
     background-color: #aad3df !important; 
     border: none !important;
@@ -23,18 +23,15 @@ const globalStyles = `
     box-shadow: none !important;
   }
   
-  /* 2. ELIMINAR LÍNEAS BLANCAS (Técnica de Sangrado) */
+  /* 2. ELIMINAR LÍNEAS BLANCAS (Solapamiento interno) */
   .leaflet-tile {
-    /* Creamos un micro-borde del color del mar para tapar la grieta */
-    outline: 0.5px solid #aad3df !important;
-    /* Solapamiento mínimo */
-    transform: scale(1.005) !important;
-    filter: brightness(1.02);
+    transform: scale(1.02) !important;
+    outline: 1px solid transparent;
     -webkit-backface-visibility: hidden;
     image-rendering: -webkit-optimize-contrast;
   }
 
-  /* 3. EVITAR QUE TAILWIND AFECTE AL MAPA */
+  /* 3. EVITAR QUE TAILWIND/VERCEL APLASTE EL MAPA */
   .leaflet-container img {
     max-width: none !important;
     max-height: none !important;
@@ -60,7 +57,7 @@ function SpainMapController() {
     setTimeout(() => {
       map.invalidateSize();
       map.setView([40.4167, -3.7037], 6); 
-    }, 500);
+    }, 600);
   }, [map]);
   return null;
 }
@@ -122,15 +119,12 @@ export default function App() {
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
-            {profile?.role === 'admin' && (
-              <button onClick={() => setView('admin')} className="text-indigo-400 p-2">
-                <ShieldCheck size={28} />
-              </button>
-            )}
+            <span className="text-[8px] font-bold text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded">VERSIÓN FINAL PRO</span>
+            {profile?.role === 'admin' && <ShieldCheck size={28} className="text-indigo-400" />}
             <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase" onClick={() => setView('profile')}>
+            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase shadow-lg" onClick={() => setView('profile')}>
                 {user ? user.email[0] : '?'}
             </div>
           </div>
@@ -152,15 +146,8 @@ export default function App() {
           )}
 
           {view === 'map' && (
-            <div className="absolute inset-0 z-0 bg-[#aad3df]">
-              <MapContainer 
-                key="map-clean" 
-                center={[40.41, -3.70]} 
-                zoom={6} 
-                className="h-full w-full" 
-                zoomControl={false} 
-                zoomSnap={1}
-              >
+            <div className="absolute inset-0 z-0">
+              <MapContainer key="map-pro-no-borders" center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}>
                 <SpainMapController />
                 <TileLayer
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -178,7 +165,6 @@ export default function App() {
           {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Pantalla Perfil</div>}
           {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Crear Evento</div>}
           {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Favoritos</div>}
-          {view === 'admin' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-indigo-600 italic">Panel Admin</div>}
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
