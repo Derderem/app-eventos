@@ -12,38 +12,36 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX TOTAL: IDIOMA ESPAÑOL Y CERO LÍNEAS BLANCAS
+// FIX DEFINITIVO: ELIMINA CUADROS BLANCOS Y LÍNEAS
 // ============================================================
 const globalStyles = `
+  /* 1. EVITA QUE EL MAPA SE VEA AZUL O CON CUADROS BLANCOS */
+  .leaflet-container img {
+    max-width: none !important;
+    max-height: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+
+  /* 2. ELIMINA LÍNEAS BLANCAS (Solapamiento agresivo) */
+  .leaflet-tile {
+    width: 258px !important;
+    height: 258px !important;
+    margin-left: -1px !important;
+    margin-top: -1px !important;
+    filter: brightness(1.02);
+    outline: 1px solid transparent;
+    -webkit-backface-visibility: hidden;
+  }
+
   .leaflet-container { 
     background-color: #aad3df !important; 
     height: 100% !important;
     width: 100% !important;
   }
-  
-  /* ELIMINAR LÍNEAS BLANCAS: Solapamiento por escala interna */
-  .leaflet-tile {
-    /* Forzamos un solapamiento de 1.5 píxeles para que no haya grietas */
-    transform: scale(1.015) !important;
-    outline: 1px solid transparent;
-    -webkit-backface-visibility: hidden;
-    image-rendering: -webkit-optimize-contrast;
-  }
 
-  /* ELIMINAR CUADRO BLANCO */
-  .leaflet-container img {
-    max-width: none !important;
-    max-height: none !important;
-  }
-
-  .logo-font { 
-    font-family: 'Arial Black', sans-serif; 
-    font-weight: 900; 
-    font-style: italic; 
-    display: flex; 
-    align-items: center; 
-    letter-spacing: -2px; 
-  }
+  .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
@@ -59,10 +57,11 @@ L.Icon.Default.mergeOptions({
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
+    // Forzamos al mapa a calcular su tamaño real
     setTimeout(() => {
       map.invalidateSize();
       map.setView([40.4167, -3.7037], 6); 
-    }, 500);
+    }, 600);
   }, [map]);
   return null;
 }
@@ -118,7 +117,7 @@ export default function App() {
     e.preventDefault();
     const { error } = await supabase.auth.signInWithOtp({ email });
     if (error) alert(error.message);
-    else alert("Revisa tu email");
+    else alert("Revisa tu email para entrar");
   };
 
   const today = new Date().toISOString().split('T')[0];
@@ -147,7 +146,7 @@ export default function App() {
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 h-full overflow-y-auto no-scrollbar pb-40">
               {publicEvents.map(ev => (
-                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl transition active:scale-95">
+                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl">
                   <div className="relative h-52 overflow-hidden">
                     <img src={ev.image_url} className="w-full h-full object-cover" alt="" />
                     <button className="absolute top-5 right-5 p-3 bg-white rounded-full shadow-xl text-red-500"><Heart size={20} /></button>
@@ -161,7 +160,7 @@ export default function App() {
           {view === 'map' && (
             <div className="absolute inset-0 z-0 bg-[#aad3df]">
               <MapContainer 
-                key="map-españa-v5" 
+                key="mapa-españa-vFinal" 
                 center={[40.41, -3.70]} 
                 zoom={6} 
                 className="h-full w-full" 
@@ -169,7 +168,6 @@ export default function App() {
                 zoomSnap={1}
               >
                 <SpainMapController />
-                {/* IDIOMA ESPAÑOL: OpenStreetMap Estándar */}
                 <TileLayer
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution='ESPAÑA'
@@ -187,21 +185,21 @@ export default function App() {
             <div className="max-w-md mx-auto p-10 text-center">
               {!user ? (
                 <form onSubmit={handleLogin} className="space-y-4 bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl">
-                  <h2 className="font-black uppercase italic text-xl">Acceso Admin</h2>
+                  <h2 className="font-black uppercase italic text-xl">Mi Perfil</h2>
                   <input type="email" placeholder="Email" className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white" value={email} onChange={e => setEmail(e.target.value)} required />
-                  <button type="submit" className="w-full bg-indigo-600 p-4 rounded-2xl font-bold uppercase">Entrar</button>
+                  <button type="submit" className="w-full bg-indigo-600 p-4 rounded-2xl font-bold uppercase tracking-widest">Entrar</button>
                 </form>
               ) : (
                 <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl space-y-4">
-                  <p className="font-bold">Sesión iniciada: {user.email}</p>
+                  <p className="font-bold">Email: {user.email}</p>
                   <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-600/20 text-red-500 p-4 rounded-2xl font-bold uppercase">Cerrar Sesión</button>
                 </div>
               )}
             </div>
           )}
 
-          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Pantalla Crear</div>}
-          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Pantalla Favoritos</div>}
+          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Crear Evento</div>}
+          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Mis Favoritos</div>}
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
