@@ -12,20 +12,19 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX TOTAL: ELIMINAR CUADRADO BLANCO Y LÍNEAS
+// FIX TOTAL: SIN CUADRO BLANCO, SIN LÍNEAS, IDIOMA ESPAÑOL
 // ============================================================
 const globalStyles = `
-  /* 1. ANULAR REGLAS DE TAILWIND QUE CREAN EL CUADRADO BLANCO */
-  .leaflet-container img {
+  /* 1. ELIMINAR EL CUADRO BLANCO (Reset de imágenes del mapa) */
+  .leaflet-container img.leaflet-tile {
     max-width: none !important;
     max-height: none !important;
-    width: 256.5px !important; /* Medio píxel extra para tapar líneas blancas */
+    width: 256.5px !important; /* Solapamiento de medio píxel para líneas */
     height: 256.5px !important;
     display: block !important;
     padding: 0 !important;
     margin: 0 !important;
-    box-shadow: none !important;
-    border: none !important;
+    filter: brightness(1.02);
   }
 
   /* 2. ELIMINAR BORDES EXTERIORES */
@@ -34,12 +33,9 @@ const globalStyles = `
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
-    height: 100% !important;
-    width: 100% !important;
   }
   
   .leaflet-tile {
-    filter: brightness(1.02);
     -webkit-backface-visibility: hidden;
     outline: 1px solid transparent;
   }
@@ -60,12 +56,10 @@ L.Icon.Default.mergeOptions({
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    // Forzamos al mapa a reconocer su tamaño real de inmediato
-    const timer = setTimeout(() => {
+    setTimeout(() => {
       map.invalidateSize();
       map.setView([40.4167, -3.7037], 6); 
-    }, 500);
-    return () => clearTimeout(timer);
+    }, 600);
   }, [map]);
   return null;
 }
@@ -123,7 +117,7 @@ export default function App() {
       <style>{globalStyles}</style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500 font-sans">
         
-        {/* NAV SUPERIOR */}
+        {/* BARRA SUPERIOR */}
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
@@ -132,7 +126,7 @@ export default function App() {
                 <ShieldCheck size={28} />
               </button>
             )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
+            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl transition">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
             <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase shadow-lg" onClick={() => setView('profile')}>
@@ -158,14 +152,7 @@ export default function App() {
 
           {view === 'map' && (
             <div className="absolute inset-0 z-0 bg-[#aad3df]">
-              <MapContainer 
-                key="map-V12-PRO" 
-                center={[40.41, -3.70]} 
-                zoom={6} 
-                className="h-full w-full" 
-                zoomControl={false} 
-                zoomSnap={1}
-              >
+              <MapContainer key="mapa-españa-vFinal" center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}>
                 <SpainMapController />
                 <TileLayer
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -180,7 +167,7 @@ export default function App() {
             </div>
           )}
 
-          {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Pantalla Perfil</div>}
+          {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Mi Perfil</div>}
           {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Crear Evento</div>}
           {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Favoritos</div>}
           {view === 'admin' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-indigo-600 italic">Panel Admin</div>}
