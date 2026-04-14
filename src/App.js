@@ -12,10 +12,9 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX TOTAL: SIN LÍNEAS, SIN BORDES, IDIOMA ESPAÑOL
+// FIX TOTAL: SIN LÍNEAS, SIN BORDES Y EN ESPAÑOL
 // ============================================================
 const globalStyles = `
-  /* 1. ELIMINAR CUALQUIER BORDE O SOMBRA DEL MAPA */
   .leaflet-container { 
     background-color: #aad3df !important; 
     border: none !important;
@@ -23,20 +22,16 @@ const globalStyles = `
     box-shadow: none !important;
   }
   
-  /* 2. ELIMINAR LÍNEAS BLANCAS (Solapamiento por escala) */
   .leaflet-tile {
     transform: scale(1.02) !important;
     filter: brightness(1.02);
     outline: 1px solid transparent;
     -webkit-backface-visibility: hidden;
-    image-rendering: -webkit-optimize-contrast;
   }
 
-  /* 3. EVITAR QUE TAILWIND APLASTE LAS IMÁGENES */
   .leaflet-container img {
     max-width: none !important;
     max-height: none !important;
-    box-shadow: none !important;
   }
 
   .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
@@ -44,7 +39,6 @@ const globalStyles = `
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
-// Fix Marcadores (Pines)
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -119,15 +113,11 @@ export default function App() {
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
-            {profile?.role === 'admin' && (
-              <button onClick={() => setView('admin')} className="text-indigo-400 p-2">
-                <ShieldCheck size={28} />
-              </button>
-            )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl transition">
+            {profile?.role === 'admin' && <ShieldCheck size={28} className="text-indigo-400" />}
+            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase shadow-lg" onClick={() => setView('profile')}>
+            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase" onClick={() => setView('profile')}>
                 {user ? user.email[0] : '?'}
             </div>
           </div>
@@ -137,7 +127,7 @@ export default function App() {
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 h-full overflow-y-auto no-scrollbar pb-40">
               {publicEvents.map(ev => (
-                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl transition active:scale-95">
+                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl">
                   <div className="relative h-52 overflow-hidden">
                     <img src={ev.image_url} className="w-full h-full object-cover" alt="" />
                     <button className="absolute top-5 right-5 p-3 bg-white rounded-full shadow-xl text-red-500"><Heart size={20} /></button>
@@ -150,38 +140,34 @@ export default function App() {
 
           {view === 'map' && (
             <div className="absolute inset-0 z-0 bg-[#aad3df]">
+              {/* TU MODIFICACIÓN AQUÍ */}
               <MapContainer 
-                key="map-clean-v20" 
-                center={[40.41, -3.70]} 
+                center={[40.4167, -3.7037]} 
                 zoom={6} 
-                className="h-full w-full" 
-                zoomControl={false} 
+                style={{ height: "100%", width: "100%" }}
                 zoomSnap={1}
               >
                 <SpainMapController />
                 <TileLayer
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='ESPAÑA'
+                  attribution='&copy; OpenStreetMap'
                 />
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup><div className="text-center font-bold text-indigo-600 uppercase text-xs">{ev.title}</div></Popup>
+                    <Popup className="text-center text-indigo-600 font-bold uppercase text-xs">
+                      {ev.title}
+                    </Popup>
                   </Marker>
                 ))}
               </MapContainer>
             </div>
           )}
 
-          {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Perfil</div>}
-          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Crear Evento</div>}
-          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Favoritos</div>}
-          {view === 'admin' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-indigo-600 italic">Panel Admin</div>}
+          {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Pantalla Perfil</div>}
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
           <button onClick={() => setView('home')} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><LayoutList size={26}/></button>
-          <button onClick={() => setView('create')} className={`p-4 rounded-2xl transition-all ${view === 'create' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><PlusCircle size={26}/></button>
-          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><Heart size={26}/></button>
           <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><MapIcon size={26}/></button>
         </nav>
       </div>
