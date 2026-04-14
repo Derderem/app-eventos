@@ -12,23 +12,26 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX DEFINITIVO: CERO LÍNEAS Y TODO RECUPERADO
+// FIX DEFINITIVO: CERO LÍNEAS BLANCAS Y TODO RECUPERADO
 // ============================================================
 const globalStyles = `
   .leaflet-container { 
     background-color: #aad3df !important; 
   }
   
-  /* SOLUCIÓN FINAL A LAS LÍNEAS BLANCAS */
+  /* SOLUCIÓN PROFESIONAL PARA LAS LÍNEAS BLANCAS */
   .leaflet-tile {
-    /* El truco del medio píxel: solapa lo justo para tapar la grieta */
-    width: 256.5px !important;
-    height: 256.5px !important;
+    /* Forzamos un solapamiento interno del 1.5% para tapar la grieta */
+    transform: scale(1.015) !important;
+    
+    /* Evita que el navegador suavice los bordes y deje ver el fondo */
     outline: 1px solid transparent;
-    filter: brightness(1.02);
     -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    image-rendering: -webkit-optimize-contrast;
   }
 
+  /* Prevenir que reglas de Vercel/Tailwind aplasten el mapa */
   .leaflet-container img {
     max-width: none !important;
     max-height: none !important;
@@ -110,7 +113,7 @@ export default function App() {
     e.preventDefault();
     const { error } = await supabase.auth.signInWithOtp({ email });
     if (error) alert(error.message);
-    else alert("Revisa tu email");
+    else alert("Revisa tu email para entrar");
   };
 
   const today = new Date().toISOString().split('T')[0];
@@ -119,7 +122,7 @@ export default function App() {
   return (
     <div className={isDark ? "dark" : ""}>
       <style>{globalStyles}</style>
-      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500">
+      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500 font-sans">
         
         {/* BARRA SUPERIOR */}
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
@@ -129,7 +132,7 @@ export default function App() {
             <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase" onClick={() => setView('profile')}>
+            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase shadow-lg" onClick={() => setView('profile')}>
                 {user ? user.email[0] : '?'}
             </div>
           </div>
@@ -139,7 +142,7 @@ export default function App() {
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 h-full overflow-y-auto no-scrollbar pb-40">
               {publicEvents.map(ev => (
-                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl">
+                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl transition active:scale-95">
                   <div className="relative h-52 overflow-hidden">
                     <img src={ev.image_url} className="w-full h-full object-cover" alt="" />
                     <button className="absolute top-5 right-5 p-3 bg-white rounded-full shadow-xl text-red-500"><Heart size={20} /></button>
@@ -152,7 +155,14 @@ export default function App() {
 
           {view === 'map' && (
             <div className="absolute inset-0 z-0 bg-[#aad3df]">
-              <MapContainer key="map-españa-final" center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}>
+              <MapContainer 
+                key="map-final-v10" 
+                center={[40.41, -3.70]} 
+                zoom={6} 
+                className="h-full w-full" 
+                zoomControl={false} 
+                zoomSnap={1}
+              >
                 <SpainMapController />
                 <TileLayer
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -171,29 +181,28 @@ export default function App() {
             <div className="max-w-md mx-auto p-10 text-center">
               {!user ? (
                 <form onSubmit={handleLogin} className="space-y-4 bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl">
-                  <h2 className="font-black uppercase italic text-xl">Acceso</h2>
-                  <input type="email" placeholder="Email" className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white" value={email} onChange={e => setEmail(e.target.value)} required />
-                  <button type="submit" className="w-full bg-indigo-600 p-4 rounded-2xl font-bold uppercase">Entrar</button>
+                  <h2 className="font-black uppercase italic text-xl">Mi Cuenta</h2>
+                  <input type="email" placeholder="Tu Email" className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white" value={email} onChange={e => setEmail(e.target.value)} required />
+                  <button type="submit" className="w-full bg-indigo-600 p-4 rounded-2xl font-bold uppercase tracking-widest">Entrar</button>
                 </form>
               ) : (
                 <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl space-y-4">
-                  <p className="font-bold">{user.email}</p>
-                  <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-600/20 text-red-500 p-4 rounded-2xl font-bold uppercase">Salir</button>
+                  <p className="font-bold">Email: {user.email}</p>
+                  <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-600/20 text-red-500 p-4 rounded-2xl font-bold uppercase">Cerrar Sesión</button>
                 </div>
               )}
             </div>
           )}
 
-          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Crear</div>}
-          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Favoritos</div>}
+          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Pantalla Crear</div>}
+          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Pantalla Favoritos</div>}
         </main>
 
-        {/* NAVEGACIÓN INFERIOR */}
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
-          <button onClick={() => setView('home')} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-lg" : ""}`}><LayoutList size={26}/></button>
-          <button onClick={() => setView('create')} className={`p-4 rounded-2xl transition-all ${view === 'create' ? "bg-blue-600 text-white shadow-lg" : ""}`}><PlusCircle size={26}/></button>
-          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg" : ""}`}><Heart size={26}/></button>
-          <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-lg" : ""}`}><MapIcon size={26}/></button>
+          <button onClick={() => setView('home')} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><LayoutList size={26}/></button>
+          <button onClick={() => setView('create')} className={`p-4 rounded-2xl transition-all ${view === 'create' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><PlusCircle size={26}/></button>
+          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><Heart size={26}/></button>
+          <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><MapIcon size={26}/></button>
         </nav>
       </div>
     </div>
