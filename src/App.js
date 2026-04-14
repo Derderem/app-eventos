@@ -12,35 +12,33 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX ABSOLUTO: AISLAMIENTO TOTAL CONTRA CUADROS BLANCOS
+// FIX NUCLEAR: SIN LÍNEAS, SIN BORDES, IDIOMA ESPAÑOL
 // ============================================================
 const globalStyles = `
-  /* 1. ELIMINAR EL CUADRADO BLANCO (Reset de imágenes del mapa) */
-  .leaflet-container img.leaflet-tile {
-    max-width: none !important;
-    max-height: none !important;
-    width: 257px !important; /* Solapa 1px para quitar líneas blancas */
-    height: 257px !important;
-    margin: -0.5px !important;
-    padding: 0 !important;
-    display: block !important;
-    box-shadow: none !important;
-    border: none !important;
-    filter: brightness(1.02);
-  }
-
-  /* 2. ELIMINAR BORDES Y SOMBRAS EXTERIORES */
+  /* 1. ELIMINAR CUALQUIER BORDE, SOMBRA O LÍNEA DEL CONTENEDOR */
   .leaflet-container { 
-    background-color: #aad3df !important; 
+    background-color: #aad3df !important; /* Color del mar de OSM para tapar grietas */
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
-    height: 100% !important;
-    width: 100% !important;
   }
   
-  .leaflet-tile-pane {
+  /* 2. ELIMINAR LÍNEAS BLANCAS (Solapamiento por escala) */
+  .leaflet-tile {
+    /* Forzamos que la pieza crezca un 1.5% para que pise a la de al lado */
+    transform: scale(1.015) !important;
+    filter: brightness(1.02);
+    outline: 1px solid transparent;
     -webkit-backface-visibility: hidden;
+    image-rendering: -webkit-optimize-contrast;
+  }
+
+  /* 3. EVITAR QUE TAILWIND APLASTE LAS IMÁGENES */
+  .leaflet-container img {
+    max-width: none !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 
   .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
@@ -48,7 +46,7 @@ const globalStyles = `
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
-// Fix Marcadores
+// Fix Marcadores (Pines)
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -59,12 +57,10 @@ L.Icon.Default.mergeOptions({
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    // Forzamos al mapa a reconocer su tamaño real de inmediato
-    const timer = setTimeout(() => {
+    setTimeout(() => {
       map.invalidateSize();
       map.setView([40.4167, -3.7037], 6); 
-    }, 700);
-    return () => clearTimeout(timer);
+    }, 500);
   }, [map]);
   return null;
 }
@@ -131,7 +127,7 @@ export default function App() {
                 <ShieldCheck size={28} />
               </button>
             )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
+            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl transition">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
             <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase shadow-lg" onClick={() => setView('profile')}>
@@ -158,7 +154,7 @@ export default function App() {
           {view === 'map' && (
             <div className="absolute inset-0 z-0 bg-[#aad3df]">
               <MapContainer 
-                key="mapa-españa-vFinal" 
+                key="map-pro-no-lines" 
                 center={[40.41, -3.70]} 
                 zoom={6} 
                 className="h-full w-full" 
@@ -179,11 +175,10 @@ export default function App() {
             </div>
           )}
 
-          {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Pantalla Perfil</div>}
+          {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Perfil</div>}
           {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Crear Evento</div>}
           {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Favoritos</div>}
-          {view === 'admin' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-indigo-600 italic">Panel Admin</div>}
-        </main>
+        </nav>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
           <button onClick={() => setView('home')} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><LayoutList size={26}/></button>
