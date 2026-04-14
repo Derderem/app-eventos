@@ -12,32 +12,35 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX TOTAL: SIN CUADRO BLANCO, SIN LÍNEAS, IDIOMA ESPAÑOL
+// FIX DEFINITIVO: CERO LÍNEAS, CERO BORDES, IDIOMA ESPAÑOL
 // ============================================================
 const globalStyles = `
-  /* 1. ELIMINAR EL CUADRO BLANCO (Reset de imágenes del mapa) */
-  .leaflet-container img.leaflet-tile {
-    max-width: none !important;
-    max-height: none !important;
-    width: 256.5px !important; /* Solapamiento de medio píxel para líneas */
-    height: 256.5px !important;
-    display: block !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    filter: brightness(1.02);
-  }
-
-  /* 2. ELIMINAR BORDES EXTERIORES */
+  /* 1. ELIMINAR EL BORDE Y LA SOMBRA EXTERIOR DEL MAPA */
   .leaflet-container { 
     background-color: #aad3df !important; 
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
+    height: 100% !important;
+    width: 100% !important;
   }
   
+  /* 2. ELIMINAR LÍNEAS BLANCAS (Solapamiento por escala) */
   .leaflet-tile {
-    -webkit-backface-visibility: hidden;
+    /* Forzamos que la pieza crezca un 2% para que pise a la de al lado y tape la grieta */
+    transform: scale(1.02) !important;
+    filter: brightness(1.02);
     outline: 1px solid transparent;
+    -webkit-backface-visibility: hidden;
+    image-rendering: -webkit-optimize-contrast;
+  }
+
+  /* 3. EVITAR QUE REGLAS EXTERNAS ROMPAN EL MAPA */
+  .leaflet-container img {
+    max-width: none !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 
   .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
@@ -59,7 +62,7 @@ function SpainMapController() {
     setTimeout(() => {
       map.invalidateSize();
       map.setView([40.4167, -3.7037], 6); 
-    }, 600);
+    }, 500);
   }, [map]);
   return null;
 }
@@ -89,8 +92,10 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [events, setEvents] = useState([]);
+  const [favorites, setFavorites] = useState([]);
   const [view, setView] = useState('home');
   const [isDark, setIsDark] = useState(true);
+  const [email, setEmail] = useState('');
 
   useEffect(() => {
     fetchEvents();
@@ -109,6 +114,13 @@ export default function App() {
     if (data) setEvents(data);
   };
 
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    const { error } = await supabase.auth.signInWithOtp({ email });
+    if (error) alert(error.message);
+    else alert("¡Revisa tu email!");
+  };
+
   const today = new Date().toISOString().split('T')[0];
   const publicEvents = events.filter(e => e.date >= today);
 
@@ -117,7 +129,7 @@ export default function App() {
       <style>{globalStyles}</style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500 font-sans">
         
-        {/* BARRA SUPERIOR */}
+        {/* NAV SUPERIOR */}
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
@@ -152,7 +164,14 @@ export default function App() {
 
           {view === 'map' && (
             <div className="absolute inset-0 z-0 bg-[#aad3df]">
-              <MapContainer key="mapa-españa-vFinal" center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}>
+              <MapContainer 
+                key="map-final-no-lines" 
+                center={[40.41, -3.70]} 
+                zoom={6} 
+                className="h-full w-full" 
+                zoomControl={false} 
+                zoomSnap={1}
+              >
                 <SpainMapController />
                 <TileLayer
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -167,8 +186,24 @@ export default function App() {
             </div>
           )}
 
-          {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Mi Perfil</div>}
-          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Crear Evento</div>}
+          {view === 'profile' && (
+            <div className="max-w-md mx-auto p-10 text-center">
+              {!user ? (
+                <form onSubmit={handleLogin} className="space-y-4 bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl">
+                  <h2 className="font-black uppercase italic text-xl">Mi Perfil</h2>
+                  <input type="email" placeholder="Email" className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white" value={email} onChange={e => setEmail(e.target.value)} required />
+                  <button type="submit" className="w-full bg-indigo-600 p-4 rounded-2xl font-bold uppercase">Entrar</button>
+                </form>
+              ) : (
+                <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl space-y-4">
+                  <p className="font-bold">{user.email}</p>
+                  <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-600/20 text-red-500 p-4 rounded-2xl font-bold uppercase">Cerrar Sesión</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Pantalla Crear</div>}
           {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Favoritos</div>}
           {view === 'admin' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-indigo-600 italic">Panel Admin</div>}
         </main>
