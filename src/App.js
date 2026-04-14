@@ -12,28 +12,32 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX TOTAL: MAPA VISIBLE, SIN CUADROS BLANCOS Y SIN LÍNEAS
+// FIX TOTAL: IDIOMA ESPAÑOL Y CERO LÍNEAS BLANCAS
 // ============================================================
 const globalStyles = `
-  /* 1. ANULAR REGLAS QUE CREAN EL CUADRO BLANCO */
+  /* 1. FONDO DEL CONTENEDOR (Color del mar de OSM) */
+  .leaflet-container { 
+    background-color: #aad3df !important; 
+    height: 100% !important;
+    width: 100% !important;
+  }
+  
+  /* 2. ELIMINAR LÍNEAS BLANCAS: Solapamiento interno de 1.5% */
+  .leaflet-tile {
+    transform: scale(1.015) !important; /* Estira la imagen lo justo para pisar a la de al lado */
+    filter: brightness(1.02);
+    outline: 1px solid transparent;
+    -webkit-backface-visibility: hidden;
+    image-rendering: -webkit-optimize-contrast;
+  }
+
+  /* 3. EVITAR CUADRO BLANCO O MAPA ROTO */
   .leaflet-container img {
     max-width: none !important;
     max-height: none !important;
     padding: 0 !important;
     margin: 0 !important;
-  }
-
-  /* 2. UNIR LAS JUNTAS SIN ROMPER EL MAPA (Sin cambiar el width) */
-  .leaflet-tile {
-    filter: brightness(1.02) contrast(1.02);
-    outline: 1px solid transparent;
-    -webkit-backface-visibility: hidden;
-  }
-
-  .leaflet-container { 
-    background-color: #aad3df !important; 
-    height: 100% !important;
-    width: 100% !important;
+    display: block !important;
   }
 
   .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
@@ -41,7 +45,7 @@ const globalStyles = `
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
-// Fix Marcadores
+// Fix Marcadores (Pines)
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -85,7 +89,6 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [events, setEvents] = useState([]);
-  const [favorites, setFavorites] = useState([]);
   const [view, setView] = useState('home');
   const [isDark, setIsDark] = useState(true);
   const [email, setEmail] = useState('');
@@ -107,27 +110,26 @@ export default function App() {
     if (data) setEvents(data);
   };
 
+  const today = new Date().toISOString().split('T')[0];
+  const publicEvents = events.filter(e => e.date >= today);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     const { error } = await supabase.auth.signInWithOtp({ email });
     if (error) alert(error.message);
-    else alert("Revisa tu email");
+    else alert("Revisa tu email para entrar");
   };
-
-  const today = new Date().toISOString().split('T')[0];
-  const publicEvents = events.filter(e => e.date >= today);
 
   return (
     <div className={isDark ? "dark" : ""}>
       <style>{globalStyles}</style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500 font-sans">
         
-        {/* BARRA SUPERIOR */}
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
             {profile?.role === 'admin' && <ShieldCheck size={28} className="text-indigo-400" onClick={() => setView('admin')} />}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
+            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl transition">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
             <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase shadow-lg" onClick={() => setView('profile')}>
@@ -140,8 +142,8 @@ export default function App() {
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 h-full overflow-y-auto no-scrollbar pb-40">
               {publicEvents.map(ev => (
-                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl">
-                  <div className="relative h-52 overflow-hidden">
+                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl transition active:scale-95">
+                  <div className="relative h-52">
                     <img src={ev.image_url} className="w-full h-full object-cover" alt="" />
                     <button className="absolute top-5 right-5 p-3 bg-white rounded-full shadow-xl text-red-500"><Heart size={20} /></button>
                   </div>
@@ -154,7 +156,7 @@ export default function App() {
           {view === 'map' && (
             <div className="absolute inset-0 z-0 bg-[#aad3df]">
               <MapContainer 
-                key="map-vFinal-Pro" 
+                key="mapa-españa-v7" 
                 center={[40.41, -3.70]} 
                 zoom={6} 
                 className="h-full w-full" 
@@ -162,9 +164,9 @@ export default function App() {
                 zoomSnap={1}
               >
                 <SpainMapController />
-                {/* SERVIDOR CARTO VOYAGER: Máxima compatibilidad y nombres en español */}
+                {/* IDIOMA ESPAÑOL: OpenStreetMap Estándar */}
                 <TileLayer
-                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution='ESPAÑA'
                 />
                 {publicEvents.map(ev => ev.lat && (
@@ -180,22 +182,21 @@ export default function App() {
             <div className="max-w-md mx-auto p-10 text-center">
               {!user ? (
                 <form onSubmit={handleLogin} className="space-y-4 bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl">
-                  <h2 className="font-black uppercase italic text-xl">Acceso</h2>
-                  <input type="email" placeholder="Email" className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white" value={email} onChange={e => setEmail(e.target.value)} required />
+                  <h2 className="font-black uppercase italic text-xl">Mi Cuenta</h2>
+                  <input type="email" placeholder="Tu Email" className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white" value={email} onChange={e => setEmail(e.target.value)} required />
                   <button type="submit" className="w-full bg-indigo-600 p-4 rounded-2xl font-bold uppercase">Entrar</button>
                 </form>
               ) : (
                 <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl space-y-4">
-                  <p className="font-bold">{user.email}</p>
-                  <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-600/20 text-red-500 p-4 rounded-2xl font-bold uppercase">Salir</button>
+                  <p className="font-bold">Email: {user.email}</p>
+                  <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-600/20 text-red-500 p-4 rounded-2xl font-bold uppercase">Cerrar Sesión</button>
                 </div>
               )}
             </div>
           )}
 
-          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Pantalla Crear</div>}
-          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Pantalla Favoritos</div>}
-          {view === 'admin' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-indigo-600 italic">Panel Admin</div>}
+          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Crear</div>}
+          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Favoritos</div>}
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
