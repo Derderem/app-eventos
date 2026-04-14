@@ -12,29 +12,38 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// FIX TOTAL: ELIMINAR CUADROS BLANCOS Y LÍNEAS
+// FIX TOTAL: IDIOMA ESPAÑOL Y CERO LÍNEAS BLANCAS
 // ============================================================
 const globalStyles = `
-  /* 1. FORZAR QUE LAS IMÁGENES DEL MAPA NO SE ROMPAN */
-  .leaflet-container img.leaflet-tile {
-    max-width: none !important;
-    max-height: none !important;
-    width: 257px !important; /* Fix líneas blancas */
-    height: 257px !important; /* Fix líneas blancas */
-    margin-left: -0.5px !important;
-    margin-top: -0.5px !important;
-    padding: 0 !important;
-    filter: brightness(1.03);
-    -webkit-backface-visibility: hidden;
-  }
-
   .leaflet-container { 
     background-color: #aad3df !important; 
     height: 100% !important;
     width: 100% !important;
   }
+  
+  /* ELIMINAR LÍNEAS BLANCAS: Solapamiento por escala interna */
+  .leaflet-tile {
+    /* Forzamos un solapamiento de 1.5 píxeles para que no haya grietas */
+    transform: scale(1.015) !important;
+    outline: 1px solid transparent;
+    -webkit-backface-visibility: hidden;
+    image-rendering: -webkit-optimize-contrast;
+  }
 
-  .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
+  /* ELIMINAR CUADRO BLANCO */
+  .leaflet-container img {
+    max-width: none !important;
+    max-height: none !important;
+  }
+
+  .logo-font { 
+    font-family: 'Arial Black', sans-serif; 
+    font-weight: 900; 
+    font-style: italic; 
+    display: flex; 
+    align-items: center; 
+    letter-spacing: -2px; 
+  }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
@@ -124,7 +133,7 @@ export default function App() {
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
-            {profile?.role === 'admin' && <ShieldCheck size={26} className="text-indigo-400" />}
+            {profile?.role === 'admin' && <ShieldCheck size={28} className="text-indigo-400" />}
             <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
@@ -138,8 +147,8 @@ export default function App() {
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 h-full overflow-y-auto no-scrollbar pb-40">
               {publicEvents.map(ev => (
-                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl">
-                  <div className="relative h-52">
+                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl transition active:scale-95">
+                  <div className="relative h-52 overflow-hidden">
                     <img src={ev.image_url} className="w-full h-full object-cover" alt="" />
                     <button className="absolute top-5 right-5 p-3 bg-white rounded-full shadow-xl text-red-500"><Heart size={20} /></button>
                   </div>
@@ -151,16 +160,23 @@ export default function App() {
 
           {view === 'map' && (
             <div className="absolute inset-0 z-0 bg-[#aad3df]">
-              <MapContainer key="mapa-españa-v4" center={[40.41, -3.70]} zoom={6} className="h-full w-full" zoomControl={false} zoomSnap={1}>
+              <MapContainer 
+                key="map-españa-v5" 
+                center={[40.41, -3.70]} 
+                zoom={6} 
+                className="h-full w-full" 
+                zoomControl={false} 
+                zoomSnap={1}
+              >
                 <SpainMapController />
-                {/* SERVIDOR CARTO VOYAGER: 100% compatible, en español y sin cuadros blancos */}
+                {/* IDIOMA ESPAÑOL: OpenStreetMap Estándar */}
                 <TileLayer
-                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution='ESPAÑA'
                 />
                 {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup><div className="text-center font-bold text-indigo-600">{ev.title}</div></Popup>
+                    <Popup><div className="text-center font-bold text-indigo-600 uppercase text-xs">{ev.title}</div></Popup>
                   </Marker>
                 ))}
               </MapContainer>
@@ -171,21 +187,21 @@ export default function App() {
             <div className="max-w-md mx-auto p-10 text-center">
               {!user ? (
                 <form onSubmit={handleLogin} className="space-y-4 bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl">
-                  <h2 className="font-black uppercase italic text-xl">Mi Cuenta</h2>
+                  <h2 className="font-black uppercase italic text-xl">Acceso Admin</h2>
                   <input type="email" placeholder="Email" className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white" value={email} onChange={e => setEmail(e.target.value)} required />
                   <button type="submit" className="w-full bg-indigo-600 p-4 rounded-2xl font-bold uppercase">Entrar</button>
                 </form>
               ) : (
                 <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl space-y-4">
-                  <p className="font-bold">{user.email}</p>
+                  <p className="font-bold">Sesión iniciada: {user.email}</p>
                   <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-600/20 text-red-500 p-4 rounded-2xl font-bold uppercase">Cerrar Sesión</button>
                 </div>
               )}
             </div>
           )}
 
-          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Crear</div>}
-          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Favoritos</div>}
+          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Pantalla Crear</div>}
+          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700">Pantalla Favoritos</div>}
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
