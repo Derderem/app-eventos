@@ -14,25 +14,19 @@ import 'leaflet/dist/leaflet.css';
 // CONFIGURACIÓN VISUAL Y ANIMACIONES (PULSE ADMIN)
 // ============================================================
 const globalStyles = `
-  .leaflet-container, .leaflet-container *, .leaflet-control-container, 
-  .leaflet-control-container *, .leaflet-pane, .leaflet-pane * {
-    border: none !important; outline: none !important; box-shadow: none !important;
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
-  .leaflet-container { background-color: #aad3df !important; }
-  .leaflet-tile-pane { image-rendering: -webkit-optimize-contrast; }
-  .leaflet-tile { 
-    margin: 0 !important; padding: 0 !important; 
-    -webkit-backface-visibility: hidden; backface-visibility: hidden; 
-    will-change: transform;
-    /* Fix para líneas blancas manteniendo tu estructura */
-    width: 256.5px !important; height: 256.5px !important;
+
+  .leaflet-container {
+    background-color: #aad3df !important; 
   }
-  .leaflet-container img { max-width: none !important; max-height: none !important; }
   
-  .map-full {
-    position: absolute !important; top: 0 !important; left: 0 !important;
-    right: 0 !important; bottom: 0 !important; margin: 0 !important;
-    padding: 0 !important; border: none !important; outline: none !important;
+  .leaflet-tile {
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   @keyframes admin-pulse {
@@ -57,7 +51,7 @@ L.Icon.Default.mergeOptions({
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    setTimeout(() => { map.invalidateSize(); map.setView([40.4167, -3.7037], 6); }, 500);
+    setTimeout(() => { map.invalidateSize(); map.setView([40.4167, -3.7037], 6); }, 100);
   }, [map]);
   return null;
 }
@@ -130,11 +124,46 @@ export default function App() {
   const adminEvents = events.filter(e => e.status === 'pending');
 
   return (
-    <div className={isDark ? "dark" : ""}>
+    <div className={isDark ? "dark" : ""} style={{ margin: 0, padding: 0, width: '100vw', height: '100vh', overflow: 'hidden' }}>
       <style>{globalStyles}</style>
-      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500 font-sans">
+      
+      {/* MAPA - Extendido mas alla de la pantalla para eliminar bordes */}
+      {view === 'map' && (
+        <div style={{ 
+          position: 'fixed', 
+          top: -50, 
+          left: -50, 
+          width: 'calc(100vw + 100px)', 
+          height: 'calc(100vh + 100px)', 
+          zIndex: 1,
+          background: '#aad3df',
+          overflow: 'hidden'
+        }}>
+          <MapContainer 
+            center={[40.4167, -3.7037]} 
+            zoom={6} 
+            style={{ width: '100%', height: '100%' }}
+            zoomSnap={1}
+          >
+            <SpainMapController />
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; OpenStreetMap'
+            />
+            {publicEvents.map(ev => ev.lat && ev.lng && (
+              <Marker key={ev.id} position={[ev.lat, ev.lng]}>
+                <Popup className="text-center text-indigo-600 font-bold uppercase text-xs">
+                  {ev.title}
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+        </div>
+      )}
+
+      <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500 font-sans" style={{ position: 'relative', zIndex: 10, pointerEvents: view === 'map' ? 'none' : 'auto' }}>
         
-        <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
+        <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]" style={{ pointerEvents: 'auto' }}>
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
             {profile?.role === 'admin' && (
@@ -153,7 +182,7 @@ export default function App() {
           </div>
         </nav>
 
-        <main className="flex-1 relative overflow-hidden">
+        <main className="flex-1 relative overflow-hidden" style={{ background: view === 'map' ? 'transparent' : '#020617' }}>
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 h-full overflow-y-auto no-scrollbar pb-40">
               {publicEvents.map(ev => (
@@ -168,31 +197,6 @@ export default function App() {
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-
-          {view === 'map' && (
-            <div className="map-full" style={{ background: '#aad3df', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, margin: 0, padding: 0, border: 'none', outline: 'none' }}>
-              <MapContainer 
-                center={[40.4167, -3.7037]} 
-                zoom={6} 
-                className="map-full"
-                style={{ height: "100%", width: "100%", position: 'absolute', top: 0, left: 0, margin: 0, padding: 0, border: 'none', outline: 'none' }}
-                zoomSnap={1}
-              >
-                <SpainMapController />
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; OpenStreetMap'
-                />
-                {publicEvents.map(ev => ev.lat && ev.lng && (
-                  <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup className="text-center text-indigo-600 font-bold uppercase text-xs">
-                      {ev.title}
-                    </Popup>
-                  </Marker>
-                ))}
-              </MapContainer>
             </div>
           )}
 
@@ -212,7 +216,7 @@ export default function App() {
 
                 {user && (
                   <button onClick={() => supabase.auth.signOut()} className="flex items-center justify-center gap-2 w-full text-red-500 font-black uppercase text-[10px] tracking-widest pt-6 border-t border-slate-800">
-                    <LogOut size={16} /> Cerrar Sesión
+                    <LogOut size={16} /> Cerrar Sesion
                   </button>
                 )}
               </div>
@@ -222,7 +226,7 @@ export default function App() {
           {view === 'admin' && (
             <div className="max-w-xl mx-auto p-4 h-full overflow-y-auto no-scrollbar pb-40">
                <h2 className="text-center font-black uppercase italic text-indigo-500 mb-6">Eventos por Verificar ({pendingCount})</h2>
-               {adminEvents.length === 0 && <p className="text-center text-slate-500 mt-20">Todo al día. No hay pendientes.</p>}
+               {adminEvents.length === 0 && <p className="text-center text-slate-500 mt-20">Todo al dia. No hay pendientes.</p>}
                {adminEvents.map(ev => (
                  <div key={ev.id} className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 mb-4 space-y-4">
                     <div className="flex justify-between items-start">
@@ -247,7 +251,7 @@ export default function App() {
             <div className="max-w-md mx-auto p-6 h-full overflow-y-auto no-scrollbar">
               <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 space-y-4 shadow-2xl">
                 <h2 className="text-xl font-black uppercase italic text-center">Nuevo Evento</h2>
-                <input name="title" placeholder="TÍTULO DEL EVENTO" className="w-full p-5 rounded-xl bg-slate-800 border border-slate-700 uppercase font-bold text-white outline-none focus:border-indigo-500" value={form.title} onChange={handleInputChange} />
+                <input name="title" placeholder="TITULO DEL EVENTO" className="w-full p-5 rounded-xl bg-slate-800 border border-slate-700 uppercase font-bold text-white outline-none focus:border-indigo-500" value={form.title} onChange={handleInputChange} />
                 <input name="city" placeholder="CIUDAD" className="w-full p-5 rounded-xl bg-slate-800 border border-slate-700 uppercase font-bold text-white outline-none focus:border-indigo-500" value={form.city} onChange={handleInputChange} />
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-1">
@@ -259,13 +263,13 @@ export default function App() {
                       <input name="time" type="time" className="w-full p-4 rounded-xl bg-slate-800 border border-slate-700 text-white" value={form.time} onChange={handleInputChange} />
                    </div>
                 </div>
-                <button className="w-full bg-indigo-600 p-5 rounded-xl font-black uppercase shadow-lg shadow-indigo-500/20 active:scale-95 transition">Enviar para revisión</button>
+                <button className="w-full bg-indigo-600 p-5 rounded-xl font-black uppercase shadow-lg shadow-indigo-500/20 active:scale-95 transition">Enviar para revision</button>
               </div>
             </div>
           )}
         </main>
 
-        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
+        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500" style={{ pointerEvents: 'auto' }}>
           <button onClick={() => setView('home')} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><LayoutList size={26}/></button>
           <button onClick={() => setView('create')} className={`p-4 rounded-2xl transition-all ${view === 'create' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><PlusCircle size={26}/></button>
           <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><MapIcon size={26}/></button>
