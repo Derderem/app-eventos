@@ -11,7 +11,6 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const globalStyles = `
-  /* Eliminar TODOS los bordes del mapa */
   .leaflet-container,
   .leaflet-container *,
   .leaflet-control-container,
@@ -49,7 +48,6 @@ const globalStyles = `
     max-height: none !important;
   }
 
-  /* Ocultar controles de zoom para eliminar bordes */
   .leaflet-control-zoom {
     border: none !important;
     box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
@@ -179,10 +177,9 @@ export default function App() {
                 zoomSnap={1}
               >
                 <SpainMapController />
-                {/* Mapa con nombres LOCALES (Espana, Francia, etc.) */}
                 <TileLayer
-                  url="https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png"
-                  attribution='&copy; <a href="https://wikimediafoundation.org/wiki/Maps_Terms_of_Use">Wikimedia</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
                 {publicEvents.map(ev => ev.lat && ev.lng && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
