@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
@@ -10,12 +8,8 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// ============================================================
-// FIX TOTAL: SIN LÍNEAS, SIN BORDES Y EN ESPAÑOL
-// ============================================================
 const globalStyles = `
   .leaflet-container { 
     background-color: #f2efe9 !important; 
@@ -24,7 +18,6 @@ const globalStyles = `
     box-shadow: none !important;
   }
   
-  /* Eliminar líneas blancas entre tiles */
   .leaflet-tile-pane {
     image-rendering: -webkit-optimize-contrast;
   }
@@ -60,7 +53,7 @@ const globalStyles = `
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
@@ -95,27 +88,14 @@ const LogoSVG = () => (
 );
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  process.env.REACT_APP_SUPABASE_URL || '',
+  process.env.REACT_APP_SUPABASE_ANON_KEY || ''
 );
 
-interface Event {
-  id: string;
-  title: string;
-  image_url: string;
-  date: string;
-  lat?: number;
-  lng?: number;
-}
-
-interface Profile {
-  role: string;
-}
-
 export default function App() {
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [events, setEvents] = useState<Event[]>([]);
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [events, setEvents] = useState([]);
   const [view, setView] = useState('home');
   const [isDark, setIsDark] = useState(true);
 
@@ -181,7 +161,6 @@ export default function App() {
                 zoomSnap={1}
               >
                 <SpainMapController />
-                {/* Mapa en ESPAÑOL usando CartoDB Voyager con etiquetas en español */}
                 <TileLayer
                   url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -208,4 +187,3 @@ export default function App() {
     </div>
   );
 }
-            
