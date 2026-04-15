@@ -8,39 +8,73 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// Estilos obligatorios de Leaflet
 import 'leaflet/dist/leaflet.css';
 
-// ============================================================
-// FIX TOTAL: CERO LÍNEAS, CERO BORDES, IDIOMA ESPAÑOL
-// ============================================================
 const globalStyles = `
-  /* 1. ELIMINAR CUALQUIER BORDE, SOMBRA O REBORDE DEL MAPA */
-  .leaflet-container { 
-    background-color: #aad3df !important; 
+  .leaflet-container,
+  .leaflet-container *,
+  .leaflet-control-container,
+  .leaflet-control-container *,
+  .leaflet-pane,
+  .leaflet-pane * {
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
-    height: 100% !important;
-    width: 100% !important;
   }
   
-  /* 2. ELIMINAR LÍNEAS BLANCAS (Solapamiento por Escala) */
-  .leaflet-tile {
-    /* Hacemos la pieza un 1.5% más grande para que pise a la de al lado */
-    transform: scale(1.015) !important;
-    filter: brightness(1.02);
-    outline: 1px solid transparent;
-    -webkit-backface-visibility: hidden;
+  .leaflet-container { 
+    background-color: #aad3df !important; 
+  }
+  
+  .leaflet-tile-pane {
     image-rendering: -webkit-optimize-contrast;
   }
+  
+  .leaflet-tile {
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    will-change: transform;
+  }
+  
+  .leaflet-tile-container {
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  }
 
-  /* 3. EVITAR QUE TAILWIND ROMPA LAS IMÁGENES (Cuadros blancos) */
   .leaflet-container img {
     max-width: none !important;
     max-height: none !important;
-    box-shadow: none !important;
+  }
+
+  .leaflet-control-zoom {
     border: none !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
+    border-radius: 8px !important;
+    overflow: hidden;
+  }
+  
+  .leaflet-control-zoom a {
+    border: none !important;
+    border-bottom: 1px solid #ccc !important;
+  }
+  
+  .leaflet-control-zoom a:last-child {
+    border-bottom: none !important;
+  }
+
+  .map-full {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
   }
 
   .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
@@ -48,7 +82,6 @@ const globalStyles = `
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
-// Fix Marcadores (Pines)
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -94,7 +127,6 @@ export default function App() {
   const [events, setEvents] = useState([]);
   const [view, setView] = useState('home');
   const [isDark, setIsDark] = useState(true);
-  const [email, setEmail] = useState('');
 
   useEffect(() => {
     fetchEvents();
@@ -113,13 +145,6 @@ export default function App() {
     if (data) setEvents(data);
   };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) alert(error.message);
-    else alert("¡Revisa tu email!");
-  };
-
   const today = new Date().toISOString().split('T')[0];
   const publicEvents = events.filter(e => e.date >= today);
 
@@ -128,29 +153,24 @@ export default function App() {
       <style>{globalStyles}</style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500 font-sans">
         
-        {/* NAV SUPERIOR */}
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
-            {profile?.role === 'admin' && (
-              <button onClick={() => setView('admin')} className="text-indigo-400 p-2">
-                <ShieldCheck size={28} />
-              </button>
-            )}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl transition">
+            {profile?.role === 'admin' && <ShieldCheck size={28} className="text-indigo-400" />}
+            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase shadow-lg shadow-indigo-500/20" onClick={() => setView('profile')}>
+            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase" onClick={() => setView('profile')}>
                 {user ? user.email[0] : '?'}
             </div>
           </div>
         </nav>
 
-        <main className="flex-1 relative overflow-hidden">
+        <main className="flex-1 relative overflow-hidden" style={{ margin: 0, padding: 0, border: 'none' }}>
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 h-full overflow-y-auto no-scrollbar pb-40">
               {publicEvents.map(ev => (
-                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl transition active:scale-95">
+                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl">
                   <div className="relative h-52 overflow-hidden">
                     <img src={ev.image_url} className="w-full h-full object-cover" alt="" />
                     <button className="absolute top-5 right-5 p-3 bg-white rounded-full shadow-xl text-red-500"><Heart size={20} /></button>
@@ -162,56 +182,35 @@ export default function App() {
           )}
 
           {view === 'map' && (
-            <div className="absolute inset-0 z-0 bg-[#aad3df]">
+            <div className="map-full" style={{ background: '#aad3df', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, margin: 0, padding: 0, border: 'none', outline: 'none' }}>
               <MapContainer 
-                key="map-pro-no-lines-no-border" 
-                center={[40.41, -3.70]} 
+                center={[40.4167, -3.7037]} 
                 zoom={6} 
-                className="h-full w-full" 
-                zoomControl={false} 
+                className="map-full"
+                style={{ height: "100%", width: "100%", position: 'absolute', top: 0, left: 0, margin: 0, padding: 0, border: 'none', outline: 'none' }}
                 zoomSnap={1}
               >
                 <SpainMapController />
                 <TileLayer
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='ESPAÑA'
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
-                {publicEvents.map(ev => ev.lat && (
+                {publicEvents.map(ev => ev.lat && ev.lng && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup><div className="text-center font-bold text-indigo-600 uppercase text-xs">{ev.title}</div></Popup>
+                    <Popup className="text-center text-indigo-600 font-bold uppercase text-xs">
+                      {ev.title}
+                    </Popup>
                   </Marker>
                 ))}
               </MapContainer>
             </div>
           )}
 
-          {view === 'profile' && (
-            <div className="h-full flex flex-col items-center justify-center p-10 text-center">
-              {!user ? (
-                <form onSubmit={handleLogin} className="space-y-4 bg-slate-900 p-8 rounded-[3rem] border border-slate-800 shadow-2xl">
-                  <h2 className="font-black uppercase italic text-xl">Mi Perfil</h2>
-                  <input type="email" placeholder="Tu Email" className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white outline-none focus:border-indigo-500" value={email} onChange={e => setEmail(e.target.value)} required />
-                  <button type="submit" className="w-full bg-indigo-600 p-4 rounded-2xl font-bold uppercase active:scale-95 transition">Entrar</button>
-                </form>
-              ) : (
-                <div className="bg-slate-900 p-8 rounded-[3rem] border border-slate-800 shadow-2xl space-y-4">
-                  <div className="w-20 h-20 bg-indigo-600 rounded-full flex items-center justify-center text-3xl font-black mx-auto mb-4">{user.email[0].toUpperCase()}</div>
-                  <p className="font-bold text-white">{user.email}</p>
-                  <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-600/20 text-red-500 p-4 rounded-2xl font-bold uppercase active:scale-95 transition">Cerrar Sesión</button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Pantalla Crear</div>}
-          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Favoritos</div>}
-          {view === 'admin' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-indigo-600 italic">Panel Admin</div>}
+          {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Pantalla Perfil</div>}
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
           <button onClick={() => setView('home')} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><LayoutList size={26}/></button>
-          <button onClick={() => setView('create')} className={`p-4 rounded-2xl transition-all ${view === 'create' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><PlusCircle size={26}/></button>
-          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><Heart size={26}/></button>
           <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><MapIcon size={26}/></button>
         </nav>
       </div>
