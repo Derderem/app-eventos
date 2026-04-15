@@ -73,6 +73,9 @@ export default function App() {
   const [view, setView] = useState('home');
   const [isDark, setIsDark] = useState(true);
   
+  // Nuevo estado para los detalles del evento
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  
   const [form, setForm] = useState({ title: '', city: '', time: '21:00', date: '', image_url: '' });
 
   useEffect(() => {
@@ -154,8 +157,7 @@ export default function App() {
           display: 'flex', 
           flexDirection: 'column',
           background: view === 'map' ? 'transparent' : (isDark ? '#020617' : '#f8fafc'),
-          pointerEvents: view === 'map' ? 'none' : 'auto',
-          transition: 'background 0.5s ease'
+          pointerEvents: view === 'map' ? 'none' : 'auto'
         }}
       >
         
@@ -205,7 +207,7 @@ export default function App() {
           {view === 'home' && (
             <div className="no-scrollbar" style={{ maxWidth: 576, margin: '0 auto', padding: 16, height: '100%', overflowY: 'auto', paddingBottom: 160 }}>
               {publicEvents.map(ev => (
-                <div key={ev.id} style={{ background: isDark ? '#0f172a' : '#ffffff', borderRadius: 40, overflow: 'hidden', border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', marginBottom: 24, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                <div key={ev.id} style={{ background: isDark ? '#0f172a' : '#ffffff', borderRadius: 40, overflow: 'hidden', border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', marginBottom: 24, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.1)' }}>
                   <div style={{ position: 'relative', height: 208, overflow: 'hidden' }}>
                     <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                     <button style={{ position: 'absolute', top: 20, right: 20, padding: 12, background: 'white', borderRadius: '50%', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', color: '#ef4444', border: 'none', cursor: 'pointer' }}><Heart size={20} /></button>
@@ -214,20 +216,41 @@ export default function App() {
                     <h3 style={{ fontSize: 20, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', letterSpacing: '-0.05em', marginBottom: 4, color: isDark ? 'white' : '#0f172a' }}>{ev.title}</h3>
                     <p style={{ color: '#818cf8', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em' }}>{ev.city}</p>
                     
-                    {/* BOTÓN DETALLES */}
+                    {/* BOTÓN DETALLES SOLICITADO */}
                     <button 
-                      onClick={() => alert(`UBICACIÓN: ${ev.address || 'No especificada'}\nHORA: ${ev.time || 'No especificada'}`)}
-                      style={{ 
-                        marginTop: 12, padding: '8px 16px', background: '#4f46e5', 
-                        color: 'white', borderRadius: 12, border: 'none', fontWeight: 900, 
-                        textTransform: 'uppercase', fontSize: 10, cursor: 'pointer', letterSpacing: '0.1em'
-                      }}
+                      onClick={() => setSelectedEvent(ev)}
+                      style={{ marginTop: 16, padding: '10px 24px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: 12, fontWeight: 900, textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.1em', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                     >
                       Detalles
                     </button>
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* VENTANA EMERGENTE DE DETALLES */}
+          {selectedEvent && (
+            <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(2, 6, 23, 0.85)', backdropFilter: 'blur(8px)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+              <div style={{ background: isDark ? '#0f172a' : '#ffffff', width: '100%', maxWidth: 400, borderRadius: 32, border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', padding: 32, position: 'relative', textAlign: 'center' }}>
+                <button onClick={() => setSelectedEvent(null)} style={{ position: 'absolute', top: 20, right: 20, background: 'none', border: 'none', color: isDark ? '#94a3b8' : '#64748b', cursor: 'pointer' }}><X size={24} /></button>
+                <img src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 20, marginBottom: 20 }} alt="" />
+                <h3 style={{ fontSize: 22, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', marginBottom: 8, color: isDark ? 'white' : '#0f172a' }}>{selectedEvent.title}</h3>
+                <p style={{ color: '#818cf8', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: 16 }}>{selectedEvent.city}</p>
+                
+                <div style={{ display: 'grid', gap: 12, textAlign: 'left', background: isDark ? '#020617' : '#f8fafc', padding: 16, borderRadius: 16, border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: isDark ? '#94a3b8' : '#475569' }}><Calendar size={16} /> <span>{selectedEvent.date}</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: isDark ? '#94a3b8' : '#475569' }}><Clock size={16} /> <span>{selectedEvent.time}</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: isDark ? '#94a3b8' : '#475569' }}><MapPin size={16} /> <span>{selectedEvent.address || 'Ubicación no especificada'}</span></div>
+                </div>
+
+                <button 
+                  onClick={() => { setView('map'); setSelectedEvent(null); }}
+                  style={{ width: '100%', marginTop: 20, background: '#4f46e5', padding: 16, borderRadius: 12, fontWeight: 900, textTransform: 'uppercase', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12 }}
+                >
+                  Ver en el Mapa
+                </button>
+              </div>
             </div>
           )}
 
@@ -262,7 +285,7 @@ export default function App() {
                  <div key={ev.id} style={{ background: isDark ? '#0f172a' : '#ffffff', padding: 24, borderRadius: 32, border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', marginBottom: 16 }}>
                     <div style={{ marginBottom: 16 }}>
                        <h3 style={{ fontWeight: 900, textTransform: 'uppercase', color: isDark ? 'white' : '#0f172a' }}>{ev.title}</h3>
-                       <p style={{ fontSize: 12, color: 'rgb(148, 163, 184)' }}>{ev.city} | {ev.date} | {ev.time}</p>
+                       <p style={{ fontSize: 12, color: isDark ? 'rgb(148, 163, 184)' : '#475569' }}>{ev.city} | {ev.date} | {ev.time}</p>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                        <button onClick={() => updateStatus(ev.id, 'approved')} style={{ flex: 1, background: '#16a34a', padding: 12, borderRadius: 12, fontWeight: 700, textTransform: 'uppercase', fontSize: 10, color: 'white', border: 'none', cursor: 'pointer' }}>Aprobar</button>
@@ -281,16 +304,16 @@ export default function App() {
               <div style={{ background: isDark ? '#0f172a' : '#ffffff', padding: 32, borderRadius: 40, border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
                 <h2 style={{ fontSize: 20, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', textAlign: 'center', marginBottom: 24, color: isDark ? 'white' : '#0f172a' }}>Nuevo Evento</h2>
                 <div style={{ display: 'grid', gap: 16 }}>
-                  <input name="title" placeholder="TITULO DEL EVENTO" style={{ width: '100%', padding: 20, borderRadius: 12, background: 'rgb(30, 41, 59)', border: '1px solid rgb(51, 65, 85)', textTransform: 'uppercase', fontWeight: 700, color: 'white', outline: 'none' }} value={form.title} onChange={handleInputChange} />
-                  <input name="city" placeholder="CIUDAD" style={{ width: '100%', padding: 20, borderRadius: 12, background: 'rgb(30, 41, 59)', border: '1px solid rgb(51, 65, 85)', textTransform: 'uppercase', fontWeight: 700, color: 'white', outline: 'none' }} value={form.city} onChange={handleInputChange} />
+                  <input name="title" placeholder="TITULO DEL EVENTO" style={{ width: '100%', padding: 20, borderRadius: 12, background: isDark ? 'rgb(30, 41, 59)' : '#f1f5f9', border: isDark ? '1px solid rgb(51, 65, 85)' : '1px solid rgb(203, 213, 225)', textTransform: 'uppercase', fontWeight: 700, color: isDark ? 'white' : '#0f172a', outline: 'none' }} value={form.title} onChange={handleInputChange} />
+                  <input name="city" placeholder="CIUDAD" style={{ width: '100%', padding: 20, borderRadius: 12, background: isDark ? 'rgb(30, 41, 59)' : '#f1f5f9', border: isDark ? '1px solid rgb(51, 65, 85)' : '1px solid rgb(203, 213, 225)', textTransform: 'uppercase', fontWeight: 700, color: isDark ? 'white' : '#0f172a', outline: 'none' }} value={form.city} onChange={handleInputChange} />
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                      <div>
                         <label style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', color: 'rgb(100, 116, 139)', marginLeft: 8, marginBottom: 4, display: 'block' }}>Fecha</label>
-                        <input name="date" type="date" style={{ width: '100%', padding: 16, borderRadius: 12, background: 'rgb(30, 41, 59)', border: '1px solid rgb(51, 65, 85)', color: 'white' }} value={form.date} onChange={handleInputChange} />
+                        <input name="date" type="date" style={{ width: '100%', padding: 16, borderRadius: 12, background: isDark ? 'rgb(30, 41, 59)' : '#f1f5f9', border: isDark ? '1px solid rgb(51, 65, 85)' : '1px solid rgb(203, 213, 225)', color: isDark ? 'white' : '#0f172a' }} value={form.date} onChange={handleInputChange} />
                      </div>
                      <div>
                         <label style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', color: 'rgb(100, 116, 139)', marginLeft: 8, marginBottom: 4, display: 'block' }}>Hora (24h)</label>
-                        <input name="time" type="time" style={{ width: '100%', padding: 16, borderRadius: 12, background: 'rgb(30, 41, 59)', border: '1px solid rgb(51, 65, 85)', color: 'white' }} value={form.time} onChange={handleInputChange} />
+                        <input name="time" type="time" style={{ width: '100%', padding: 16, borderRadius: 12, background: isDark ? 'rgb(30, 41, 59)' : '#f1f5f9', border: isDark ? '1px solid rgb(51, 65, 85)' : '1px solid rgb(203, 213, 225)', color: isDark ? 'white' : '#0f172a' }} value={form.time} onChange={handleInputChange} />
                      </div>
                   </div>
                   <button style={{ width: '100%', background: '#4f46e5', padding: 20, borderRadius: 12, fontWeight: 900, textTransform: 'uppercase', boxShadow: '0 10px 15px -3px rgba(79, 70, 229, 0.3)', color: 'white', border: 'none', cursor: 'pointer' }}>Enviar para revision</button>
@@ -313,7 +336,7 @@ export default function App() {
           border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)',
           height: 80,
           borderRadius: 40,
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-around',
