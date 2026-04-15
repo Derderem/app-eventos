@@ -8,48 +8,38 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
+// Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
+// ============================================================
+// FIX TOTAL: AISLAMIENTO DE MAPA Y LOGIN FUNCIONAL
+// ============================================================
 const globalStyles = `
-  /* Eliminar TODOS los bordes del mapa */
-  .leaflet-container,
-  .leaflet-container * {
+  /* 1. FORZAR QUE EL MAPA OCUPE TODO EL ESPACIO */
+  .leaflet-container { 
+    background-color: #aad3df !important; 
+    height: 100% !important;
+    width: 100% !important;
     border: none !important;
     outline: none !important;
-    box-shadow: none !important;
   }
   
-  .leaflet-container { 
-    background-color: #f5f3f0 !important; 
-  }
-  
-  .leaflet-tile-pane {
-    image-rendering: -webkit-optimize-contrast;
-  }
-  
-  .leaflet-tile {
-    margin: 0 !important;
-    padding: 0 !important;
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    will-change: transform;
-  }
-  
-  .leaflet-tile-container {
-    backface-visibility: hidden;
-    transform: translateZ(0);
-  }
-
-  .leaflet-container img {
+  /* 2. ELIMINAR EL CUADRADO BLANCO (Reset de imágenes) */
+  .leaflet-container img.leaflet-tile {
     max-width: none !important;
     max-height: none !important;
+    width: 256.5px !important; /* Medio píxel extra para tapar líneas */
+    height: 256.5px !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
   }
 
-  /* Contenedor del mapa sin bordes */
-  .map-wrapper {
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
+  .leaflet-tile {
+    filter: brightness(1.02);
+    -webkit-backface-visibility: hidden;
+    outline: 1px solid transparent;
   }
 
   .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
@@ -57,6 +47,7 @@ const globalStyles = `
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
+// Fix Marcadores (Pines del mapa)
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -67,10 +58,12 @@ L.Icon.Default.mergeOptions({
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    setTimeout(() => {
+    // Forzamos al mapa a reconocer su tamaño real de inmediato
+    const timer = setTimeout(() => {
       map.invalidateSize();
       map.setView([40.4167, -3.7037], 6); 
-    }, 500);
+    }, 600);
+    return () => clearTimeout(timer);
   }, [map]);
   return null;
 }
@@ -102,6 +95,8 @@ export default function App() {
   const [events, setEvents] = useState([]);
   const [view, setView] = useState('home');
   const [isDark, setIsDark] = useState(true);
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchEvents();
@@ -120,6 +115,18 @@ export default function App() {
     if (data) setEvents(data);
   };
 
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({ 
+      email,
+      options: { emailRedirectTo: window.location.origin }
+    });
+    setLoading(false);
+    if (error) alert("Error: " + error.message);
+    else alert("¡Enviado! Mira tu correo para entrar.");
+  };
+
   const today = new Date().toISOString().split('T')[0];
   const publicEvents = events.filter(e => e.date >= today);
 
@@ -128,14 +135,17 @@ export default function App() {
       <style>{globalStyles}</style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500 font-sans">
         
+        {/* BARRA SUPERIOR */}
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
-            {profile?.role === 'admin' && <ShieldCheck size={28} className="text-indigo-400" />}
-            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
+            {profile?.role === 'admin' && (
+              <ShieldCheck size={28} className="text-indigo-400 cursor-pointer" onClick={() => setView('admin')} />
+            )}
+            <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl transition">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase" onClick={() => setView('profile')}>
+            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase shadow-lg shadow-indigo-500/20" onClick={() => setView('profile')}>
                 {user ? user.email[0] : '?'}
             </div>
           </div>
@@ -145,7 +155,7 @@ export default function App() {
           {view === 'home' && (
             <div className="max-w-xl mx-auto p-4 h-full overflow-y-auto no-scrollbar pb-40">
               {publicEvents.map(ev => (
-                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl">
+                <div key={ev.id} className="bg-[#0f172a] rounded-[2.5rem] overflow-hidden border border-slate-800 mb-6 shadow-2xl transition active:scale-95">
                   <div className="relative h-52 overflow-hidden">
                     <img src={ev.image_url} className="w-full h-full object-cover" alt="" />
                     <button className="absolute top-5 right-5 p-3 bg-white rounded-full shadow-xl text-red-500"><Heart size={20} /></button>
@@ -157,34 +167,71 @@ export default function App() {
           )}
 
           {view === 'map' && (
-            <div className="absolute inset-0 z-0 map-wrapper" style={{ background: '#f5f3f0', border: 'none', outline: 'none', boxShadow: 'none' }}>
+            <div className="absolute inset-0 z-0 bg-[#aad3df]">
               <MapContainer 
-                center={[40.4167, -3.7037]} 
+                key={view} 
+                center={[40.41, -3.70]} 
                 zoom={6} 
-                style={{ height: "100%", width: "100%", border: "none", outline: "none", boxShadow: "none" }}
+                className="h-full w-full" 
+                zoomControl={false} 
                 zoomSnap={1}
+                fadeAnimation={false}
               >
                 <SpainMapController />
+                {/* IDIOMA ESPAÑOL Y ALTA ESTABILIDAD */}
                 <TileLayer
-                  url="https://tile.openstreetmap.de/{z}/{x}/{y}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='ESPAÑA'
                 />
-                {publicEvents.map(ev => ev.lat && ev.lng && (
+                {publicEvents.map(ev => ev.lat && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup className="text-center text-indigo-600 font-bold uppercase text-xs">
-                      {ev.title}
-                    </Popup>
+                    <Popup><div className="text-center font-bold text-indigo-600 uppercase text-xs">{ev.title}</div></Popup>
                   </Marker>
                 ))}
               </MapContainer>
             </div>
           )}
 
-          {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Pantalla Perfil</div>}
+          {view === 'profile' && (
+            <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+               {!user ? (
+                 <form onSubmit={handleLogin} className="w-full max-w-sm bg-slate-900 p-8 rounded-[3rem] border border-slate-800 shadow-2xl space-y-6">
+                    <h2 className="text-2xl font-black uppercase italic tracking-tighter">Entrar</h2>
+                    <input 
+                      type="email" 
+                      placeholder="tu@email.com" 
+                      className="w-full p-5 rounded-2xl bg-slate-800 border border-slate-700 text-white focus:border-indigo-500 outline-none"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                    <button 
+                      type="submit" 
+                      disabled={loading}
+                      className="w-full bg-indigo-600 p-5 rounded-2xl font-black uppercase tracking-widest transition active:scale-95 disabled:opacity-50"
+                    >
+                      {loading ? "Cargando..." : "Recibir Enlace"}
+                    </button>
+                 </form>
+               ) : (
+                 <div className="w-full max-w-sm bg-slate-900 p-8 rounded-[3rem] border border-slate-800 shadow-2xl space-y-4">
+                    <div className="w-20 h-20 bg-indigo-600 rounded-full flex items-center justify-center text-3xl font-black mx-auto mb-4 border-4 border-slate-800 shadow-xl">{user.email[0].toUpperCase()}</div>
+                    <p className="font-bold text-lg">{user.email}</p>
+                    <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-600/20 text-red-500 p-5 rounded-2xl font-black uppercase border border-red-500/20 active:scale-95 transition">Cerrar Sesión</button>
+                 </div>
+               )}
+            </div>
+          )}
+
+          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Crear Evento</div>}
+          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Tus Favoritos</div>}
+          {view === 'admin' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-indigo-500 italic">Panel Admin</div>}
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
           <button onClick={() => setView('home')} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><LayoutList size={26}/></button>
+          <button onClick={() => setView('create')} className={`p-4 rounded-2xl transition-all ${view === 'create' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><PlusCircle size={26}/></button>
+          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><Heart size={26}/></button>
           <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><MapIcon size={26}/></button>
         </nav>
       </div>
