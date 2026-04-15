@@ -153,8 +153,9 @@ export default function App() {
           height: '100vh', 
           display: 'flex', 
           flexDirection: 'column',
-          background: view === 'map' ? 'transparent' : '#020617',
-          pointerEvents: view === 'map' ? 'none' : 'auto'
+          background: view === 'map' ? 'transparent' : (isDark ? '#020617' : '#f8fafc'),
+          pointerEvents: view === 'map' ? 'none' : 'auto',
+          transition: 'background 0.5s ease'
         }}
       >
         
@@ -162,9 +163,9 @@ export default function App() {
         <nav style={{ 
           height: 70, 
           flexShrink: 0, 
-          background: 'rgba(15, 23, 42, 0.8)', 
+          background: isDark ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.8)', 
           backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgb(30, 41, 59)',
+          borderBottom: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -182,7 +183,7 @@ export default function App() {
                 onClick={() => setView('admin')}
               />
             )}
-            <button onClick={() => setIsDark(!isDark)} style={{ padding: 8, background: 'rgba(51, 65, 85, 0.5)', borderRadius: 12, border: 'none', cursor: 'pointer' }}>
+            <button onClick={() => setIsDark(!isDark)} style={{ padding: 8, background: isDark ? 'rgba(51, 65, 85, 0.5)' : 'rgba(226, 232, 240, 0.8)', borderRadius: 12, border: 'none', cursor: 'pointer' }}>
                {isDark ? <Sun size={24} style={{ color: '#facc15' }} /> : <Moon size={24} style={{ color: '#4f46e5' }} />}
             </button>
             <div 
@@ -204,14 +205,26 @@ export default function App() {
           {view === 'home' && (
             <div className="no-scrollbar" style={{ maxWidth: 576, margin: '0 auto', padding: 16, height: '100%', overflowY: 'auto', paddingBottom: 160 }}>
               {publicEvents.map(ev => (
-                <div key={ev.id} style={{ background: '#0f172a', borderRadius: 40, overflow: 'hidden', border: '1px solid rgb(30, 41, 59)', marginBottom: 24, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                <div key={ev.id} style={{ background: isDark ? '#0f172a' : '#ffffff', borderRadius: 40, overflow: 'hidden', border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', marginBottom: 24, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
                   <div style={{ position: 'relative', height: 208, overflow: 'hidden' }}>
                     <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                     <button style={{ position: 'absolute', top: 20, right: 20, padding: 12, background: 'white', borderRadius: '50%', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', color: '#ef4444', border: 'none', cursor: 'pointer' }}><Heart size={20} /></button>
                   </div>
                   <div style={{ padding: 24, textAlign: 'center' }}>
-                    <h3 style={{ fontSize: 20, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', letterSpacing: '-0.05em', marginBottom: 4, color: 'white' }}>{ev.title}</h3>
+                    <h3 style={{ fontSize: 20, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', letterSpacing: '-0.05em', marginBottom: 4, color: isDark ? 'white' : '#0f172a' }}>{ev.title}</h3>
                     <p style={{ color: '#818cf8', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em' }}>{ev.city}</p>
+                    
+                    {/* BOTÓN DETALLES */}
+                    <button 
+                      onClick={() => alert(`UBICACIÓN: ${ev.address || 'No especificada'}\nHORA: ${ev.time || 'No especificada'}`)}
+                      style={{ 
+                        marginTop: 12, padding: '8px 16px', background: '#4f46e5', 
+                        color: 'white', borderRadius: 12, border: 'none', fontWeight: 900, 
+                        textTransform: 'uppercase', fontSize: 10, cursor: 'pointer', letterSpacing: '0.1em'
+                      }}
+                    >
+                      Detalles
+                    </button>
                   </div>
                 </div>
               ))}
@@ -220,7 +233,7 @@ export default function App() {
 
           {view === 'profile' && (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-              <div style={{ background: '#0f172a', padding: 32, borderRadius: 48, border: '1px solid rgb(30, 41, 59)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', width: '100%', maxWidth: 320 }}>
+              <div style={{ background: isDark ? '#0f172a' : '#ffffff', padding: 32, borderRadius: 48, border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', width: '100%', maxWidth: 320 }}>
                 <div style={{ width: 80, height: 80, background: '#4f46e5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, fontWeight: 900, margin: '0 auto 24px', border: '4px solid rgb(30, 41, 59)', color: 'white' }}>{user?.email?.[0].toUpperCase() || '?'}</div>
                 
                 <div style={{ display: 'grid', gap: 12 }}>
@@ -233,7 +246,7 @@ export default function App() {
                 </div>
 
                 {user && (
-                  <button onClick={() => supabase.auth.signOut()} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', color: '#ef4444', fontWeight: 900, textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.1em', paddingTop: 24, marginTop: 24, borderTop: '1px solid rgb(30, 41, 59)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  <button onClick={() => supabase.auth.signOut()} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', color: '#ef4444', fontWeight: 900, textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.1em', paddingTop: 24, marginTop: 24, borderTop: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', background: 'none', border: 'none', cursor: 'pointer' }}>
                     <LogOut size={16} /> Cerrar Sesion
                   </button>
                 )}
@@ -246,9 +259,9 @@ export default function App() {
                <h2 style={{ textAlign: 'center', fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', color: '#6366f1', marginBottom: 24 }}>Eventos por Verificar ({pendingCount})</h2>
                {adminEvents.length === 0 && <p style={{ textAlign: 'center', color: 'rgb(100, 116, 139)', marginTop: 80 }}>Todo al dia. No hay pendientes.</p>}
                {adminEvents.map(ev => (
-                 <div key={ev.id} style={{ background: '#0f172a', padding: 24, borderRadius: 32, border: '1px solid rgb(30, 41, 59)', marginBottom: 16 }}>
+                 <div key={ev.id} style={{ background: isDark ? '#0f172a' : '#ffffff', padding: 24, borderRadius: 32, border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', marginBottom: 16 }}>
                     <div style={{ marginBottom: 16 }}>
-                       <h3 style={{ fontWeight: 900, textTransform: 'uppercase', color: 'white' }}>{ev.title}</h3>
+                       <h3 style={{ fontWeight: 900, textTransform: 'uppercase', color: isDark ? 'white' : '#0f172a' }}>{ev.title}</h3>
                        <p style={{ fontSize: 12, color: 'rgb(148, 163, 184)' }}>{ev.city} | {ev.date} | {ev.time}</p>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -265,8 +278,8 @@ export default function App() {
 
           {view === 'create' && (
             <div className="no-scrollbar" style={{ maxWidth: 448, margin: '0 auto', padding: 24, height: '100%', overflowY: 'auto' }}>
-              <div style={{ background: '#0f172a', padding: 32, borderRadius: 40, border: '1px solid rgb(30, 41, 59)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
-                <h2 style={{ fontSize: 20, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', textAlign: 'center', marginBottom: 24, color: 'white' }}>Nuevo Evento</h2>
+              <div style={{ background: isDark ? '#0f172a' : '#ffffff', padding: 32, borderRadius: 40, border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                <h2 style={{ fontSize: 20, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', textAlign: 'center', marginBottom: 24, color: isDark ? 'white' : '#0f172a' }}>Nuevo Evento</h2>
                 <div style={{ display: 'grid', gap: 16 }}>
                   <input name="title" placeholder="TITULO DEL EVENTO" style={{ width: '100%', padding: 20, borderRadius: 12, background: 'rgb(30, 41, 59)', border: '1px solid rgb(51, 65, 85)', textTransform: 'uppercase', fontWeight: 700, color: 'white', outline: 'none' }} value={form.title} onChange={handleInputChange} />
                   <input name="city" placeholder="CIUDAD" style={{ width: '100%', padding: 20, borderRadius: 12, background: 'rgb(30, 41, 59)', border: '1px solid rgb(51, 65, 85)', textTransform: 'uppercase', fontWeight: 700, color: 'white', outline: 'none' }} value={form.city} onChange={handleInputChange} />
@@ -295,9 +308,9 @@ export default function App() {
           transform: 'translateX(-50%)', 
           width: '92%', 
           maxWidth: 420, 
-          background: 'rgba(15, 23, 42, 0.95)', 
+          background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)', 
           backdropFilter: 'blur(24px)',
-          border: '1px solid rgb(30, 41, 59)',
+          border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)',
           height: 80,
           borderRadius: 40,
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
