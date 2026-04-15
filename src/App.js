@@ -10,31 +10,29 @@ import L from 'leaflet';
 
 import 'leaflet/dist/leaflet.css';
 
+// ============================================================
+// CONFIGURACIÓN VISUAL Y ANIMACIONES
+// ============================================================
 const globalStyles = `
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-
-  .leaflet-container {
-    background-color: #aad3df !important; 
-  }
+  * { margin: 0; padding: 0; box-sizing: border-box; transition: all 0.3s ease; }
   
-  .leaflet-tile {
-    margin: 0 !important;
-    padding: 0 !important;
-  }
+  /* FIX MAPA: Sin bordes y sin líneas */
+  .leaflet-container { background-color: #aad3df !important; border: none !important; outline: none !important; }
+  .leaflet-tile { transform: scale(1.02) !important; outline: 1px solid transparent; }
 
   @keyframes admin-pulse {
     0% { transform: scale(1); color: #818cf8; }
-    50% { transform: scale(1.2); color: #ef4444; opacity: 0.8; }
+    50% { transform: scale(1.1); color: #ef4444; }
     100% { transform: scale(1); color: #818cf8; }
   }
   .pulse-admin { animation: admin-pulse 2s infinite; }
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Temas */
+  .dark { background-color: #020617; color: white; }
+  .light { background-color: #f8fafc; color: #0f172a; }
 `;
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -47,7 +45,7 @@ L.Icon.Default.mergeOptions({
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    setTimeout(() => { map.invalidateSize(); map.setView([40.4167, -3.7037], 6); }, 100);
+    setTimeout(() => { map.invalidateSize(); map.setView([40.4167, -3.7037], 6); }, 200);
   }, [map]);
   return null;
 }
@@ -56,7 +54,7 @@ const LogoSVG = () => (
   <img 
     src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png" 
     alt="Eventora" 
-    style={{ height: 28, width: 'auto' }}
+    style={{ height: 24, width: 'auto' }}
   />
 );
 
@@ -69,14 +67,12 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [events, setEvents] = useState([]);
+  const [favorites, setFavorites] = useState([]); // Array de IDs
   const [pendingCount, setPendingCount] = useState(0);
   const [view, setView] = useState('home');
   const [isDark, setIsDark] = useState(true);
-  
-  // Nuevo estado para los detalles del evento
   const [selectedEvent, setSelectedEvent] = useState(null);
-  
-  const [form, setForm] = useState({ title: '', city: '', time: '21:00', date: '', image_url: '' });
+  const [form, setForm] = useState({ title: '', city: '', time: '21:00', date: '', address: '', image_url: '' });
 
   useEffect(() => {
     fetchEvents();
@@ -92,8 +88,7 @@ export default function App() {
     const { data } = await supabase.from('events').select('*').order('date', { ascending: true });
     if (data) {
       setEvents(data);
-      const pending = data.filter(e => e.status === 'pending').length;
-      setPendingCount(pending);
+      setPendingCount(data.filter(e => e.status === 'pending').length);
     }
   };
 
@@ -103,250 +98,156 @@ export default function App() {
     setForm({ ...form, [name]: val });
   };
 
-  const updateStatus = async (id, status, reason = '') => {
-    await supabase.from('events').update({ status, rejection_reason: reason }).eq('id', id);
-    fetchEvents();
+  const toggleFavorite = (id) => {
+    setFavorites(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const openInGoogleMaps = (event) => {
+    const query = encodeURIComponent(`${event.address}, ${event.city}, España`);
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${query}`, '_blank');
   };
 
   const today = new Date().toISOString().split('T')[0];
   const publicEvents = events.filter(e => e.status === 'approved' && e.date >= today);
-  const adminEvents = events.filter(e => e.status === 'pending');
+  const favoriteEvents = publicEvents.filter(e => favorites.includes(e.id));
 
   return (
-    <div className={isDark ? "dark" : ""} style={{ margin: 0, padding: 0, width: '100vw', height: '100vh', overflow: 'hidden' }}>
+    <div className={isDark ? "dark" : "light"} style={{ margin: 0, padding: 0, width: '100vw', height: '100vh', overflow: 'hidden' }}>
       <style>{globalStyles}</style>
       
-      {/* MAPA */}
+      {/* MAPA DE FONDO */}
       {view === 'map' && (
-        <div style={{ 
-          position: 'fixed', 
-          top: -50, 
-          left: -50, 
-          width: 'calc(100vw + 100px)', 
-          height: 'calc(100vh + 100px)', 
-          zIndex: 1,
-          background: '#aad3df'
-        }}>
-          <MapContainer 
-            center={[40.4167, -3.7037]} 
-            zoom={6} 
-            style={{ width: '100%', height: '100%' }}
-            zoomSnap={1}
-          >
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1 }}>
+          <MapContainer center={[40.4167, -3.7037]} zoom={6} style={{ width: '100%', height: '100%' }}>
             <SpainMapController />
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; OpenStreetMap'
-            />
-            {publicEvents.map(ev => ev.lat && ev.lng && (
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; España' />
+            {publicEvents.map(ev => ev.lat && (
               <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                <Popup>{ev.title}</Popup>
+                <Popup><div style={{textAlign:'center'}}><b>{ev.title}</b><br/>{ev.city}</div></Popup>
               </Marker>
             ))}
           </MapContainer>
         </div>
       )}
 
-      {/* CONTENEDOR PRINCIPAL */}
-      <div 
-        style={{ 
-          position: 'relative', 
-          zIndex: 10, 
-          width: '100vw', 
-          height: '100vh', 
-          display: 'flex', 
-          flexDirection: 'column',
-          background: view === 'map' ? 'transparent' : (isDark ? '#020617' : '#f8fafc'),
-          pointerEvents: view === 'map' ? 'none' : 'auto'
-        }}
-      >
+      <div style={{ 
+        position: 'relative', zIndex: 10, width: '100vw', height: '100vh', 
+        display: 'flex', flexDirection: 'column', 
+        background: view === 'map' ? 'transparent' : (isDark ? '#020617' : '#f8fafc'),
+        pointerEvents: 'auto'
+      }}>
         
         {/* NAVBAR */}
         <nav style={{ 
-          height: 70, 
-          flexShrink: 0, 
-          background: isDark ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.8)', 
-          backdropFilter: 'blur(12px)',
-          borderBottom: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '0 32px',
-          zIndex: 2000,
-          pointerEvents: 'auto'
+          height: 65, background: isDark ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)', 
+          backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(128,128,128,0.2)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', zIndex: 2000
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => setView('home')}><LogoSVG /></div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ cursor: 'pointer' }} onClick={() => {setView('home'); setSelectedEvent(null);}}><LogoSVG /></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {profile?.role === 'admin' && (
-              <ShieldCheck 
-                size={28} 
-                className={pendingCount > 0 ? 'pulse-admin' : ''} 
-                style={{ cursor: 'pointer', color: pendingCount > 0 ? undefined : '#818cf8' }}
-                onClick={() => setView('admin')}
-              />
+              <ShieldCheck size={26} className={pendingCount > 0 ? 'pulse-admin' : ''} style={{ color: pendingCount > 0 ? '#ef4444' : '#6366f1' }} onClick={() => setView('admin')} />
             )}
-            <button onClick={() => setIsDark(!isDark)} style={{ padding: 8, background: isDark ? 'rgba(51, 65, 85, 0.5)' : 'rgba(226, 232, 240, 0.8)', borderRadius: 12, border: 'none', cursor: 'pointer' }}>
-               {isDark ? <Sun size={24} style={{ color: '#facc15' }} /> : <Moon size={24} style={{ color: '#4f46e5' }} />}
+            <button onClick={() => setIsDark(!isDark)} style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer' }}>
+               {isDark ? <Sun size={22} style={{ color: '#facc15' }} /> : <Moon size={22} style={{ color: '#4f46e5' }} />}
             </button>
-            <div 
-              onClick={() => setView('profile')}
-              style={{ 
-                width: 40, height: 40, background: '#4f46e5', borderRadius: '50%', 
-                display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                fontWeight: 900, border: '2px solid white', cursor: 'pointer',
-                textTransform: 'uppercase', color: 'white'
-              }}
-            >
-              {user ? user.email[0] : '?'}
-            </div>
+            <div onClick={() => setView('profile')} style={{ width: 34, height: 34, background: '#4f46e5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: 'white', border: '2px solid white' }}>{user ? user.email[0].toUpperCase() : '?'}</div>
           </div>
         </nav>
 
-        {/* CONTENIDO */}
-        <main style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          {view === 'home' && (
-            <div className="no-scrollbar" style={{ maxWidth: 576, margin: '0 auto', padding: 16, height: '100%', overflowY: 'auto', paddingBottom: 160 }}>
+        <main style={{ flex: 1, overflowY: 'auto', position: 'relative' }} className="no-scrollbar">
+          
+          {/* INICIO */}
+          {view === 'home' && !selectedEvent && (
+            <div style={{ maxWidth: 500, margin: '0 auto', padding: 16, paddingBottom: 120 }}>
               {publicEvents.map(ev => (
-                <div key={ev.id} style={{ background: isDark ? '#0f172a' : '#ffffff', borderRadius: 40, overflow: 'hidden', border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', marginBottom: 24, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.1)' }}>
-                  <div style={{ position: 'relative', height: 208, overflow: 'hidden' }}>
+                <div key={ev.id} style={{ background: isDark ? '#0f172a' : 'white', borderRadius: 28, overflow: 'hidden', marginBottom: 20, border: isDark ? '1px solid #1e293b' : '1px solid #e2e8f0' }}>
+                  <div style={{ position: 'relative', height: 180 }}>
                     <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                    <button style={{ position: 'absolute', top: 20, right: 20, padding: 12, background: 'white', borderRadius: '50%', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', color: '#ef4444', border: 'none', cursor: 'pointer' }}><Heart size={20} /></button>
-                  </div>
-                  <div style={{ padding: 24, textAlign: 'center' }}>
-                    <h3 style={{ fontSize: 20, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', letterSpacing: '-0.05em', marginBottom: 4, color: isDark ? 'white' : '#0f172a' }}>{ev.title}</h3>
-                    <p style={{ color: '#818cf8', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em' }}>{ev.city}</p>
-                    
-                    {/* BOTÓN DETALLES SOLICITADO */}
                     <button 
-                      onClick={() => setSelectedEvent(ev)}
-                      style={{ marginTop: 16, padding: '10px 24px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: 12, fontWeight: 900, textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.1em', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                      onClick={() => toggleFavorite(ev.id)}
+                      style={{ position: 'absolute', top: 15, right: 15, padding: 10, background: 'white', borderRadius: '50%', border: 'none', color: favorites.includes(ev.id) ? '#ef4444' : '#ccc', cursor: 'pointer', display: 'flex' }}
                     >
-                      Detalles
+                      <Heart size={20} fill={favorites.includes(ev.id) ? "red" : "none"} />
                     </button>
+                  </div>
+                  <div style={{ padding: 16, textAlign: 'center' }}>
+                    <h3 style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>{ev.title}</h3>
+                    <p style={{ fontSize: 10, fontWeight: 800, color: '#6366f1', letterSpacing: 2, marginBottom: 12 }}>{ev.city}</p>
+                    <button onClick={() => setSelectedEvent(ev)} style={{ width: '100%', padding: 12, borderRadius: 12, background: isDark ? '#1e293b' : '#f1f5f9', border: 'none', fontWeight: 900, color: isDark ? 'white' : '#0f172a', cursor: 'pointer', fontSize: 11 }}>VER DETALLES</button>
                   </div>
                 </div>
               ))}
             </div>
           )}
 
-          {/* VENTANA EMERGENTE DE DETALLES */}
-          {selectedEvent && (
-            <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(2, 6, 23, 0.85)', backdropFilter: 'blur(8px)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-              <div style={{ background: isDark ? '#0f172a' : '#ffffff', width: '100%', maxWidth: 400, borderRadius: 32, border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', padding: 32, position: 'relative', textAlign: 'center' }}>
-                <button onClick={() => setSelectedEvent(null)} style={{ position: 'absolute', top: 20, right: 20, background: 'none', border: 'none', color: isDark ? '#94a3b8' : '#64748b', cursor: 'pointer' }}><X size={24} /></button>
-                <img src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 20, marginBottom: 20 }} alt="" />
-                <h3 style={{ fontSize: 22, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', marginBottom: 8, color: isDark ? 'white' : '#0f172a' }}>{selectedEvent.title}</h3>
-                <p style={{ color: '#818cf8', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: 16 }}>{selectedEvent.city}</p>
-                
-                <div style={{ display: 'grid', gap: 12, textAlign: 'left', background: isDark ? '#020617' : '#f8fafc', padding: 16, borderRadius: 16, border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: isDark ? '#94a3b8' : '#475569' }}><Calendar size={16} /> <span>{selectedEvent.date}</span></div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: isDark ? '#94a3b8' : '#475569' }}><Clock size={16} /> <span>{selectedEvent.time}</span></div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: isDark ? '#94a3b8' : '#475569' }}><MapPin size={16} /> <span>{selectedEvent.address || 'Ubicación no especificada'}</span></div>
-                </div>
-
-                <button 
-                  onClick={() => { setView('map'); setSelectedEvent(null); }}
-                  style={{ width: '100%', marginTop: 20, background: '#4f46e5', padding: 16, borderRadius: 12, fontWeight: 900, textTransform: 'uppercase', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12 }}
-                >
-                  Ver en el Mapa
-                </button>
-              </div>
-            </div>
-          )}
-
-          {view === 'profile' && (
-            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-              <div style={{ background: isDark ? '#0f172a' : '#ffffff', padding: 32, borderRadius: 48, border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', width: '100%', maxWidth: 320 }}>
-                <div style={{ width: 80, height: 80, background: '#4f46e5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, fontWeight: 900, margin: '0 auto 24px', border: '4px solid rgb(30, 41, 59)', color: 'white' }}>{user?.email?.[0].toUpperCase() || '?'}</div>
-                
-                <div style={{ display: 'grid', gap: 12 }}>
-                  <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, background: '#29abe0', padding: 20, borderRadius: 16, fontWeight: 900, textTransform: 'uppercase', fontSize: 12, color: 'white', textDecoration: 'none' }}>
-                    <Coffee size={20} /> Apoyar en Ko-fi
-                  </a>
-                  <a href="https://www.paypal.com/paypalme/jacobogarbas" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, background: '#003087', padding: 20, borderRadius: 16, fontWeight: 900, textTransform: 'uppercase', fontSize: 12, color: 'white', textDecoration: 'none' }}>
-                    <CreditCard size={20} /> PayPal.me
-                  </a>
-                </div>
-
-                {user && (
-                  <button onClick={() => supabase.auth.signOut()} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', color: '#ef4444', fontWeight: 900, textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.1em', paddingTop: 24, marginTop: 24, borderTop: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                    <LogOut size={16} /> Cerrar Sesion
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {view === 'admin' && (
-            <div className="no-scrollbar" style={{ maxWidth: 576, margin: '0 auto', padding: 16, height: '100%', overflowY: 'auto', paddingBottom: 160 }}>
-               <h2 style={{ textAlign: 'center', fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', color: '#6366f1', marginBottom: 24 }}>Eventos por Verificar ({pendingCount})</h2>
-               {adminEvents.length === 0 && <p style={{ textAlign: 'center', color: 'rgb(100, 116, 139)', marginTop: 80 }}>Todo al dia. No hay pendientes.</p>}
-               {adminEvents.map(ev => (
-                 <div key={ev.id} style={{ background: isDark ? '#0f172a' : '#ffffff', padding: 24, borderRadius: 32, border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', marginBottom: 16 }}>
-                    <div style={{ marginBottom: 16 }}>
-                       <h3 style={{ fontWeight: 900, textTransform: 'uppercase', color: isDark ? 'white' : '#0f172a' }}>{ev.title}</h3>
-                       <p style={{ fontSize: 12, color: isDark ? 'rgb(148, 163, 184)' : '#475569' }}>{ev.city} | {ev.date} | {ev.time}</p>
+          {/* GUARDADOS */}
+          {view === 'favorites' && (
+            <div style={{ maxWidth: 500, margin: '0 auto', padding: 16, paddingBottom: 120 }}>
+              <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 20 }}>MIS GUARDADOS</h2>
+              {favoriteEvents.length === 0 ? <p style={{textAlign:'center', opacity:0.5}}>No tienes eventos guardados</p> : 
+                favoriteEvents.map(ev => (
+                  <div key={ev.id} style={{ display: 'flex', gap: 12, background: isDark ? '#0f172a' : 'white', padding: 12, borderRadius: 20, marginBottom: 12, alignItems: 'center' }}>
+                    <img src={ev.image_url} style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover' }} />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontWeight: 900, fontSize: 14 }}>{ev.title}</p>
+                      <p style={{ fontSize: 10, color: '#6366f1' }}>{ev.city}</p>
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                       <button onClick={() => updateStatus(ev.id, 'approved')} style={{ flex: 1, background: '#16a34a', padding: 12, borderRadius: 12, fontWeight: 700, textTransform: 'uppercase', fontSize: 10, color: 'white', border: 'none', cursor: 'pointer' }}>Aprobar</button>
-                       <button onClick={() => {
-                         const reason = window.prompt("Motivo del rechazo:");
-                         if(reason) updateStatus(ev.id, 'rejected', reason);
-                       }} style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: 12, borderRadius: 12, fontWeight: 700, textTransform: 'uppercase', fontSize: 10, border: 'none', cursor: 'pointer' }}>Rechazar</button>
-                    </div>
-                 </div>
-               ))}
-            </div>
-          )}
-
-          {view === 'create' && (
-            <div className="no-scrollbar" style={{ maxWidth: 448, margin: '0 auto', padding: 24, height: '100%', overflowY: 'auto' }}>
-              <div style={{ background: isDark ? '#0f172a' : '#ffffff', padding: 32, borderRadius: 40, border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
-                <h2 style={{ fontSize: 20, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', textAlign: 'center', marginBottom: 24, color: isDark ? 'white' : '#0f172a' }}>Nuevo Evento</h2>
-                <div style={{ display: 'grid', gap: 16 }}>
-                  <input name="title" placeholder="TITULO DEL EVENTO" style={{ width: '100%', padding: 20, borderRadius: 12, background: isDark ? 'rgb(30, 41, 59)' : '#f1f5f9', border: isDark ? '1px solid rgb(51, 65, 85)' : '1px solid rgb(203, 213, 225)', textTransform: 'uppercase', fontWeight: 700, color: isDark ? 'white' : '#0f172a', outline: 'none' }} value={form.title} onChange={handleInputChange} />
-                  <input name="city" placeholder="CIUDAD" style={{ width: '100%', padding: 20, borderRadius: 12, background: isDark ? 'rgb(30, 41, 59)' : '#f1f5f9', border: isDark ? '1px solid rgb(51, 65, 85)' : '1px solid rgb(203, 213, 225)', textTransform: 'uppercase', fontWeight: 700, color: isDark ? 'white' : '#0f172a', outline: 'none' }} value={form.city} onChange={handleInputChange} />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                     <div>
-                        <label style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', color: 'rgb(100, 116, 139)', marginLeft: 8, marginBottom: 4, display: 'block' }}>Fecha</label>
-                        <input name="date" type="date" style={{ width: '100%', padding: 16, borderRadius: 12, background: isDark ? 'rgb(30, 41, 59)' : '#f1f5f9', border: isDark ? '1px solid rgb(51, 65, 85)' : '1px solid rgb(203, 213, 225)', color: isDark ? 'white' : '#0f172a' }} value={form.date} onChange={handleInputChange} />
-                     </div>
-                     <div>
-                        <label style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', color: 'rgb(100, 116, 139)', marginLeft: 8, marginBottom: 4, display: 'block' }}>Hora (24h)</label>
-                        <input name="time" type="time" style={{ width: '100%', padding: 16, borderRadius: 12, background: isDark ? 'rgb(30, 41, 59)' : '#f1f5f9', border: isDark ? '1px solid rgb(51, 65, 85)' : '1px solid rgb(203, 213, 225)', color: isDark ? 'white' : '#0f172a' }} value={form.time} onChange={handleInputChange} />
-                     </div>
+                    <button onClick={() => toggleFavorite(ev.id)} style={{ background: 'none', border: 'none', color: '#ef4444' }}><Trash2 size={20}/></button>
                   </div>
-                  <button style={{ width: '100%', background: '#4f46e5', padding: 20, borderRadius: 12, fontWeight: 900, textTransform: 'uppercase', boxShadow: '0 10px 15px -3px rgba(79, 70, 229, 0.3)', color: 'white', border: 'none', cursor: 'pointer' }}>Enviar para revision</button>
+                ))
+              }
+            </div>
+          )}
+
+          {/* DETALLES */}
+          {selectedEvent && (
+            <div style={{ padding: 20, paddingBottom: 120 }}>
+              <button onClick={() => setSelectedEvent(null)} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}><ArrowLeft size={20}/> VOLVER</button>
+              <div style={{ background: isDark ? '#0f172a' : 'white', borderRadius: 28, overflow: 'hidden' }}>
+                <img src={selectedEvent.image_url} style={{ width: '100%', height: 220, objectFit: 'cover' }} />
+                <div style={{ padding: 20 }}>
+                  <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 12 }}>{selectedEvent.title}</h2>
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    <div style={{ display: 'flex', gap: 10 }}><Calendar size={18} color="#6366f1" /> <b>{selectedEvent.date}</b></div>
+                    <div style={{ display: 'flex', gap: 10 }}><Clock size={18} color="#6366f1" /> <b>{selectedEvent.time}H</b></div>
+                    <div onClick={() => openInGoogleMaps(selectedEvent)} style={{ display: 'flex', gap: 10, cursor: 'pointer', background: 'rgba(99, 102, 241, 0.1)', padding: 12, borderRadius: 12 }}>
+                      <MapPin size={18} color="#6366f1" /> <b>{selectedEvent.address}, {selectedEvent.city} (IR AHORA)</b>
+                    </div>
+                  </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* PERFIL */}
+          {view === 'profile' && (
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+              <div style={{ background: isDark ? '#0f172a' : 'white', padding: 24, borderRadius: 32, width: '100%', maxWidth: 320, textAlign: 'center' }}>
+                <div style={{ width: 60, height: 60, background: '#4f46e5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 900, margin: '0 auto 20px', color: 'white' }}>{user?.email?.[0].toUpperCase() || '?'}</div>
+                <div style={{ display: 'grid', gap: 8, marginBottom: 16 }}>
+                   <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>KO-FI (Eventora)</a>
+                   <a href="https://www.paypal.com/paypalme/jacobogarbas" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>PAYPAL</a>
+                </div>
+                <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 900, fontSize: 11 }}>CERRAR SESIÓN</button>
               </div>
             </div>
           )}
         </main>
 
-        {/* BOTTOM NAV */}
+        {/* BARRA INFERIOR */}
         <nav style={{ 
-          position: 'fixed', 
-          bottom: 24, 
-          left: '50%', 
-          transform: 'translateX(-50%)', 
-          width: '92%', 
-          maxWidth: 420, 
-          background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)', 
-          backdropFilter: 'blur(24px)',
-          border: isDark ? '1px solid rgb(30, 41, 59)' : '1px solid rgb(226, 232, 240)',
-          height: 80,
-          borderRadius: 40,
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-around',
-          zIndex: 2000,
-          padding: '0 16px',
-          pointerEvents: 'auto'
+          position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', 
+          width: '94%', maxWidth: 400, background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)', 
+          height: 75, borderRadius: 35, display: 'flex', alignItems: 'center', justifyContent: 'space-around',
+          border: '1px solid rgba(128,128,128,0.2)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)', zIndex: 3000
         }}>
-          <button onClick={() => setView('home')} style={{ padding: 16, borderRadius: 16, border: 'none', cursor: 'pointer', background: view === 'home' ? '#2563eb' : 'transparent', color: view === 'home' ? 'white' : 'rgb(100, 116, 139)', boxShadow: view === 'home' ? '0 10px 15px -3px rgba(59, 130, 246, 0.5)' : 'none' }}><LayoutList size={26}/></button>
-          <button onClick={() => setView('create')} style={{ padding: 16, borderRadius: 16, border: 'none', cursor: 'pointer', background: view === 'create' ? '#2563eb' : 'transparent', color: view === 'create' ? 'white' : 'rgb(100, 116, 139)', boxShadow: view === 'create' ? '0 10px 15px -3px rgba(59, 130, 246, 0.5)' : 'none' }}><PlusCircle size={26}/></button>
-          <button onClick={() => setView('map')} style={{ padding: 16, borderRadius: 16, border: 'none', cursor: 'pointer', background: view === 'map' ? '#2563eb' : 'transparent', color: view === 'map' ? 'white' : 'rgb(100, 116, 139)', boxShadow: view === 'map' ? '0 10px 15px -3px rgba(59, 130, 246, 0.5)' : 'none' }}><MapIcon size={26}/></button>
+          <button onClick={() => {setView('home'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'home' ? '#2563eb' : '#64748b' }}><LayoutList size={26}/></button>
+          <button onClick={() => setView('favorites')} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b' }}><Heart size={26} fill={view === 'favorites' ? "#ef4444" : "none"}/></button>
+          <button onClick={() => setView('create')} style={{ background: 'none', border: 'none', color: view === 'create' ? '#2563eb' : '#64748b' }}><PlusCircle size={26}/></button>
+          <button onClick={() => setView('map')} style={{ background: 'none', border: 'none', color: view === 'map' ? '#2563eb' : '#64748b' }}><MapIcon size={26}/></button>
         </nav>
       </div>
     </div>
