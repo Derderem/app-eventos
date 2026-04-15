@@ -8,34 +8,44 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-// Estilos obligatorios
 import 'leaflet/dist/leaflet.css';
 
-// ============================================================
-// FIX NUCLEAR: AISLAMIENTO TOTAL CONTRA CUADROS BLANCOS Y LÍNEAS
-// ============================================================
 const globalStyles = `
-  /* 1. ELIMINAR EL CUADRADO BLANCO (Reset agresivo de imágenes del mapa) */
-  .leaflet-container img.leaflet-tile {
-    max-width: none !important;
-    max-height: none !important;
-    display: block !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    box-shadow: none !important;
-    border: none !important;
-    /* FIX LÍNEAS: Solapamiento por escala interna */
-    transform: scale(1.025) !important;
-    filter: brightness(1.02);
-    outline: 1px solid transparent;
-  }
-
-  /* 2. ELIMINAR BORDES Y SOMBRAS EXTERIORES */
   .leaflet-container { 
-    background-color: #aad3df !important; 
+    background-color: #f5f3f0 !important; 
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
+  }
+  
+  .leaflet-tile-pane {
+    image-rendering: -webkit-optimize-contrast;
+  }
+  
+  .leaflet-tile {
+    outline: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    will-change: transform;
+  }
+  
+  .leaflet-tile-container {
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  }
+
+  .leaflet-container img {
+    max-width: none !important;
+    max-height: none !important;
+    outline: none !important;
+    border: none !important;
+  }
+  
+  .leaflet-layer {
+    outline: none !important;
   }
 
   .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
@@ -43,7 +53,6 @@ const globalStyles = `
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
-// Fix Marcadores (Pines)
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -54,12 +63,10 @@ L.Icon.Default.mergeOptions({
 function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    // Forzamos al mapa a reconocer su tamaño real de inmediato
-    const timer = setTimeout(() => {
+    setTimeout(() => {
       map.invalidateSize();
       map.setView([40.4167, -3.7037], 6); 
-    }, 600);
-    return () => clearTimeout(timer);
+    }, 500);
   }, [map]);
   return null;
 }
@@ -117,19 +124,14 @@ export default function App() {
       <style>{globalStyles}</style>
       <div className="h-screen w-screen flex flex-col bg-[#020617] text-white overflow-hidden transition-all duration-500 font-sans">
         
-        {/* NAV SUPERIOR */}
         <nav className="h-[70px] shrink-0 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-[2000]">
           <div className="flex items-center cursor-pointer" onClick={() => setView('home')}><LogoSVG /></div>
           <div className="flex items-center gap-4">
-            {profile?.role === 'admin' && (
-              <button onClick={() => setView('admin')} className="text-indigo-400 p-2">
-                <ShieldCheck size={28} />
-              </button>
-            )}
+            {profile?.role === 'admin' && <ShieldCheck size={28} className="text-indigo-400" />}
             <button onClick={() => setIsDark(!isDark)} className="p-2 bg-slate-800/50 rounded-xl">
                {isDark ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-indigo-600" />}
             </button>
-            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase shadow-lg" onClick={() => setView('profile')}>
+            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-black border-2 border-white cursor-pointer uppercase" onClick={() => setView('profile')}>
                 {user ? user.email[0] : '?'}
             </div>
           </div>
@@ -151,40 +153,35 @@ export default function App() {
           )}
 
           {view === 'map' && (
-            <div className="absolute inset-0 z-0 bg-[#aad3df]">
+            <div className="absolute inset-0 z-0" style={{ background: '#f5f3f0' }}>
               <MapContainer 
-                key={view} 
                 center={[40.4167, -3.7037]} 
                 zoom={6} 
-                className="h-full w-full" 
-                zoomControl={false} 
+                style={{ height: "100%", width: "100%", border: "none", outline: "none" }}
                 zoomSnap={1}
-                fadeAnimation={false}
               >
                 <SpainMapController />
+                {/* Mapa en ESPAÑOL - OpenStreetMap Francia con nombres locales */}
                 <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='ESPAÑA'
+                  url="https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> France'
                 />
-                {publicEvents.map(ev => ev.lat && (
+                {publicEvents.map(ev => ev.lat && ev.lng && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup><div className="text-center font-bold text-indigo-600 uppercase text-xs">{ev.title}</div></Popup>
+                    <Popup className="text-center text-indigo-600 font-bold uppercase text-xs">
+                      {ev.title}
+                    </Popup>
                   </Marker>
                 ))}
               </MapContainer>
             </div>
           )}
 
-          {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Perfil y Login</div>}
-          {view === 'create' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Crear Evento</div>}
-          {view === 'favorites' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Favoritos</div>}
-          {view === 'admin' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-indigo-600 italic">Panel Admin</div>}
+          {view === 'profile' && <div className="h-full flex items-center justify-center font-black uppercase text-2xl text-slate-700 italic">Pantalla Perfil</div>}
         </main>
 
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
           <button onClick={() => setView('home')} className={`p-4 rounded-2xl transition-all ${view === 'home' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><LayoutList size={26}/></button>
-          <button onClick={() => setView('create')} className={`p-4 rounded-2xl transition-all ${view === 'create' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><PlusCircle size={26}/></button>
-          <button onClick={() => setView('favorites')} className={`p-4 rounded-2xl transition-all ${view === 'favorites' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><Heart size={26}/></button>
           <button onClick={() => setView('map')} className={`p-4 rounded-2xl transition-all ${view === 'map' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50" : ""}`}><MapIcon size={26}/></button>
         </nav>
       </div>
