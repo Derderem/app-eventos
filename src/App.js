@@ -33,7 +33,6 @@ const globalStyles = `
   }
   .pulse-admin { animation: admin-pulse 2s infinite; }
 
-  .logo-font { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; display: flex; align-items: center; letter-spacing: -2px; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
@@ -54,19 +53,11 @@ function SpainMapController() {
 }
 
 const LogoSVG = () => (
-  <svg width="170" height="35" viewBox="0 0 240 50">
-    <defs>
-      <linearGradient id="gLogo" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" style={{stopColor:'#00e5ff'}} />
-        <stop offset="50%" style={{stopColor:'#2979ff'}} />
-        <stop offset="100%" style={{stopColor:'#aa00ff'}} />
-      </linearGradient>
-    </defs>
-    <text x="0" y="38" className="logo-font" fontSize="34" fill="url(#gLogo)"> EVENTORA </text>
-    <rect x="210" y="8" width="28" height="28" rx="6" fill="#4f46e520" stroke="#6366f1" strokeWidth="2" />
-    <path d="M210 18 H238 M217 8 V12 M231 8 V12" stroke="#6366f1" strokeWidth="2" />
-    <path d="M224 29 L226 25 L230 23 L226 21 L224 17 L222 21 L218 23 L222 25 Z" fill="#6366f1" />
-  </svg>
+  <img 
+    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png" 
+    alt="Eventora" 
+    style={{ height: 28, width: 'auto' }}
+  />
 );
 
 const supabase = createClient(
@@ -153,7 +144,7 @@ export default function App() {
         </div>
       )}
 
-      {/* CONTENEDOR PRINCIPAL - transparente cuando el mapa esta activo */}
+      {/* CONTENEDOR PRINCIPAL */}
       <div 
         style={{ 
           position: 'relative', 
