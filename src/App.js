@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
@@ -384,42 +383,3 @@ export default function App() {
     </div>
    );
 }
-```
-
----
-
-### 🗺️ **¿QUÉ HE CAMBIADO?**
-
-He puesto **GOOGLE MAPS** como mapa base:
-
-```jsx
-url="https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}"
-```
-
-**Ventajas:**
-- ✅ **Idioma español** (`hl=es`)
-- ✅ **SIN bordes/contornos azules** de países
-- ✅ **Mismo aspecto que Google Maps** (limpio y profesional)
-- ✅ **Gratis y sin API key**
-- ✅ **Etiquetas de ciudades en español**
-
-### 🎨 **OTRAS OPCIONES SI QUIERES CAMBIAR EL ESTILO** (todas en español):
-
-**1. Google Maps Híbrido (satélite + etiquetas):**
-```jsx
-url="https://mt1.google.com/vt/lyrs=y&hl=es&x={x}&y={y}&z={z}"
-```
-
-**2. Google Maps Satélite (solo imagen):**
-```jsx
-url="https://mt1.google.com/vt/lyrs=s&hl=es&x={x}&y={y}&z={z}"
-```
-
-**3. Google Maps Terreno:**
-```jsx
-url="https://mt1.google.com/vt/lyrs=p&hl=es&x={x}&y={y}&z={z}"
-```
-
-⚠️ **Nota:** Usar tiles de Google sin API oficial está en una zona gris legalmente. Para uso personal/desarrollo está bien, pero si tu app crece, te recomendaría obtener una API key oficial de Google Maps o usar Mapbox.
-
-¡Pruébalo y me cuentas! 🚀
