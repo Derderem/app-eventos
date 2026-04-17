@@ -16,6 +16,7 @@ import 'leaflet/dist/leaflet.css';
 const globalStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
   
+  /* FIX MAPA: Eliminamos bordes y aseguramos que ocupe todo el espacio */
   .leaflet-container { background-color: #aad3df !important; border: none !important; outline: none !important; }
   .leaflet-tile { transform: scale(1.02) !important; outline: 1px solid transparent; }
   .leaflet-container img { max-width: none !important; max-height: none !important; }
@@ -30,7 +31,7 @@ const globalStyles = `
 
   @keyframes admin-pulse {
     0% { transform: scale(1); color: #818cf8; }
-    50% { transform: scale(1.1); color: #ef4444; }
+    50% { transform: scale(1.15); color: #ef4444; }
     100% { transform: scale(1); color: #818cf8; }
   }
   .pulse-admin { animation: admin-pulse 2s infinite; }
@@ -44,22 +45,15 @@ L.Icon.Default.mergeOptions({
 });
 
 // CONTROLADOR DE MOVIMIENTO Y REDIBUJADO DEL MAPA
-function SpainMapController() {
+function SpainMapController({ center }) {
   const map = useMap();
   useEffect(() => {
-    const timer = setTimeout(() => { 
-      map.invalidateSize(); 
-      map.setView([40.4167, -3.7037], 6); 
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [map]);
-  return null;
-}
-
-function MapFocusController({ center }) {
-  const map = useMap();
-  useEffect(() => {
-    if (center) map.setView(center, 13, { animate: true });
+    if (center) {
+      map.setView(center, 13, { animate: true });
+    } else {
+      map.setView([40.4167, -3.7037], 6);
+    }
+    setTimeout(() => { map.invalidateSize(); }, 400);
   }, [center, map]);
   return null;
 }
@@ -79,7 +73,10 @@ const supabase = createClient(
 
 export default function App() {
   const [events, setEvents] = useState([]);
-  const [favorites, setFavorites] = useState(() => JSON.parse(localStorage.getItem('favs')) || []);
+  const [favorites, setFavorites] = useState(() => {
+    const saved = localStorage.getItem('eventora_favs');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [profile, setProfile] = useState(null);
   const [view, setView] = useState('home');
   const [isDark, setIsDark] = useState(true);
@@ -90,24 +87,20 @@ export default function App() {
 
   useEffect(() => {
     fetchEvents();
-    localStorage.setItem('favs', JSON.stringify(favorites));
+    localStorage.setItem('eventora_favs', JSON.stringify(favorites));
     supabase.auth.onAuthStateChange((event, session) => {
-      // SOLO TÚ ERES ADMIN CON ESTE ID
       if (session?.user.id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
       else setProfile(null);
     });
   }, [favorites]);
 
   const fetchEvents = async () => {
-    const { data } = await supabase.from('events').select('*');
-    if (data) {
-      setEvents(data.sort((a, b) => new Date(a.date) - new Date(b.date)));
-    }
+    const { data } = await supabase.from('events').select('*').order('date', { ascending: true });
+    if (data) setEvents(data);
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    // TÍTULO, CIUDAD Y LOCALIDAD EN MAYÚSCULAS
     const needsUpper = ['title', 'city', 'localidad'];
     const val = needsUpper.includes(name) ? value.toUpperCase() : value;
     setForm({ ...form, [name]: val });
@@ -134,9 +127,9 @@ export default function App() {
     <div className={isDark ? "dark-theme" : "light-theme"} style={{ margin: 0, padding: 0, width: '100vw', height: '100vh', overflow: 'hidden' }}>
       <style>{globalStyles}</style>
 
-      {/* CAPA MAPA INTEGRADA */}
+      {/* CAPA MAPA: POSICIÓN FIJA PARA EVITAR QUE DESAPAREZCA */}
       {view === 'map' && (
-        <div style={{ position: 'absolute', top: 65, left: 0, right: 0, bottom: 0, zIndex: 1, background: '#aad3df' }}>
+        <div style={{ position: 'fixed', top: 65, left: 0, right: 0, bottom: 0, zIndex: 5, background: '#aad3df' }}>
           <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
             <div style={{ background: '#fff', borderRadius: 15, padding: '5px 15px', display: 'flex', alignItems: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
               <Search size={18} color="#6366f1" />
@@ -147,8 +140,7 @@ export default function App() {
             </div>
           </div>
           <MapContainer center={[40.4167, -3.7037]} zoom={6} style={{ width: '100%', height: '100%' }} zoomSnap={1}>
-            <SpainMapController />
-            <MapFocusController center={mapCenter} />
+            <SpainMapController center={mapCenter} />
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; España' />
             {publicEvents.map(ev => ev.lat && ev.lng && (
               <Marker key={ev.id} position={[ev.lat, ev.lng]}>
@@ -159,7 +151,7 @@ export default function App() {
         </div>
       )}
 
-      <div style={{ position: 'relative', zIndex: 10, width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: view === 'map' ? 'transparent' : undefined }}>
+      <div style={{ position: 'relative', zIndex: 10, width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
         
         {/* NAV SUPERIOR */}
         <nav style={{ height: 65, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,0.2)', background: isDark ? '#0f172a' : '#fff' }}>
@@ -175,9 +167,9 @@ export default function App() {
           </div>
         </nav>
 
-        <main style={{ flex: 1, overflowY: 'auto' }} className="no-scrollbar">
+        <main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }} className="no-scrollbar">
           
-          {/* HOME: LISTADO Y CATEGORÍAS */}
+          {/* HOME CON CATEGORÍAS */}
           {view === 'home' && !selectedEvent && (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className="no-scrollbar" style={{ display: 'flex', gap: 10, padding: '15px 20px', overflowX: 'auto', background: isDark ? '#020617' : '#f8fafc', borderBottom: '1px solid rgba(128,128,128,0.1)' }}>
@@ -186,7 +178,7 @@ export default function App() {
                 ))}
               </div>
               
-              <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: 20, paddingBottom: 150 }}>
+              <div style={{ flex: 1, padding: 20, paddingBottom: 150 }}>
                 {filteredEvents.map(ev => (
                   <div key={ev.id} className={isDark ? "card-dark" : "card-light"} style={{ borderRadius: 32, overflow: 'hidden', marginBottom: 20 }}>
                     <div style={{ position: 'relative', height: 180 }}>
@@ -198,7 +190,7 @@ export default function App() {
                     <div style={{ padding: 20, textAlign: 'center' }}>
                       <h3 style={{ fontWeight: 900, fontSize: 18 }}>{ev.title}</h3>
                       <p style={{ fontSize: 10, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 15 }}>{ev.city} | {ev.date}</p>
-                      <button onClick={() => setSelectedEvent(ev)} style={{ width: '100%', padding: 14, borderRadius: 12, background: '#4f46e5', color: 'white', border: 'none', fontWeight: 900, fontSize: 11 }}>DETALLES</button>
+                      <button onClick={() => setSelectedEvent(ev)} style={{ width: '100%', padding: 14, borderRadius: 16, background: '#4f46e5', color: 'white', border: 'none', fontWeight: 900, fontSize: 11 }}>DETALLES</button>
                     </div>
                   </div>
                 ))}
@@ -217,7 +209,7 @@ export default function App() {
                   <div style={{ display: 'grid', gap: 15 }}>
                     <div style={{ display: 'flex', gap: 10 }}><Calendar color="#6366f1"/> <b>{selectedEvent.date}</b></div>
                     <div style={{ display: 'flex', gap: 10 }}><Clock color="#6366f1"/> <b>{selectedEvent.time}H</b></div>
-                    <div onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedEvent.address + ' ' + (selectedEvent.localidad || '') + ' ' + selectedEvent.city)}`)} style={{ background: 'rgba(99,102,241,0.1)', padding: 20, borderRadius: 15, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1' }}>
+                    <div onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedEvent.address + ' ' + (selectedEvent.localidad || '') + ' ' + selectedEvent.city)}`, '_blank')} style={{ background: 'rgba(99,102,241,0.1)', padding: 20, borderRadius: 15, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1' }}>
                       <MapPin color="#6366f1" style={{margin:'0 auto 5px'}}/> <br/> <b>{selectedEvent.address}, {selectedEvent.localidad} - {selectedEvent.city}</b> <br/>
                       <span style={{fontSize:10, color:'#2563eb', fontWeight: 900}}>INICIAR GPS (GOOGLE MAPS)</span>
                     </div>
@@ -227,12 +219,15 @@ export default function App() {
             </div>
           )}
 
-          {/* FAVORITOS */}
+          {/* FAVORITOS CON MENSAJE PERSONALIZADO */}
           {view === 'favorites' && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
               <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 20 }}>MIS GUARDADOS</h2>
               {favoriteEvents.length === 0 ? (
-                <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700, padding: 40 }}>EN ESTOS MOMENTOS NO HAY NINGÚN EVENTO GUARDADO</p>
+                <div style={{ textAlign: 'center', padding: '40px 20px', opacity: 0.7 }}>
+                  <Heart size={48} color="#ef4444" style={{ margin: '0 auto 20px', display: 'block' }} />
+                  <p style={{ fontWeight: 900, fontSize: 14, textTransform: 'uppercase', letterSpacing: 1 }}>EN ESTOS MOMENTOS NO HAY NINGÚN EVENTO GUARDADO</p>
+                </div>
               ) : (
                 favoriteEvents.map(ev => (
                   <div key={ev.id} className="card" style={{ display: 'flex', gap: 15, padding: 15, borderRadius: 25, marginBottom: 12, alignItems: 'center' }}>
@@ -245,18 +240,13 @@ export default function App() {
             </div>
           )}
 
-          {/* CREAR EVENTO */}
+          {/* CREAR, PERFIL, ADMIN (Mantenidos) */}
           {view === 'create' && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 150 }}>
               <div className="card" style={{ padding: 20, borderRadius: 30, gap: 10, display: 'flex', flexDirection: 'column' }}>
                 <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 16 }}>AÑADIR EVENTO</h2>
                 <input name="title" placeholder="TÍTULO" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.title} onChange={handleInputChange} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <input name="city" placeholder="CIUDAD" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.city} onChange={handleInputChange} />
-                  <select name="category" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.category} onChange={handleInputChange}>
-                    <option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINO">TAURINO</option><option value="FIESTAS PATRONALES">FIESTAS</option><option value="OTROS">OTROS</option>
-                  </select>
-                </div>
+                <input name="city" placeholder="CIUDAD" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.city} onChange={handleInputChange} />
                 <input name="localidad" placeholder="LOCALIDAD" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.localidad} onChange={handleInputChange} />
                 <input name="address" placeholder="DIRECCIÓN" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.address} onChange={handleInputChange} />
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -268,7 +258,6 @@ export default function App() {
             </div>
           )}
 
-          {/* PERFIL (SOPORTE) */}
           {view === 'profile' && (
             <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
               <div className="card" style={{ padding: 30, borderRadius: 45, width: '100%', maxWidth: 350, textAlign: 'center' }}>
@@ -277,8 +266,8 @@ export default function App() {
                    <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 18, borderRadius: 18, textDecoration: 'none', fontWeight: 900, fontSize: 12 }}>APOYAR EN KO-FI</a>
                    <a href="https://www.paypal.com/paypalme/jacobogarbas" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 18, borderRadius: 18, textDecoration: 'none', fontWeight: 900, fontSize: 12 }}>APOYAR EN PAYPAL</a>
                 </div>
-                <button onClick={() => { const e = prompt("Email Admin:"); if(e) supabase.auth.signInWithOtp({email:e}) }} style={{ opacity: 0.1, fontSize: 10 }}>Acceso Admin</button>
-                {profile && <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 900, marginTop: 15 }}>CERRAR SESIÓN ADMIN</button>}
+                {!profile && <button onClick={() => { const e = prompt("Email Admin:"); if(e) supabase.auth.signInWithOtp({email:e}) }} style={{ opacity: 0.1, fontSize: 10 }}>Acceso Admin</button>}
+                {profile && <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 900 }}>SALIR ADMIN</button>}
               </div>
             </div>
           )}
