@@ -11,27 +11,24 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// CONFIGURACIÓN DE ESTILOS (CONTROL TOTAL DE VISIBILIDAD)
+// CONFIGURACIÓN DE ESTILOS (FIX TOTAL MAPA)
 // ============================================================
 const globalStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
   
-  /* ESTO ASEGURA QUE EL MAPA SEA VISIBLE */
   .leaflet-container { 
     background-color: #aad3df !important; 
     height: 100% !important; 
     width: 100% !important;
     border: none !important;
-    outline: none !important;
   }
   
-  .leaflet-tile { transform: scale(1.02) !important; outline: 1px solid transparent; }
+  .leaflet-tile { transform: scale(1.025) !important; outline: 1px solid transparent; }
   .leaflet-container img { max-width: none !important; max-height: none !important; }
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* Temas Sol/Luna */
   .dark-theme { background-color: #020617; color: white; }
   .light-theme { background-color: #f8fafc; color: #0f172a; }
   .card-dark { background-color: #0f172a; border: 1px solid #1e293b; color: white; }
@@ -52,17 +49,14 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// CONTROLADOR DE MAPA: CORRIGE EL ERROR DE "MAPA NO SE VE"
+// CONTROLADOR DE MAPA: CORRIGE VISIBILIDAD
 function MapResizer({ center }) {
   const map = useMap();
   useEffect(() => {
     const timer = setTimeout(() => {
       map.invalidateSize();
-      if (center) {
-        map.setView(center, 13, { animate: true });
-      } else {
-        map.setView([40.4167, -3.7037], 6);
-      }
+      if (center) map.setView(center, 13, { animate: true });
+      else map.setView([40.4167, -3.7037], 6);
     }, 500);
     return () => clearTimeout(timer);
   }, [map, center]);
@@ -85,7 +79,7 @@ const supabase = createClient(
 export default function App() {
   const [events, setEvents] = useState([]);
   const [favorites, setFavorites] = useState(() => {
-    const saved = localStorage.getItem('eventora_favs_v3');
+    const saved = localStorage.getItem('eventora_favs_v4');
     return saved ? JSON.parse(saved) : [];
   });
   const [profile, setProfile] = useState(null);
@@ -94,11 +88,12 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('TODOS');
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
-  const [form, setForm] = useState({ title: '', city: '', localidad: '', address: '', time: '21:00', date: '', category: 'MUSICA' });
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [form, setForm] = useState({ title: '', city: '', localidad: '', address: '', time: '21:00', date: '', category: 'MUSICA', image_url: '' });
 
   useEffect(() => {
     fetchEvents();
-    localStorage.setItem('eventora_favs_v3', JSON.stringify(favorites));
+    localStorage.setItem('eventora_favs_v4', JSON.stringify(favorites));
     supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user.id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
       else setProfile(null);
@@ -107,10 +102,7 @@ export default function App() {
 
   const fetchEvents = async () => {
     const { data } = await supabase.from('events').select('*');
-    if (data) {
-      // ORDENAR: Más próximos primero
-      setEvents(data.sort((a, b) => new Date(a.date) - new Date(b.date)));
-    }
+    if (data) setEvents(data.sort((a, b) => new Date(a.date) - new Date(b.date)));
   };
 
   const handleInputChange = (e) => {
@@ -120,15 +112,28 @@ export default function App() {
     setForm({ ...form, [name]: val });
   };
 
-  const toggleFavorite = (id) => {
-    setFavorites(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
+  const generateAIImage = () => {
+    if (!form.title) return alert("Escribe un título primero");
+    setIsGenerating(true);
+    const url = `https://image.pollinations.ai/prompt/professional_event_photography_${encodeURIComponent(form.title)}?width=800&height=600&seed=${Date.now()}`;
+    setForm({ ...form, image_url: url });
+    setTimeout(() => setIsGenerating(false), 2000);
+  };
+
+  const handleGalleryUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setForm({ ...form, image_url: ev.target.result });
+      reader.readAsDataURL(file);
+    }
   };
 
   const today = new Date().toISOString().split('T')[0];
   const publicEvents = events.filter(e => e.status === 'approved' && e.date >= today);
   const filteredEvents = publicEvents.filter(e => selectedCategory === 'TODOS' || e.category === selectedCategory);
   const favoriteEvents = publicEvents.filter(e => favorites.includes(e.id));
-  const citiesForMap = [...new Set(publicEvents.map(e => e.city))];
+  const citiesList = [...new Set(publicEvents.map(e => e.city))];
 
   return (
     <div className={isDark ? "dark-theme" : "light-theme"} style={{ margin: 0, padding: 0, width: '100vw', height: '100vh', overflow: 'hidden' }}>
@@ -164,7 +169,7 @@ export default function App() {
                     else fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city + ', Spain')}`).then(r => r.json()).then(d => d[0] && setMapCenter([parseFloat(d[0].lat), parseFloat(d[0].lon)]));
                   }} style={{ width: '100%', padding: 12, border: 'none', outline: 'none', fontWeight: 900, fontSize: 12, color: '#0f172a', background: 'transparent' }}>
                     <option value="ESPAÑA">📍 BUSCAR CIUDAD...</option>
-                    {citiesForMap.map(c => <option key={c} value={c}>{c}</option>)}
+                    {citiesList.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
@@ -172,15 +177,13 @@ export default function App() {
                 <MapResizer center={mapCenter} />
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; España' />
                 {publicEvents.map(ev => ev.lat && ev.lng && (
-                  <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup><b>{ev.title}</b><br/>{ev.city}</Popup>
-                  </Marker>
+                  <Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><b>{ev.title}</b><br/>{ev.city}</Popup></Marker>
                 ))}
               </MapContainer>
             </div>
           )}
 
-          {/* HOME: LISTADO Y CATEGORÍAS */}
+          {/* HOME */}
           {view === 'home' && !selectedEvent && (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className="no-scrollbar" style={{ display: 'flex', gap: 10, padding: '15px 20px', overflowX: 'auto', background: isDark ? '#020617' : '#f8fafc', borderBottom: '1px solid rgba(128,128,128,0.1)' }}>
@@ -208,11 +211,11 @@ export default function App() {
             </div>
           )}
 
-          {/* DETALLES CON GPS */}
+          {/* DETALLES */}
           {selectedEvent && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
               <button onClick={() => setSelectedEvent(null)} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 8, marginBottom: 20 }}><ArrowLeft/> VOLVER</button>
-              <div className="card" style={{ borderRadius: 30, overflow: 'hidden' }}>
+              <div className="card" style={{ borderRadius: 30, overflow: 'hidden', padding: 0 }}>
                 <img src={selectedEvent.image_url} style={{ width: '100%', height: 250, objectFit: 'cover' }} />
                 <div style={{ padding: 25 }}>
                   <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 15 }}>{selectedEvent.title}</h2>
@@ -229,7 +232,39 @@ export default function App() {
             </div>
           )}
 
-          {/* FAVORITOS CON MENSAJE */}
+          {/* CREAR EVENTO */}
+          {view === 'create' && (
+            <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 150 }}>
+              <div className="card" style={{ padding: 20, borderRadius: 30, gap: 10, display: 'flex', flexDirection: 'column' }}>
+                <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 16 }}>AÑADIR EVENTO</h2>
+                <input name="title" placeholder="TÍTULO" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.title} onChange={handleInputChange} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
+                  <input name="city" placeholder="CIUDAD" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.city} onChange={handleInputChange} />
+                  <select name="category" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.category} onChange={handleInputChange}>
+                    <option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINO">TAURINO</option><option value="FIESTAS PATRONALES">FIESTAS</option><option value="OTROS">OTROS</option>
+                  </select>
+                </div>
+                <input name="localidad" placeholder="LOCALIDAD" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.localidad} onChange={handleInputChange} />
+                <input name="address" placeholder="DIRECCIÓN" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.address} onChange={handleInputChange} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                   <input name="date" type="date" style={{ width: '100%', padding: 10, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit' }} value={form.date} onChange={handleInputChange} />
+                   <input name="time" type="time" style={{ width: '100%', padding: 10, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit' }} value={form.time} onChange={handleInputChange} />
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                   <button onClick={generateAIImage} style={{ padding: 12, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                    {isGenerating ? <Loader2 className="animate-spin" size={14}/> : <Sparkles size={14}/>} IA FOTO
+                   </button>
+                   <label style={{ padding: 12, background: '#1e293b', color: 'white', textAlign:'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>GALERÍA <input type="file" style={{display:'none'}} onChange={handleGalleryUpload}/></label>
+                </div>
+                {form.image_url && <img src={form.image_url} style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 15 }} />}
+
+                <button style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 15, borderRadius: 12, border: 'none', fontWeight: 900 }}>ENVIAR REVISIÓN</button>
+              </div>
+            </div>
+          )}
+
+          {/* GUARDADOS */}
           {view === 'favorites' && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
               <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 20 }}>MIS GUARDADOS</h2>
@@ -247,24 +282,7 @@ export default function App() {
             </div>
           )}
 
-          {/* CREAR, PERFIL, ADMIN (Resto de vistas...) */}
-          {view === 'create' && (
-            <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 150 }}>
-              <div className="card" style={{ padding: 20, borderRadius: 30, gap: 10, display: 'flex', flexDirection: 'column' }}>
-                <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 16 }}>AÑADIR EVENTO</h2>
-                <input name="title" placeholder="TÍTULO" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.title} onChange={handleInputChange} />
-                <input name="city" placeholder="CIUDAD" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.city} onChange={handleInputChange} />
-                <input name="localidad" placeholder="LOCALIDAD" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.localidad} onChange={handleInputChange} />
-                <input name="address" placeholder="DIRECCIÓN" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.address} onChange={handleInputChange} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                   <input name="date" type="date" style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit' }} value={form.date} onChange={handleInputChange} />
-                   <input name="time" type="time" style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit' }} value={form.time} onChange={handleInputChange} />
-                </div>
-                <button style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 18, borderRadius: 15, border: 'none', fontWeight: 900, marginTop: 10 }}>ENVIAR REVISIÓN</button>
-              </div>
-            </div>
-          )}
-
+          {/* SOPORTE */}
           {view === 'profile' && (
             <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
               <div className="card" style={{ padding: 30, borderRadius: 45, width: '100%', maxWidth: 350, textAlign: 'center' }}>
@@ -273,17 +291,17 @@ export default function App() {
                    <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 18, borderRadius: 18, textDecoration: 'none', fontWeight: 900, fontSize: 12 }}>APOYAR EN KO-FI</a>
                    <a href="https://www.paypal.com/paypalme/jacobogarbas" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 18, borderRadius: 18, textDecoration: 'none', fontWeight: 900, fontSize: 12 }}>APOYAR EN PAYPAL</a>
                 </div>
-                <button onClick={() => { const e = prompt("Email Admin:"); if(e) supabase.auth.signInWithOtp({email:e}) }} style={{ opacity: 0.1, fontSize: 10 }}>Acceso Privado</button>
+                <button onClick={() => { const e = prompt("Email Admin:"); if(e) supabase.auth.signInWithOtp({email:e}) }} style={{ opacity: 0.1, fontSize: 10 }}>Admin Login</button>
               </div>
             </div>
           )}
         </main>
 
         <nav style={{ position: 'fixed', bottom: 15, left: '50%', transform: 'translateX(-50%)', width: '92%', maxWidth: 400, height: 75, borderRadius: 35, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', zIndex: 3000, background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)' }}>
-          <button onClick={() => {setView('home'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'home' ? '#2563eb' : '#64748b' }}><LayoutList size={26}/></button>
+          <button onClick={() => {setView('home'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b' }}><LayoutList size={26}/></button>
           <button onClick={() => {setView('favorites'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b' }}><Heart size={26} fill={view === 'favorites' ? "#ef4444" : "none"}/></button>
-          <button onClick={() => {setView('create'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'create' ? '#2563eb' : '#64748b' }}><PlusCircle size={26}/></button>
-          <button onClick={() => {setView('map'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'map' ? '#2563eb' : '#64748b' }}><MapIcon size={26}/></button>
+          <button onClick={() => {setView('create'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b' }}><PlusCircle size={26}/></button>
+          <button onClick={() => {setView('map'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b' }}><MapIcon size={26}/></button>
         </nav>
       </div>
     </div>
