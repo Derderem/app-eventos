@@ -1,8 +1,4 @@
-¡Perfecto, ahora lo tengo claro! Necesitas **mapa en español + sin contornos azules de países**.
 
-La solución es usar **CartoDB con idioma español forzado**. Aquí tienes el **código completo**:
-
-```jsx
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
