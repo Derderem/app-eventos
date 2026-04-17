@@ -10,20 +10,32 @@ import L from 'leaflet';
 
 import 'leaflet/dist/leaflet.css';
 
+// ============================================================
+// CONFIGURACIÓN DE ESTILOS (FIX LÍNEAS MÓVIL Y TEMAS)
+// ============================================================
 const globalStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
   .leaflet-container { background-color: #aad3df !important; }
-  .leaflet-tile { margin: 0 !important; padding: 0 !important; -webkit-backface-visibility: hidden; will-change: transform; }
+  
+  /* FIX LÍNEAS EN MÓVIL: Escalado mínimo para solapar piezas */
+  .leaflet-tile { 
+    margin: 0 !important; 
+    padding: 0 !important; 
+    outline: 1px solid transparent;
+    transform: scale(1.005) !important;
+    -webkit-backface-visibility: hidden;
+  }
+  
   .leaflet-container img { max-width: none !important; max-height: none !important; }
   
   .dark-theme { background-color: #020617; color: white; }
   .light-theme { background-color: #f8fafc; color: #0f172a; }
   .card-dark { background-color: #0f172a; border: 1px solid #1e293b; color: white; }
-  .card-light { background-color: white; border: 1px solid #e2e8f0; color: #0f172a; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); }
+  .card-light { background-color: white; border: 1px solid #e2e8f0; color: #0f172a; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
   @keyframes admin-pulse {
     0% { transform: scale(1); color: #818cf8; }
-    50% { transform: scale(1.2); color: #ef4444; opacity: 0.8; }
+    50% { transform: scale(1.1); color: #ef4444; }
     100% { transform: scale(1); color: #818cf8; }
   }
   .pulse-admin { animation: admin-pulse 2s infinite; }
@@ -66,8 +78,9 @@ export default function App() {
   const [favorites, setFavorites] = useState(() => JSON.parse(localStorage.getItem('favs')) || []);
   const [view, setView] = useState('home');
   const [isDark, setIsDark] = useState(true);
+  const [selectedCity, setSelectedCity] = useState('TODAS');
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [form, setForm] = useState({ title: '', city: '', localidad: '', address: '', time: '21:00', date: '', image_url: '', category: 'MUSICA' });
+  const [form, setForm] = useState({ title: '', city: '', localidad: '', address: '', time: '21:00', date: '', image_url: '' });
 
   useEffect(() => {
     fetchEvents();
@@ -75,7 +88,6 @@ export default function App() {
     supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         setUser(session.user);
-        // SOLO TÚ ERES ADMIN SI TU ID COINCIDE
         if (session.user.id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
       } else { setUser(null); setProfile(null); }
     });
@@ -88,7 +100,6 @@ export default function App() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    // Título, Ciudad y Localidad siempre en MAYÚSCULAS
     const needsUpper = ['title', 'city', 'localidad'];
     const val = needsUpper.includes(name) ? value.toUpperCase() : value;
     setForm({ ...form, [name]: val });
@@ -101,6 +112,11 @@ export default function App() {
 
   const today = new Date().toISOString().split('T')[0];
   const publicEvents = events.filter(e => e.status === 'approved' && e.date >= today);
+  
+  // LÓGICA DE CIUDADES PARA EL FILTRO
+  const availableCities = ['TODAS', ...new Set(publicEvents.map(e => e.city))];
+  const filteredEvents = selectedCity === 'TODAS' ? publicEvents : publicEvents.filter(e => e.city === selectedCity);
+  
   const pendingCount = events.filter(e => e.status === 'pending').length;
 
   return (
@@ -118,7 +134,6 @@ export default function App() {
           <div style={{ cursor: 'pointer' }} onClick={() => {setView('home'); setSelectedEvent(null);}}><LogoSVG /></div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {/* ESCUDO SOLO PARA TI (ADMIN) */}
             {profile?.role === 'admin' && (
               <ShieldCheck size={28} className={pendingCount > 0 ? 'pulse-admin' : ''} style={{ cursor: 'pointer', color: pendingCount > 0 ? '#ef4444' : '#6366f1' }} onClick={() => setView('admin')} />
             )}
@@ -133,17 +148,26 @@ export default function App() {
           
           {/* VISTA HOME */}
           {view === 'home' && !selectedEvent && (
-            <div className="no-scrollbar" style={{ maxWidth: 500, margin: '0 auto', padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 150 }}>
-              {publicEvents.map(ev => (
-                <div key={ev.id} className={isDark ? "card-dark" : "card-light"} style={{ borderRadius: 32, overflow: 'hidden', marginBottom: 20 }}>
-                  <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} style={{ width: '100%', height: 200, objectFit: 'cover' }} alt="" />
-                  <div style={{ padding: 20, textAlign: 'center' }}>
-                    <h3 style={{ fontWeight: 900, fontSize: 18 }}>{ev.title}</h3>
-                    <p style={{ fontSize: 10, fontWeight: 800, color: '#6366f1', letterSpacing: 2, marginBottom: 15 }}>{ev.city}</p>
-                    <button onClick={() => setSelectedEvent(ev)} style={{ width: '100%', padding: 14, borderRadius: 16, background: '#4f46e5', color: 'white', border: 'none', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>DETALLES</button>
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              {/* FILTRO DE CIUDADES */}
+              <div className="no-scrollbar" style={{ display: 'flex', gap: 10, padding: '15px 20px', overflowX: 'auto', borderBottom: '1px solid rgba(128,128,128,0.1)' }}>
+                {availableCities.map(city => (
+                  <button key={city} onClick={() => setSelectedCity(city)} style={{ padding: '8px 18px', borderRadius: 20, border: 'none', background: selectedCity === city ? '#2563eb' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCity === city ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer' }}>{city}</button>
+                ))}
+              </div>
+
+              <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: 20, paddingBottom: 150 }}>
+                {filteredEvents.map(ev => (
+                  <div key={ev.id} className={isDark ? "card-dark" : "card-light"} style={{ borderRadius: 32, overflow: 'hidden', marginBottom: 20 }}>
+                    <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} style={{ width: '100%', height: 200, objectFit: 'cover' }} alt="" />
+                    <div style={{ padding: 20, textAlign: 'center' }}>
+                      <h3 style={{ fontWeight: 900, fontSize: 18 }}>{ev.title}</h3>
+                      <p style={{ fontSize: 10, fontWeight: 800, color: '#6366f1', letterSpacing: 2, marginBottom: 15 }}>{ev.city}</p>
+                      <button onClick={() => setSelectedEvent(ev)} style={{ width: '100%', padding: 14, borderRadius: 16, background: '#4f46e5', color: 'white', border: 'none', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>DETALLES</button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
 
@@ -170,14 +194,9 @@ export default function App() {
           {/* VISTA MAPA */}
           {view === 'map' && (
             <div style={{ width: "100%", height: "100%", position: 'absolute', top: 0, left: 0 }}>
-              <MapContainer 
-                center={[40.4167, -3.7037]} 
-                zoom={6} 
-                style={{ height: "100%", width: "100%" }}
-                zoomSnap={1}
-              >
+              <MapContainer center={[40.4167, -3.7037]} zoom={6} style={{ height: "100%", width: "100%" }} zoomSnap={1}>
                 <SpainMapController />
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; España' />
                 {publicEvents.map(ev => ev.lat && ev.lng && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
                     <Popup className="text-center text-indigo-600 font-bold uppercase text-xs">{ev.title}</Popup>
@@ -187,7 +206,7 @@ export default function App() {
             </div>
           )}
 
-          {/* VISTA PERFIL (SOPORTE Y LOGIN) */}
+          {/* PERFIL */}
           {view === 'profile' && (
             <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
               <div className={isDark ? "card-dark" : "card-light"} style={{ padding: 30, borderRadius: 45, width: '100%', maxWidth: 350, textAlign: 'center' }}>
@@ -196,16 +215,16 @@ export default function App() {
                    <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 18, borderRadius: 18, textDecoration: 'none', fontWeight: 900, fontSize: 12 }}>APOYAR EN KO-FI</a>
                    <a href="https://www.paypal.com/paypalme/jacobogarbas" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 18, borderRadius: 18, textDecoration: 'none', fontWeight: 900, fontSize: 12 }}>APOYAR EN PAYPAL</a>
                 </div>
-                {user ? (
-                  <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 900, cursor: 'pointer' }}>CERRAR SESIÓN</button>
-                ) : (
+                {!user ? (
                   <button onClick={() => { const e = prompt("Email Admin:"); if(e) supabase.auth.signInWithOtp({email:e}) }} style={{ opacity: 0.2, fontSize: 10 }}>Acceso Admin</button>
+                ) : (
+                  <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 900 }}>CERRAR SESIÓN</button>
                 )}
               </div>
             </div>
           )}
 
-          {/* VISTA CREAR */}
+          {/* CREAR */}
           {view === 'create' && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 150 }}>
               <div className={isDark ? "card-dark" : "card-light"} style={{ padding: 25, borderRadius: 30, gap: 10, display: 'flex', flexDirection: 'column' }}>
@@ -213,7 +232,7 @@ export default function App() {
                 <input name="title" placeholder="TÍTULO" style={{ width: '100%', padding: 15, borderRadius: 12, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.title} onChange={handleInputChange} />
                 <input name="city" placeholder="CIUDAD" style={{ width: '100%', padding: 15, borderRadius: 12, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.city} onChange={handleInputChange} />
                 <input name="localidad" placeholder="LOCALIDAD" style={{ width: '100%', padding: 15, borderRadius: 12, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.localidad} onChange={handleInputChange} />
-                <input name="address" placeholder="DIRECCIÓN (CALLE Y NÚMERO)" style={{ width: '100%', padding: 15, borderRadius: 12, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.address} onChange={handleInputChange} />
+                <input name="address" placeholder="DIRECCIÓN" style={{ width: '100%', padding: 15, borderRadius: 12, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.address} onChange={handleInputChange} />
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                    <input name="date" type="date" style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit' }} value={form.date} onChange={handleInputChange} />
                    <input name="time" type="time" style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit' }} value={form.time} onChange={handleInputChange} />
@@ -224,7 +243,7 @@ export default function App() {
           )}
         </main>
 
-        <nav style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', width: '92%', maxWidth: 400, height: 75, borderRadius: 35, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', zIndex: 3000, background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)' }}>
+        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-[#0f172a]/95 backdrop-blur-3xl border border-slate-800 h-[80px] rounded-[2.5rem] shadow-2xl flex items-center justify-around z-[2000] px-4 text-slate-500">
           <button onClick={() => {setView('home'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'home' ? '#2563eb' : '#64748b', cursor: 'pointer' }}><LayoutList size={26}/></button>
           <button onClick={() => {setView('create'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'create' ? '#2563eb' : '#64748b', cursor: 'pointer' }}><PlusCircle size={26}/></button>
           <button onClick={() => {setView('map'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'map' ? '#2563eb' : '#64748b', cursor: 'pointer' }}><MapIcon size={26}/></button>
