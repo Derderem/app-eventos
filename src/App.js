@@ -10,7 +10,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// ESTILOS GLOBALES - FIX TOTAL MAPA SIN BORDES BLANCOS
+// ESTILOS GLOBALES - MAPA LIMPIO SIN CONTORNOS DE PAÍSES
 // ============================================================
 const globalStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -37,34 +37,10 @@ const globalStyles = `
     right: 0 !important;
     bottom: 0 !important;
   }
-  
-  .leaflet-tile-container {
-    width: 100% !important;
-    height: 100% !important;
-  }
-
-  .leaflet-tile { 
-    filter: saturate(1.1);
-  }
 
   .leaflet-control-attribution {
     font-size: 9px !important;
     background: rgba(255,255,255,0.7) !important;
-  }
-
-  .leaflet-pane,
-  .leaflet-tile,
-  .leaflet-marker-icon,
-  .leaflet-marker-shadow,
-  .leaflet-tile-container,
-  .leaflet-pane > svg,
-  .leaflet-pane > canvas,
-  .leaflet-zoom-box,
-  .leaflet-image-layer,
-  .leaflet-layer {
-    position: absolute;
-    left: 0;
-    top: 0;
   }
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -89,7 +65,7 @@ const globalStyles = `
   .animate-spin { animation: spin 1s linear infinite; }
 `;
 
-// FIX ICONOS LEAFLET (problema típico en Vercel/Webpack)
+// FIX ICONOS LEAFLET
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -97,7 +73,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-// CONTROLADOR DE MAPA: CORRIGE VISIBILIDAD Y CENTRADO
 function MapResizer({ center }) {
   const map = useMap();
   useEffect(() => {
@@ -248,7 +223,7 @@ export default function App() {
 
         <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           
-          {/* VISTA MAPA - SIN BORDES BLANCOS */}
+          {/* VISTA MAPA - LIMPIO SIN CONTORNOS */}
           {view === 'map' && (
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1, background: '#aad3df', margin: 0, padding: 0 }}>
               <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
@@ -268,10 +243,12 @@ export default function App() {
                 scrollWheelZoom={true}
               >
                 <MapResizer center={mapCenter} />
+                {/* MAPA LIMPIO - CartoDB Voyager (sin contornos de países resaltados) */}
                 <TileLayer 
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
-                  attribution='&copy; OpenStreetMap'
-                  maxZoom={19}
+                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" 
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                  subdomains='abcd'
+                  maxZoom={20}
                 />
                 {publicEvents.map(ev => ev.lat && ev.lng && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
