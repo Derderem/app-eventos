@@ -3,49 +3,63 @@ import { createClient } from '@supabase/supabase-js';
 import {
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, X, Trash2, Map as MapIcon,
   Navigation, Clock, LayoutList, ShieldCheck, Sparkles, Camera, Loader2, 
-  CheckCircle2, Share2, Upload, Coffee, LogOut, ExternalLink, CreditCard, ArrowLeft, Search
+  CheckCircle2, Share2, Upload, Coffee, LogOut, ExternalLink, CreditCard, ArrowLeft, Search, RefreshCw, Eye, EyeOff
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// ESTILOS GLOBALES - MAPA LIMPIO EN ESPAÑOL SIN BORDES
+// ESTILOS GLOBALES - MAPA EN ESPAÑOL SIN BORDES + NUEVO CSS IA
 // ============================================================
 const globalStyles = `
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  
-  html, body, #root {
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
+  html, body, #root { 
+    margin: 0 !important; 
+    padding: 0 !important; 
+    width: 100% !important; 
+    height: 100% !important; 
     overflow: hidden !important;
   }
 
+  /* FIX CRÍTICO: Elimina TODOS los espacios del contenedor del mapa */
   .leaflet-container { 
-    background: #aad3df !important; 
+    background-color: transparent !important; 
     height: 100% !important; 
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     border: none !important;
     outline: none !important;
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
+    box-sizing: border-box !important;
   }
 
-  .leaflet-control-attribution {
-    font-size: 9px !important;
-    background: rgba(255,255,255,0.7) !important;
+  /* Forzar que las imágenes de los tiles no se corten ni tengan espacio */
+  .leaflet-tile-pane {
+    z-index: 1 !important;
+  }
+  
+  .leaflet-tile {
+    visibility: inherit !important;
+  }
+
+  .leaflet-tile img {
+    display: block !important;
+    max-width: none !important;
+    width: 256px !important;
+    height: 256px !important;
+  }
+
+  /* Quitar sombra/borde de paneles */
+  .leaflet-pane,
+  .leaflet-marker-icon,
+  .leaflet-marker-shadow {
+    pointer-events: auto !important;
   }
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+  /* Temas */
   .dark-theme { background-color: #020617; color: white; }
   .light-theme { background-color: #f8fafc; color: #0f172a; }
   .card-dark { background-color: #0f172a; border: 1px solid #1e293b; color: white; }
@@ -63,6 +77,12 @@ const globalStyles = `
     to { transform: rotate(360deg); }
   }
   .animate-spin { animation: spin 1s linear infinite; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in { animation: fadeIn 0.3s ease-out; }
 `;
 
 // FIX ICONOS LEAFLET
@@ -73,6 +93,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
+// CONTROLADOR DE MAPA
 function MapResizer({ center }) {
   const map = useMap();
   useEffect(() => {
@@ -83,7 +104,7 @@ function MapResizer({ center }) {
       } else {
         map.setView([40.4167, -3.7037], 6);
       }
-    }, 300);
+    }, 100);
     return () => clearTimeout(timer);
   }, [map, center]);
   return null;
@@ -115,7 +136,20 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [form, setForm] = useState({ title: '', city: '', localidad: '', address: '', time: '21:00', date: '', category: 'MUSICA', image_url: '' });
+  // CAMBIO IMPORTANTE: Ahora guardamos 2 imágenes en estado
+  const [form, setForm] = useState({ 
+    title: '', 
+    city: '', 
+    localidad: '', 
+    address: '', 
+    time: '21:00', 
+    date: '', 
+    category: 'MUSICA', 
+    image_url: '',
+    image_url_2: '' // Segunda imagen de IA
+  });
+  const [aiImages, setAiImages] = useState([]); // Array de imágenes generadas
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0); // Imagen seleccionada por el usuario
 
   useEffect(() => {
     fetchEvents();
@@ -157,24 +191,76 @@ export default function App() {
     const needsUpper = ['title', 'city', 'localidad'];
     const val = needsUpper.includes(name) ? value.toUpperCase() : value;
     setForm({ ...form, [name]: val });
+    
+    // Si cambia el título, limpiar imágenes generadas
+    if (name === 'title') {
+      setAiImages([]);
+      setSelectedImageIndex(0);
+    }
   };
 
-  const generateAIImage = () => {
+  // ===========================================
+  // GENERAR 2 FOTOS CON IA
+  // ===========================================
+  const generateAIImages = () => {
     if (!form.title) {
       alert("Escribe un título primero");
       return;
     }
     setIsGenerating(true);
-    const url = `https://image.pollinations.ai/prompt/professional_event_photography_${encodeURIComponent(form.title)}?width=800&height=600&seed=${Date.now()}`;
-    setForm({ ...form, image_url: url });
-    setTimeout(() => setIsGenerating(false), 2000);
+    
+    // Generar 2 URLs diferentes usando seed único para cada una
+    const seed1 = Date.now();
+    const seed2 = Date.now() + 1;
+    
+    const url1 = `https://image.pollinations.ai/prompt/professional_event_photography_${encodeURIComponent(form.title)}?width=800&height=600&seed=${seed1}&nologo=true`;
+    const url2 = `https://image.pollinations.ai/prompt/event_concert_atmosphere_${encodeURIComponent(form.title)}?width=800&height=600&seed=${seed2}&nologo=true`;
+    
+    setAiImages([url1, url2]);
+    setSelectedImageIndex(0); // Seleccionar primera por defecto
+    
+    // Actualizar el formulario con ambas imágenes
+    setForm({ ...form, image_url: url1, image_url_2: url2 });
+    
+    setTimeout(() => setIsGenerating(false), 3000);
+  };
+
+  // Seleccionar una de las 2 imágenes generadas
+  const selectImage = (index) => {
+    setSelectedImageIndex(index);
+    setForm({ ...form, image_url: aiImages[index] });
+  };
+
+  // Regenerar solo las imágenes sin cambiar título
+  const regenerateImages = () => {
+    if (aiImages.length === 0) {
+      generateAIImages();
+      return;
+    }
+    setIsGenerating(true);
+    
+    const seed1 = Date.now() + Math.floor(Math.random() * 1000);
+    const seed2 = Date.now() + Math.floor(Math.random() * 1000) + 1000;
+    
+    const url1 = `https://image.pollinations.ai/prompt/professional_event_photography_${encodeURIComponent(form.title)}?width=800&height=600&seed=${seed1}&nologo=true`;
+    const url2 = `https://image.pollinations.ai/prompt/event_concert_atmosphere_${encodeURIComponent(form.title)}?width=800&height=600&seed=${seed2}&nologo=true`;
+    
+    setAiImages([url1, url2]);
+    setSelectedImageIndex(0);
+    setForm({ ...form, image_url: url1, image_url_2: url2 });
+    
+    setTimeout(() => setIsGenerating(false), 3000);
   };
 
   const handleGalleryUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (ev) => setForm({ ...form, image_url: ev.target.result });
+      reader.onload = (ev) => {
+        setForm({ ...form, image_url: ev.target.result, image_url_2: '' });
+        setAiImages([]); // Limpiar imágenes IA si sube galería
+        setSelectedImageIndex(0);
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -185,7 +271,7 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=${encodeURIComponent(city + ', España')}`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city + ', Spain')}`);
       const data = await response.json();
       if (data && data[0]) {
         setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
@@ -223,9 +309,9 @@ export default function App() {
 
         <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           
-          {/* VISTA MAPA - ESPAÑOL + SIN BORDES (Google Maps Style) */}
+          {/* VISTA MAPA - ESPEÑO + SIN BORDES */}
           {view === 'map' && (
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1, background: '#aad3df', margin: 0, padding: 0 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1, background: 'transparent', margin: 0, padding: 0 }}>
               <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
                 <div style={{ background: '#fff', borderRadius: 15, padding: '5px 15px', display: 'flex', alignItems: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
                   <Search size={18} color="#6366f1" />
@@ -238,17 +324,19 @@ export default function App() {
               <MapContainer 
                 center={[40.4167, -3.7037]} 
                 zoom={6} 
-                style={{ width: '100%', height: '100%', margin: 0, padding: 0 }} 
+                style={{ width: '100%', height: '100%' }} 
                 zoomControl={true}
                 scrollWheelZoom={true}
+                fadeAnimation={false}
+                zoomAnimation={false}
               >
                 <MapResizer center={mapCenter} />
-                {/* GOOGLE MAPS - EN ESPAÑOL Y SIN BORDES DE PAÍSES */}
+                {/* TILES EN ESPAÑOL (OpenStreetMap España) */}
                 <TileLayer 
-                  url="https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}" 
-                  attribution='&copy; Google Maps'
-                  maxZoom={20}
-                  subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+                  url="https://{s}.tile.openstreetmap.es/osm/{z}/{x}/{y}.png" 
+                  attribution='&copy; OpenStreetMap España'
+                  maxZoom={19}
+                  subdomains={['a', 'b', 'c']}
                 />
                 {publicEvents.map(ev => ev.lat && ev.lng && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
@@ -308,7 +396,7 @@ export default function App() {
             </div>
           )}
 
-          {/* CREAR EVENTO */}
+          {/* CREAR EVENTO - AHORA CON IA DOBLE */}
           {view === 'create' && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 150 }}>
               <div className={isDark ? "card-dark" : "card-light"} style={{ padding: 20, borderRadius: 30, gap: 10, display: 'flex', flexDirection: 'column' }}>
@@ -327,13 +415,121 @@ export default function App() {
                    <input name="time" type="time" style={{ width: '100%', padding: 10, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit' }} value={form.time} onChange={handleInputChange} />
                 </div>
                 
+                {/* BOTONES IA DOBLE */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                   <button onClick={generateAIImage} style={{ padding: 12, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, cursor: 'pointer' }}>
-                    {isGenerating ? <Loader2 className="animate-spin" size={14}/> : <Sparkles size={14}/>} IA FOTO
+                   <button 
+                     onClick={generateAIImages} 
+                     disabled={isGenerating || !form.title}
+                     style={{ 
+                       padding: 12, 
+                       background: isGenerating ? '#6366f1' : '#4f46e5', 
+                       color: 'white', 
+                       border: 'none', 
+                       borderRadius: 10, 
+                       fontSize: 9, 
+                       fontWeight: 900, 
+                       display: 'flex', 
+                       alignItems: 'center', 
+                       justifyContent: 'center', 
+                       gap: 5, 
+                       cursor: (isGenerating || !form.title) ? 'not-allowed' : 'pointer',
+                       opacity: (isGenerating || !form.title) ? 0.6 : 1
+                     }}>
+                    {isGenerating ? <Loader2 className="animate-spin" size={14}/> : <Sparkles size={14}/>} 
+                    {aiImages.length > 0 ? 'REGENERAR (2)' : 'GENERAR IA'}
                    </button>
-                   <label style={{ padding: 12, background: '#1e293b', color: 'white', textAlign:'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>GALERÍA <input type="file" style={{display:'none'}} onChange={handleGalleryUpload}/></label>
+                   
+                   {aiImages.length > 0 && (
+                     <button 
+                       onClick={regenerateImages}
+                       disabled={isGenerating}
+                       style={{ 
+                         padding: 12, 
+                         background: '#1e293b', 
+                         color: 'white', 
+                         border: 'none', 
+                         borderRadius: 10, 
+                         fontSize: 9, 
+                         fontWeight: 900, 
+                         display: 'flex', 
+                         alignItems: 'center', 
+                         justifyContent: 'center', 
+                         gap: 5, 
+                         cursor: isGenerating ? 'not-allowed' : 'pointer',
+                         opacity: isGenerating ? 0.6 : 1
+                       }}>
+                      <RefreshCw size={14} className={isGenerating ? 'animate-spin' : ''}/> REGENERAR AMBAS
+                    </button>
+                   )}
                 </div>
-                {form.image_url && <img src={form.image_url} style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 15 }} alt="" />}
+                
+                <label style={{ padding: 12, background: '#1e293b', color: 'white', textAlign:'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                  <Camera size={14}/> SUBIR GALERÍA <input type="file" style={{display:'none'}} onChange={handleGalleryUpload}/>
+                </label>
+
+                {/* MUESTRA LAS 2 IMÁGENES SI EXISTEN */}
+                {aiImages.length > 0 && (
+                  <div style={{ marginTop: 15 }}>
+                    <p style={{ fontSize: 10, color: '#6366f1', fontWeight: 700, marginBottom: 10 }}>ELIGE TU FOTO FAVORITA:</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      {[0, 1].map((i) => (
+                        <div 
+                          key={i}
+                          onClick={() => selectImage(i)}
+                          style={{ 
+                            position: 'relative', 
+                            borderRadius: 15, 
+                            overflow: 'hidden', 
+                            cursor: 'pointer',
+                            border: selectedImageIndex === i ? '3px solid #4f46e5' : '3px solid transparent',
+                            transition: 'all 0.3s ease'
+                          }}
+                        >
+                          <img 
+                            src={aiImages[i]} 
+                            style={{ width: '100%', height: 140, objectFit: 'cover' }} 
+                            alt={`Opción ${i + 1}`}
+                          />
+                          <div style={{ 
+                            position: 'absolute', 
+                            top: 8, 
+                            left: 8, 
+                            padding: '4px 8px', 
+                            background: selectedImageIndex === i ? '#4f46e5' : 'rgba(0,0,0,0.6)',
+                            color: 'white', 
+                            borderRadius: 8, 
+                            fontSize: 9, 
+                            fontWeight: 700 
+                          }}>
+                            OPCIÓN {i + 1}
+                          </div>
+                          {selectedImageIndex === i && (
+                            <div style={{ 
+                              position: 'absolute', 
+                              top: 8, 
+                              right: 8, 
+                              padding: '4px 8px', 
+                              background: '#22c55e', 
+                              borderRadius: 8, 
+                              fontSize: 9, 
+                              fontWeight: 700, 
+                              color: 'white'
+                            }}>
+                              ✅ ELEGIDA
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* PREVISUALIZACIÓN ÚNICA */}
+                {form.image_url && !aiImages.length && (
+                  <div style={{ marginTop: 15 }}>
+                    <img src={form.image_url} style={{ width: '100%', height: 200, objectFit: 'cover', borderRadius: 15 }} alt="" />
+                  </div>
+                )}
 
                 <button style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 15, borderRadius: 12, border: 'none', fontWeight: 900, cursor: 'pointer' }}>ENVIAR REVISIÓN</button>
               </div>
@@ -381,5 +577,5 @@ export default function App() {
         </nav>
       </div>
     </div>
-   );
+  );
 }
