@@ -11,33 +11,27 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// CONFIGURACIÓN DE ESTILOS (FIX MAPA Y DISEÑO)
+// CONFIGURACIÓN DE ESTILOS (CONTROL TOTAL DE VISIBILIDAD)
 // ============================================================
 const globalStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
   
-  /* ESTO FUERZA LA VISIBILIDAD DEL MAPA */
+  /* ESTO ASEGURA QUE EL MAPA SEA VISIBLE */
   .leaflet-container { 
     background-color: #aad3df !important; 
     height: 100% !important; 
     width: 100% !important;
     border: none !important;
     outline: none !important;
-    box-shadow: none !important;
   }
   
-  /* FIX LÍNEAS BLANCAS */
-  .leaflet-tile { 
-    transform: scale(1.025) !important; 
-    outline: 1px solid transparent; 
-    -webkit-backface-visibility: hidden;
-  }
-  
+  .leaflet-tile { transform: scale(1.02) !important; outline: 1px solid transparent; }
   .leaflet-container img { max-width: none !important; max-height: none !important; }
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+  /* Temas Sol/Luna */
   .dark-theme { background-color: #020617; color: white; }
   .light-theme { background-color: #f8fafc; color: #0f172a; }
   .card-dark { background-color: #0f172a; border: 1px solid #1e293b; color: white; }
@@ -45,7 +39,7 @@ const globalStyles = `
 
   @keyframes admin-pulse {
     0% { transform: scale(1); color: #818cf8; }
-    50% { transform: scale(1.1); color: #ef4444; }
+    50% { transform: scale(1.15); color: #ef4444; }
     100% { transform: scale(1); color: #818cf8; }
   }
   .pulse-admin { animation: admin-pulse 2s infinite; }
@@ -58,7 +52,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// CONTROLADOR PARA FORZAR EL RENDERIZADO DEL MAPA
+// CONTROLADOR DE MAPA: CORRIGE EL ERROR DE "MAPA NO SE VE"
 function MapResizer({ center }) {
   const map = useMap();
   useEffect(() => {
@@ -91,7 +85,7 @@ const supabase = createClient(
 export default function App() {
   const [events, setEvents] = useState([]);
   const [favorites, setFavorites] = useState(() => {
-    const saved = localStorage.getItem('eventora_favs_v2');
+    const saved = localStorage.getItem('eventora_favs_v3');
     return saved ? JSON.parse(saved) : [];
   });
   const [profile, setProfile] = useState(null);
@@ -104,7 +98,7 @@ export default function App() {
 
   useEffect(() => {
     fetchEvents();
-    localStorage.setItem('eventora_favs_v2', JSON.stringify(favorites));
+    localStorage.setItem('eventora_favs_v3', JSON.stringify(favorites));
     supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user.id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
       else setProfile(null);
@@ -114,6 +108,7 @@ export default function App() {
   const fetchEvents = async () => {
     const { data } = await supabase.from('events').select('*');
     if (data) {
+      // ORDENAR: Más próximos primero
       setEvents(data.sort((a, b) => new Date(a.date) - new Date(b.date)));
     }
   };
@@ -125,18 +120,15 @@ export default function App() {
     setForm({ ...form, [name]: val });
   };
 
-  const jumpToCity = async (city) => {
-    if (city === 'ESPAÑA') return setMapCenter([40.4167, -3.7037]);
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city + ', Spain')}`);
-    const data = await res.json();
-    if (data[0]) setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+  const toggleFavorite = (id) => {
+    setFavorites(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
   };
 
   const today = new Date().toISOString().split('T')[0];
   const publicEvents = events.filter(e => e.status === 'approved' && e.date >= today);
   const filteredEvents = publicEvents.filter(e => selectedCategory === 'TODOS' || e.category === selectedCategory);
   const favoriteEvents = publicEvents.filter(e => favorites.includes(e.id));
-  const citiesWithEvents = [...new Set(publicEvents.map(e => e.city))];
+  const citiesForMap = [...new Set(publicEvents.map(e => e.city))];
 
   return (
     <div className={isDark ? "dark-theme" : "light-theme"} style={{ margin: 0, padding: 0, width: '100vw', height: '100vh', overflow: 'hidden' }}>
@@ -166,13 +158,17 @@ export default function App() {
               <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
                 <div style={{ background: '#fff', borderRadius: 15, padding: '5px 15px', display: 'flex', alignItems: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
                   <Search size={18} color="#6366f1" />
-                  <select onChange={(e) => jumpToCity(e.target.value)} style={{ width: '100%', padding: 12, border: 'none', outline: 'none', fontWeight: 900, fontSize: 12, color: '#0f172a', background: 'transparent' }}>
+                  <select onChange={(e) => {
+                    const city = e.target.value;
+                    if (city === 'ESPAÑA') setMapCenter(null);
+                    else fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city + ', Spain')}`).then(r => r.json()).then(d => d[0] && setMapCenter([parseFloat(d[0].lat), parseFloat(d[0].lon)]));
+                  }} style={{ width: '100%', padding: 12, border: 'none', outline: 'none', fontWeight: 900, fontSize: 12, color: '#0f172a', background: 'transparent' }}>
                     <option value="ESPAÑA">📍 BUSCAR CIUDAD...</option>
-                    {citiesWithEvents.map(c => <option key={c} value={c}>{c}</option>)}
+                    {citiesForMap.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
-              <MapContainer key="global-map" center={[40.41, -3.70]} zoom={6} style={{ width: '100%', height: '100%' }} zoomSnap={1}>
+              <MapContainer center={[40.41, -3.70]} zoom={6} style={{ width: '100%', height: '100%' }} zoomSnap={1}>
                 <MapResizer center={mapCenter} />
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; España' />
                 {publicEvents.map(ev => ev.lat && ev.lng && (
@@ -184,7 +180,7 @@ export default function App() {
             </div>
           )}
 
-          {/* HOME */}
+          {/* HOME: LISTADO Y CATEGORÍAS */}
           {view === 'home' && !selectedEvent && (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className="no-scrollbar" style={{ display: 'flex', gap: 10, padding: '15px 20px', overflowX: 'auto', background: isDark ? '#020617' : '#f8fafc', borderBottom: '1px solid rgba(128,128,128,0.1)' }}>
@@ -204,7 +200,7 @@ export default function App() {
                     <div style={{ padding: 20, textAlign: 'center' }}>
                       <h3 style={{ fontWeight: 900, fontSize: 18 }}>{ev.title}</h3>
                       <p style={{ fontSize: 10, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 15 }}>{ev.city} | {ev.date}</p>
-                      <button onClick={() => setSelectedEvent(ev)} style={{ width: '100%', padding: 14, borderRadius: 18, background: '#4f46e5', color: 'white', border: 'none', fontWeight: 900, fontSize: 11 }}>DETALLES</button>
+                      <button onClick={() => setSelectedEvent(ev)} style={{ width: '100%', padding: 14, borderRadius: 16, background: '#4f46e5', color: 'white', border: 'none', fontWeight: 900, fontSize: 11 }}>DETALLES</button>
                     </div>
                   </div>
                 ))}
@@ -212,7 +208,7 @@ export default function App() {
             </div>
           )}
 
-          {/* DETALLES */}
+          {/* DETALLES CON GPS */}
           {selectedEvent && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
               <button onClick={() => setSelectedEvent(null)} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 8, marginBottom: 20 }}><ArrowLeft/> VOLVER</button>
@@ -223,7 +219,7 @@ export default function App() {
                   <div style={{ display: 'grid', gap: 15 }}>
                     <div style={{ display: 'flex', gap: 10 }}><Calendar color="#6366f1"/> <b>{selectedEvent.date}</b></div>
                     <div style={{ display: 'flex', gap: 10 }}><Clock color="#6366f1"/> <b>{selectedEvent.time}H</b></div>
-                    <div onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedEvent.address + ' ' + (selectedEvent.localidad || '') + ' ' + selectedEvent.city)}`)} style={{ background: 'rgba(99,102,241,0.1)', padding: 20, borderRadius: 15, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1' }}>
+                    <div onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.localidad + ' ' + selectedEvent.city)}`)} style={{ background: 'rgba(99,102,241,0.1)', padding: 20, borderRadius: 15, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1' }}>
                       <MapPin color="#6366f1" style={{margin:'0 auto 5px'}}/> <br/> <b>{selectedEvent.address}, {selectedEvent.localidad} - {selectedEvent.city}</b> <br/>
                       <span style={{fontSize:10, color:'#2563eb', fontWeight: 900}}>INICIAR GPS (GOOGLE MAPS)</span>
                     </div>
@@ -233,7 +229,7 @@ export default function App() {
             </div>
           )}
 
-          {/* FAVORITOS */}
+          {/* FAVORITOS CON MENSAJE */}
           {view === 'favorites' && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
               <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 20 }}>MIS GUARDADOS</h2>
@@ -251,7 +247,7 @@ export default function App() {
             </div>
           )}
 
-          {/* CREAR, PERFIL, ADMIN */}
+          {/* CREAR, PERFIL, ADMIN (Resto de vistas...) */}
           {view === 'create' && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 150 }}>
               <div className="card" style={{ padding: 20, borderRadius: 30, gap: 10, display: 'flex', flexDirection: 'column' }}>
@@ -277,7 +273,7 @@ export default function App() {
                    <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 18, borderRadius: 18, textDecoration: 'none', fontWeight: 900, fontSize: 12 }}>APOYAR EN KO-FI</a>
                    <a href="https://www.paypal.com/paypalme/jacobogarbas" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 18, borderRadius: 18, textDecoration: 'none', fontWeight: 900, fontSize: 12 }}>APOYAR EN PAYPAL</a>
                 </div>
-                <button onClick={() => { const e = prompt("Email Admin:"); if(e) supabase.auth.signInWithOtp({email:e}) }} style={{ opacity: 0.1, fontSize: 10 }}>Admin</button>
+                <button onClick={() => { const e = prompt("Email Admin:"); if(e) supabase.auth.signInWithOtp({email:e}) }} style={{ opacity: 0.1, fontSize: 10 }}>Acceso Privado</button>
               </div>
             </div>
           )}
