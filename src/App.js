@@ -10,7 +10,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// ESTILOS GLOBALES - MAPA LIMPIO EN ESPAÑOL SIN BORDES
+// ESTILOS GLOBALES
 // ============================================================
 const globalStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -70,6 +70,16 @@ const globalStyles = `
   }
   .fade-in { animation: fadeIn 0.4s ease-out; }
 
+  @keyframes shimmer {
+    0% { background-position: -1000px 0; }
+    100% { background-position: 1000px 0; }
+  }
+  .shimmer-bg {
+    background: linear-gradient(90deg, #1e293b 0%, #334155 50%, #1e293b 100%);
+    background-size: 1000px 100%;
+    animation: shimmer 1.5s infinite linear;
+  }
+
   .ia-image-option {
     transition: all 0.3s ease;
     cursor: pointer;
@@ -122,6 +132,111 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_ANON_KEY || ''
 );
 
+// ⭐ COMPONENTE: Imagen IA con loading individual
+function IAImageCard({ url, index, isSelected, onSelect }) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  return (
+    <div 
+      className={`ia-image-option ${isSelected ? 'ia-image-selected' : ''}`}
+      onClick={() => loaded && !error && onSelect(url)}
+      style={{ 
+        borderRadius: 20, 
+        overflow: 'hidden', 
+        position: 'relative',
+        background: '#1e293b',
+        minHeight: 200
+      }}
+    >
+      {/* Loading skeleton */}
+      {!loaded && !error && (
+        <div className="shimmer-bg" style={{ 
+          width: '100%', 
+          height: 200, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: 10
+        }}>
+          <Loader2 className="animate-spin" size={30} color="#6366f1"/>
+          <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
+            Generando opción {index + 1}...
+          </p>
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div style={{ 
+          width: '100%', 
+          height: 200, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: 10,
+          background: '#1e293b'
+        }}>
+          <X size={30} color="#ef4444"/>
+          <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
+            Error al cargar
+          </p>
+        </div>
+      )}
+
+      {/* Imagen */}
+      <img 
+        src={url} 
+        style={{ 
+          width: '100%', 
+          height: 200, 
+          objectFit: 'cover', 
+          display: loaded ? 'block' : 'none' 
+        }} 
+        alt={`Opción ${index + 1}`}
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+      />
+
+      {/* Etiqueta de estilo */}
+      {loaded && (
+        <>
+          <div style={{ 
+            position: 'absolute', 
+            top: 10, 
+            left: 10, 
+            background: index === 0 ? '#4f46e5' : '#ec4899', 
+            color: 'white', 
+            padding: '6px 12px', 
+            borderRadius: 12, 
+            fontSize: 10, 
+            fontWeight: 900,
+            letterSpacing: 1
+          }}>
+            {index === 0 ? '🎬 OPCIÓN 1' : '🎨 OPCIÓN 2'}
+          </div>
+          <div style={{ 
+            position: 'absolute', 
+            bottom: 0, 
+            left: 0, 
+            right: 0, 
+            background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', 
+            padding: '20px 15px 12px', 
+            color: 'white', 
+            fontSize: 11, 
+            fontWeight: 900,
+            textAlign: 'center'
+          }}>
+            👆 TOCA PARA ELEGIR ESTA
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [events, setEvents] = useState([]);
   const [favorites, setFavorites] = useState(() => {
@@ -134,9 +249,8 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('TODOS');
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [iaOptions, setIaOptions] = useState([]); // NUEVO: 2 opciones de IA
-  const [showIaModal, setShowIaModal] = useState(false); // NUEVO: modal de selección
+  const [iaOptions, setIaOptions] = useState([]);
+  const [showIaModal, setShowIaModal] = useState(false);
   const [form, setForm] = useState({ title: '', city: '', localidad: '', address: '', time: '21:00', date: '', category: 'MUSICA', image_url: '' });
 
   useEffect(() => {
@@ -181,65 +295,57 @@ export default function App() {
     setForm({ ...form, [name]: val });
   };
 
-  // ⭐ NUEVO: Genera 2 fotos IA y abre modal de selección
+  // ⭐ FUNCIÓN MEJORADA: Genera URLs únicas con seeds aleatorios
+  const buildIaUrls = () => {
+    const cat = (form.category || 'event').toLowerCase().replace(/\s+/g, '_');
+    const title = encodeURIComponent(form.title.toLowerCase().replace(/\s+/g, '_'));
+    
+    // Seeds totalmente aleatorios y únicos
+    const seed1 = Math.floor(Math.random() * 1000000000);
+    const seed2 = Math.floor(Math.random() * 1000000000) + 500000;
+    const timestamp = Date.now();
+
+    // Prompts MUY diferentes para que las imágenes salgan distintas
+    const prompt1 = `professional_photography_${cat}_${title}_realistic_8k`;
+    const prompt2 = `cinematic_artistic_${cat}_${title}_dramatic_lighting_vibrant`;
+
+    // Añadimos timestamp y nocache para evitar caché del navegador
+    const url1 = `https://image.pollinations.ai/prompt/${prompt1}?width=800&height=600&seed=${seed1}&nologo=true&t=${timestamp}`;
+    const url2 = `https://image.pollinations.ai/prompt/${prompt2}?width=800&height=600&seed=${seed2}&nologo=true&t=${timestamp + 1}`;
+
+    return [url1, url2];
+  };
+
+  // ⭐ Genera 2 fotos IA y abre modal
   const generateAIImages = () => {
     if (!form.title) {
       alert("Escribe un título primero");
       return;
     }
-    setIsGenerating(true);
-    setIaOptions([]);
     setShowIaModal(true);
-
-    // Generamos 2 prompts diferentes con seeds distintos
-    const categoryPrompt = form.category ? form.category.toLowerCase() : 'event';
-    const baseTitle = encodeURIComponent(form.title);
-    
-    const seed1 = Date.now();
-    const seed2 = Date.now() + 99999;
-    
-    // Prompt 1: Estilo profesional/realista
-    const url1 = `https://image.pollinations.ai/prompt/professional_event_photography_${categoryPrompt}_${baseTitle}_high_quality_realistic?width=800&height=600&seed=${seed1}&nologo=true`;
-    
-    // Prompt 2: Estilo artístico/cinematográfico
-    const url2 = `https://image.pollinations.ai/prompt/cinematic_artistic_${categoryPrompt}_${baseTitle}_vibrant_colors_dramatic_lighting?width=800&height=600&seed=${seed2}&nologo=true`;
-
-    setIaOptions([url1, url2]);
-    
-    // Esperamos un poco para que las imágenes se carguen
-    setTimeout(() => setIsGenerating(false), 3000);
+    setIaOptions(buildIaUrls());
   };
 
-  // ⭐ NUEVO: Selecciona una de las 2 imágenes
+  // ⭐ Selecciona una imagen
   const selectIaImage = (url) => {
     setForm({ ...form, image_url: url });
     setShowIaModal(false);
     setIaOptions([]);
   };
 
-  // ⭐ NUEVO: Cierra el modal sin elegir
+  // ⭐ Cierra modal
   const closeIaModal = () => {
     setShowIaModal(false);
     setIaOptions([]);
-    setIsGenerating(false);
   };
 
-  // ⭐ NUEVO: Regenera las 2 fotos
+  // ⭐ Regenera nuevas opciones
   const regenerateIaImages = () => {
     setIaOptions([]);
-    setIsGenerating(true);
-    
-    const categoryPrompt = form.category ? form.category.toLowerCase() : 'event';
-    const baseTitle = encodeURIComponent(form.title);
-    
-    const seed1 = Date.now() + Math.random() * 1000;
-    const seed2 = Date.now() + Math.random() * 9999;
-    
-    const url1 = `https://image.pollinations.ai/prompt/professional_event_photography_${categoryPrompt}_${baseTitle}_high_quality_realistic?width=800&height=600&seed=${seed1}&nologo=true`;
-    const url2 = `https://image.pollinations.ai/prompt/cinematic_artistic_${categoryPrompt}_${baseTitle}_vibrant_colors_dramatic_lighting?width=800&height=600&seed=${seed2}&nologo=true`;
-
-    setIaOptions([url1, url2]);
-    setTimeout(() => setIsGenerating(false), 3000);
+    // Pequeño delay para que React desmonte y vuelva a montar las imágenes
+    setTimeout(() => {
+      setIaOptions(buildIaUrls());
+    }, 100);
   };
 
   const handleGalleryUpload = (e) => {
@@ -400,7 +506,7 @@ export default function App() {
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                    <button onClick={generateAIImages} style={{ padding: 12, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, cursor: 'pointer' }}>
-                    {isGenerating ? <Loader2 className="animate-spin" size={14}/> : <Sparkles size={14}/>} IA FOTO
+                    <Sparkles size={14}/> IA FOTO
                    </button>
                    <label style={{ padding: 12, background: '#1e293b', color: 'white', textAlign:'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>GALERÍA <input type="file" style={{display:'none'}} onChange={handleGalleryUpload}/></label>
                 </div>
@@ -451,7 +557,7 @@ export default function App() {
           )}
         </main>
 
-        {/* ⭐ MODAL DE SELECCIÓN DE FOTOS IA */}
+        {/* ⭐ MODAL DE SELECCIÓN DE FOTOS IA - MEJORADO */}
         {showIaModal && (
           <div style={{ 
             position: 'fixed', 
@@ -491,7 +597,8 @@ export default function App() {
                   alignItems: 'center', 
                   justifyContent: 'center', 
                   cursor: 'pointer',
-                  color: isDark ? '#fff' : '#0f172a'
+                  color: isDark ? '#fff' : '#0f172a',
+                  zIndex: 10
                 }}
               >
                 <X size={18}/>
@@ -508,92 +615,52 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Loading */}
-              {isGenerating && (
-                <div style={{ textAlign: 'center', padding: 40 }}>
-                  <Loader2 className="animate-spin" size={40} color="#6366f1" style={{ margin: '0 auto 15px' }}/>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: isDark ? '#fff' : '#0f172a' }}>
-                    Generando imágenes con IA...
-                  </p>
-                </div>
-              )}
+              {/* Las 2 opciones de imagen - cada una con su propio loading */}
+              <div style={{ display: 'grid', gap: 15, marginBottom: 20 }}>
+                {iaOptions.length === 0 ? (
+                  // Skeleton mientras se generan las URLs nuevas
+                  <>
+                    <div className="shimmer-bg" style={{ height: 200, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Loader2 className="animate-spin" size={30} color="#6366f1"/>
+                    </div>
+                    <div className="shimmer-bg" style={{ height: 200, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Loader2 className="animate-spin" size={30} color="#6366f1"/>
+                    </div>
+                  </>
+                ) : (
+                  iaOptions.map((url, idx) => (
+                    <IAImageCard
+                      key={url}
+                      url={url}
+                      index={idx}
+                      isSelected={form.image_url === url}
+                      onSelect={selectIaImage}
+                    />
+                  ))
+                )}
+              </div>
 
-              {/* Las 2 opciones de imagen */}
-              {!isGenerating && iaOptions.length > 0 && (
-                <>
-                  <div style={{ display: 'grid', gap: 15, marginBottom: 20 }}>
-                    {iaOptions.map((url, idx) => (
-                      <div 
-                        key={idx} 
-                        className={`ia-image-option ${form.image_url === url ? 'ia-image-selected' : ''}`}
-                        onClick={() => selectIaImage(url)}
-                        style={{ 
-                          borderRadius: 20, 
-                          overflow: 'hidden', 
-                          position: 'relative',
-                          background: '#1e293b'
-                        }}
-                      >
-                        <img 
-                          src={url} 
-                          style={{ width: '100%', height: 200, objectFit: 'cover', display: 'block' }} 
-                          alt={`Opción ${idx + 1}`}
-                        />
-                        <div style={{ 
-                          position: 'absolute', 
-                          top: 10, 
-                          left: 10, 
-                          background: idx === 0 ? '#4f46e5' : '#ec4899', 
-                          color: 'white', 
-                          padding: '6px 12px', 
-                          borderRadius: 12, 
-                          fontSize: 10, 
-                          fontWeight: 900,
-                          letterSpacing: 1
-                        }}>
-                          {idx === 0 ? '🎬 REALISTA' : '🎨 ARTÍSTICA'}
-                        </div>
-                        <div style={{ 
-                          position: 'absolute', 
-                          bottom: 0, 
-                          left: 0, 
-                          right: 0, 
-                          background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', 
-                          padding: '20px 15px 12px', 
-                          color: 'white', 
-                          fontSize: 11, 
-                          fontWeight: 900,
-                          textAlign: 'center'
-                        }}>
-                          👆 TOCA PARA ELEGIR ESTA
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Botón regenerar */}
-                  <button 
-                    onClick={regenerateIaImages}
-                    style={{ 
-                      width: '100%', 
-                      padding: 14, 
-                      background: 'transparent', 
-                      color: '#6366f1', 
-                      border: '2px dashed #6366f1', 
-                      borderRadius: 12, 
-                      fontSize: 11, 
-                      fontWeight: 900, 
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8
-                    }}
-                  >
-                    <Sparkles size={14}/> GENERAR 2 NUEVAS OPCIONES
-                  </button>
-                </>
-              )}
+              {/* Botón regenerar */}
+              <button 
+                onClick={regenerateIaImages}
+                style={{ 
+                  width: '100%', 
+                  padding: 14, 
+                  background: 'transparent', 
+                  color: '#6366f1', 
+                  border: '2px dashed #6366f1', 
+                  borderRadius: 12, 
+                  fontSize: 11, 
+                  fontWeight: 900, 
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8
+                }}
+              >
+                <Sparkles size={14}/> GENERAR 2 NUEVAS OPCIONES
+              </button>
             </div>
           </div>
         )}
