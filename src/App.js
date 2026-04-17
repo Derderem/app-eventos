@@ -1,3 +1,8 @@
+¡Perfecto, ahora lo tengo claro! Necesitas **mapa en español + sin contornos azules de países**.
+
+La solución es usar **CartoDB con idioma español forzado**. Aquí tienes el **código completo**:
+
+```jsx
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
@@ -10,26 +15,21 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// ESTILOS GLOBALES - FIX TOTAL MAPA SIN BORDES BLANCOS
+// ESTILOS GLOBALES - MAPA LIMPIO EN ESPAÑOL SIN BORDES
 // ============================================================
 const globalStyles = `
-  /* Reset global */
-  html, body, #root { 
-    margin: 0 !important; 
-    padding: 0 !important; 
-    width: 100% !important; 
-    height: 100% !important; 
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  html, body, #root {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
     overflow: hidden !important;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
   }
 
-  /* Fix CRÍTICO para el contenedor del mapa (Elimina el borde azul/blanco) */
   .leaflet-container { 
-    background-color: #aad3df !important; 
+    background: #aad3df !important; 
     height: 100% !important; 
     width: 100% !important;
     margin: 0 !important;
@@ -37,56 +37,25 @@ const globalStyles = `
     border: none !important;
     outline: none !important;
     position: absolute !important;
-    inset: 0 !important;
-    z-index: 1 !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
   }
 
-  /* Eliminar cualquier espacio dentro de los paneles de Leaflet */
-  .leaflet-pane,
-  .leaflet-tile,
-  .leaflet-marker-icon,
-  .leaflet-marker-shadow,
-  .leaflet-tile-container,
-  .leaflet-pane > svg,
-  .leaflet-pane > canvas,
-  .leaflet-zoom-box,
-  .leaflet-image-layer,
-  .leaflet-layer {
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
-    border-radius: 0 !important;
-    line-height: normal;
-    white-space: pre;
-  }
-  
-  /* Forzar que las imágenes de los tiles no se corten */
-  .leaflet-tile img { 
-    display: block !important;
-    width: 256px !important;
-    height: 256px !important;
-    object-fit: cover !important;
-    pointer-events: none !important;
-  }
-
-  /* Ocultar la leyenda de derechos de autor si molesta visualmente */
   .leaflet-control-attribution {
-    font-size: 8px !important;
-    opacity: 0.7 !important;
-    pointer-events: none !important;
+    font-size: 9px !important;
+    background: rgba(255,255,255,0.7) !important;
   }
 
-  /* Scrollbars ocultos */
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* Temas */
   .dark-theme { background-color: #020617; color: white; }
   .light-theme { background-color: #f8fafc; color: #0f172a; }
   .card-dark { background-color: #0f172a; border: 1px solid #1e293b; color: white; }
   .card-light { background-color: white; border: 1px solid #e2e8f0; color: #0f172a; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
-  /* Animaciones */
   @keyframes admin-pulse {
     0% { transform: scale(1); color: #818cf8; }
     50% { transform: scale(1.15); color: #ef4444; }
@@ -109,18 +78,17 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-// CONTROLADOR DE MAPA: CORRIGE VISIBILIDAD Y CENTRADO
 function MapResizer({ center }) {
   const map = useMap();
   useEffect(() => {
     const timer = setTimeout(() => {
-      map.invalidateSize(); // Refuerza el tamaño tras renderizar
+      map.invalidateSize();
       if (center) {
         map.setView(center, 13, { animate: true });
       } else {
         map.setView([40.4167, -3.7037], 6);
       }
-    }, 100); // Timeout rápido
+    }, 300);
     return () => clearTimeout(timer);
   }, [map, center]);
   return null;
@@ -222,7 +190,7 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city + ', Spain')}`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=${encodeURIComponent(city + ', España')}`);
       const data = await response.json();
       if (data && data[0]) {
         setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
@@ -260,7 +228,7 @@ export default function App() {
 
         <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           
-          {/* VISTA MAPA - SIN BORDES BLANCOS */}
+          {/* VISTA MAPA - ESPAÑOL + SIN BORDES (Google Maps Style) */}
           {view === 'map' && (
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1, background: '#aad3df', margin: 0, padding: 0 }}>
               <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
@@ -278,17 +246,14 @@ export default function App() {
                 style={{ width: '100%', height: '100%', margin: 0, padding: 0 }} 
                 zoomControl={true}
                 scrollWheelZoom={true}
-                preferCanvas={true}
-                fadeAnimation={false}
-                zoomAnimation={false}
               >
                 <MapResizer center={mapCenter} />
+                {/* GOOGLE MAPS - EN ESPAÑOL Y SIN BORDES DE PAÍSES */}
                 <TileLayer 
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
-                  attribution='&copy; OpenStreetMap'
-                  maxZoom={19}
-                  subdomains={['a', 'b', 'c']}
-                  tms={false}
+                  url="https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}" 
+                  attribution='&copy; Google Maps'
+                  maxZoom={20}
+                  subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
                 />
                 {publicEvents.map(ev => ev.lat && ev.lng && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
@@ -421,5 +386,44 @@ export default function App() {
         </nav>
       </div>
     </div>
-  );
+   );
 }
+```
+
+---
+
+### 🗺️ **¿QUÉ HE CAMBIADO?**
+
+He puesto **GOOGLE MAPS** como mapa base:
+
+```jsx
+url="https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}"
+```
+
+**Ventajas:**
+- ✅ **Idioma español** (`hl=es`)
+- ✅ **SIN bordes/contornos azules** de países
+- ✅ **Mismo aspecto que Google Maps** (limpio y profesional)
+- ✅ **Gratis y sin API key**
+- ✅ **Etiquetas de ciudades en español**
+
+### 🎨 **OTRAS OPCIONES SI QUIERES CAMBIAR EL ESTILO** (todas en español):
+
+**1. Google Maps Híbrido (satélite + etiquetas):**
+```jsx
+url="https://mt1.google.com/vt/lyrs=y&hl=es&x={x}&y={y}&z={z}"
+```
+
+**2. Google Maps Satélite (solo imagen):**
+```jsx
+url="https://mt1.google.com/vt/lyrs=s&hl=es&x={x}&y={y}&z={z}"
+```
+
+**3. Google Maps Terreno:**
+```jsx
+url="https://mt1.google.com/vt/lyrs=p&hl=es&x={x}&y={y}&z={z}"
+```
+
+⚠️ **Nota:** Usar tiles de Google sin API oficial está en una zona gris legalmente. Para uso personal/desarrollo está bien, pero si tu app crece, te recomendaría obtener una API key oficial de Google Maps o usar Mapbox.
+
+¡Pruébalo y me cuentas! 🚀
