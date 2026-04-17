@@ -1,17 +1,3 @@
-Perfecto. A partir de ahora te mandaré **siempre el código entero** con los cambios hechos.
-
-Aquí tienes tu archivo completo ya corregido para:
-
-- **quitar el borde del mapa**
-- **evitar líneas blancas entre tiles**
-- **mejorar estabilidad al cambiar de vista**
-- **hacer el mapa más limpio en Vercel / Next.js**
-- **evitar errores con `localStorage` y Supabase**
-
-> Si estás usando Next.js en Vercel, este archivo también lleva `'use client';` para evitar problemas.
-
-```jsx
-'use client';
 
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
@@ -1131,22 +1117,3 @@ export default function App() {
     </div>
   );
 }
-```
-
-### Cambio clave que elimina el borde
-Lo más importante es que ya **no existe** esto:
-
-```css
-transform: scale(1.025)
-```
-
-Ese era el que normalmente provoca las líneas blancas en Leaflet.
-
----
-
-Si quieres, en el siguiente mensaje te puedo mandar una **versión aún más pro** con:
-
-- mapa mejorado con **iconos personalizados**
-- **zoom control** más bonito
-- **marcadores agrupados**
-- y corrección específica para **Next.js App Router** si lo estás usando en Vercel.
