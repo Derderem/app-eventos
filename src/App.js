@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
@@ -27,7 +26,7 @@ import 'leaflet/dist/leaflet.css';
 // CONFIGURACIÓN DE ESTILOS (MAPA SIN BORDE Y SIN LÍNEAS)
 // ============================================================
 const globalStyles = `
-  html, body, #root, #__next {
+  html, body, #root {
     width: 100%;
     height: 100%;
     margin: 0;
@@ -60,7 +59,6 @@ const globalStyles = `
     border-radius: 0 !important;
   }
 
-  /* Evita líneas blancas entre tiles */
   .leaflet-tile {
     border: 0 !important;
     outline: 0 !important;
@@ -134,7 +132,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// CONTROLADOR DE MAPA: RECALCULA TAMAÑO Y CENTRO
 function MapResizer({ center }) {
   const map = useMap();
 
@@ -163,23 +160,14 @@ const LogoSVG = () => (
   />
 );
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.REACT_APP_SUPABASE_URL ||
-  '';
-
-const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.REACT_APP_SUPABASE_ANON_KEY ||
-  '';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL || '',
+  process.env.REACT_APP_SUPABASE_ANON_KEY || ''
+);
 
 function getInitialFavorites() {
-  if (typeof window === 'undefined') return [];
   try {
-    const saved = window.localStorage.getItem('eventora_favs_v4');
+    const saved = localStorage.getItem('eventora_favs_v4');
     return saved ? JSON.parse(saved) : [];
   } catch {
     return [];
@@ -212,14 +200,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('eventora_favs_v4', JSON.stringify(favorites));
-    }
+    localStorage.setItem('eventora_favs_v4', JSON.stringify(favorites));
   }, [favorites]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
-
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
         setProfile({ role: 'admin' });
@@ -234,14 +218,11 @@ export default function App() {
   }, []);
 
   const fetchEvents = async () => {
-    if (!isSupabaseConfigured) return;
-
     const { data, error } = await supabase.from('events').select('*');
     if (error) {
       console.error('Error cargando eventos:', error.message);
       return;
     }
-
     if (data) {
       setEvents(data.sort((a, b) => new Date(a.date) - new Date(b.date)));
     }
@@ -338,7 +319,11 @@ export default function App() {
             {profile?.role === 'admin' && (
               <ShieldCheck
                 size={28}
-                className={events.filter((e) => e.status === 'pending').length > 0 ? 'pulse-admin' : ''}
+                className={
+                  events.filter((e) => e.status === 'pending').length > 0
+                    ? 'pulse-admin'
+                    : ''
+                }
                 style={{ color: '#6366f1', cursor: 'pointer' }}
                 onClick={() => setView('admin')}
               />
@@ -353,7 +338,11 @@ export default function App() {
                 display: 'flex'
               }}
             >
-              {isDark ? <Sun size={24} color="#facc15" /> : <Moon size={24} color="#4f46e5" />}
+              {isDark ? (
+                <Sun size={24} color="#facc15" />
+              ) : (
+                <Moon size={24} color="#4f46e5" />
+              )}
             </button>
 
             <Sparkles
@@ -366,7 +355,7 @@ export default function App() {
         </nav>
 
         <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-          {/* VISTA MAPA */}
+          {/* ==================== VISTA MAPA ==================== */}
           {view === 'map' && (
             <div
               style={{
@@ -414,9 +403,13 @@ export default function App() {
                           )}`
                         )
                           .then((r) => r.json())
-                          .then((d) =>
-                            d[0] &&
-                            setMapCenter([parseFloat(d[0].lat), parseFloat(d[0].lon)])
+                          .then(
+                            (d) =>
+                              d[0] &&
+                              setMapCenter([
+                                parseFloat(d[0].lat),
+                                parseFloat(d[0].lon)
+                              ])
                           );
                       }
                     }}
@@ -487,9 +480,15 @@ export default function App() {
             </div>
           )}
 
-          {/* HOME */}
+          {/* ==================== HOME ==================== */}
           {view === 'home' && !selectedEvent && (
-            <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div
+              style={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
               <div
                 className="no-scrollbar"
                 style={{
@@ -501,32 +500,37 @@ export default function App() {
                   borderBottom: '1px solid rgba(128,128,128,0.1)'
                 }}
               >
-                {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINO', 'FIESTAS PATRONALES', 'OTROS'].map(
-                  (cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      style={{
-                        padding: '10px 22px',
-                        borderRadius: 25,
-                        border: 'none',
-                        background:
-                          selectedCategory === cat
-                            ? '#4f46e5'
-                            : isDark
-                            ? '#1e293b'
-                            : '#e2e8f0',
-                        color: selectedCategory === cat ? 'white' : 'inherit',
-                        fontSize: 10,
-                        fontWeight: 900,
-                        whiteSpace: 'nowrap',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {cat}
-                    </button>
-                  )
-                )}
+                {[
+                  'TODOS',
+                  'MUSICA',
+                  'GASTRONOMIA',
+                  'TAURINO',
+                  'FIESTAS PATRONALES',
+                  'OTROS'
+                ].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    style={{
+                      padding: '10px 22px',
+                      borderRadius: 25,
+                      border: 'none',
+                      background:
+                        selectedCategory === cat
+                          ? '#4f46e5'
+                          : isDark
+                          ? '#1e293b'
+                          : '#e2e8f0',
+                      color: selectedCategory === cat ? 'white' : 'inherit',
+                      fontSize: 10,
+                      fontWeight: 900,
+                      whiteSpace: 'nowrap',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {cat}
+                  </button>
+                ))}
               </div>
 
               <div
@@ -561,7 +565,6 @@ export default function App() {
                         }}
                         alt=""
                       />
-
                       <button
                         onClick={() => toggleFavorite(ev.id)}
                         style={{
@@ -576,12 +579,17 @@ export default function App() {
                           display: 'flex'
                         }}
                       >
-                        <Heart size={20} fill={favorites.includes(ev.id) ? 'red' : 'none'} />
+                        <Heart
+                          size={20}
+                          fill={favorites.includes(ev.id) ? 'red' : 'none'}
+                        />
                       </button>
                     </div>
 
                     <div style={{ padding: 20, textAlign: 'center' }}>
-                      <h3 style={{ fontWeight: 900, fontSize: 18 }}>{ev.title}</h3>
+                      <h3 style={{ fontWeight: 900, fontSize: 18 }}>
+                        {ev.title}
+                      </h3>
                       <p
                         style={{
                           fontSize: 10,
@@ -615,11 +623,16 @@ export default function App() {
             </div>
           )}
 
-          {/* DETALLES */}
+          {/* ==================== DETALLES ==================== */}
           {selectedEvent && (
             <div
               className="no-scrollbar"
-              style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 120 }}
+              style={{
+                padding: 20,
+                height: '100%',
+                overflowY: 'auto',
+                paddingBottom: 120
+              }}
             >
               <button
                 onClick={() => setSelectedEvent(null)}
@@ -630,7 +643,8 @@ export default function App() {
                   fontWeight: 900,
                   display: 'flex',
                   gap: 8,
-                  marginBottom: 20
+                  marginBottom: 20,
+                  cursor: 'pointer'
                 }}
               >
                 <ArrowLeft /> VOLVER
@@ -642,22 +656,34 @@ export default function App() {
               >
                 <img
                   src={selectedEvent.image_url}
-                  style={{ width: '100%', height: 250, objectFit: 'cover' }}
+                  style={{
+                    width: '100%',
+                    height: 250,
+                    objectFit: 'cover'
+                  }}
                   alt=""
                 />
 
                 <div style={{ padding: 25 }}>
-                  <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 15 }}>
+                  <h2
+                    style={{
+                      fontSize: 24,
+                      fontWeight: 900,
+                      marginBottom: 15
+                    }}
+                  >
                     {selectedEvent.title}
                   </h2>
 
                   <div style={{ display: 'grid', gap: 15 }}>
                     <div style={{ display: 'flex', gap: 10 }}>
-                      <Calendar color="#6366f1" /> <b>{selectedEvent.date}</b>
+                      <Calendar color="#6366f1" />{' '}
+                      <b>{selectedEvent.date}</b>
                     </div>
 
                     <div style={{ display: 'flex', gap: 10 }}>
-                      <Clock color="#6366f1" /> <b>{selectedEvent.time}H</b>
+                      <Clock color="#6366f1" />{' '}
+                      <b>{selectedEvent.time}H</b>
                     </div>
 
                     <div
@@ -681,13 +707,23 @@ export default function App() {
                         border: '1px dashed #6366f1'
                       }}
                     >
-                      <MapPin color="#6366f1" style={{ margin: '0 auto 5px' }} />
+                      <MapPin
+                        color="#6366f1"
+                        style={{ margin: '0 auto 5px' }}
+                      />
                       <br />
                       <b>
-                        {selectedEvent.address}, {selectedEvent.localidad} - {selectedEvent.city}
+                        {selectedEvent.address}, {selectedEvent.localidad} -{' '}
+                        {selectedEvent.city}
                       </b>
                       <br />
-                      <span style={{ fontSize: 10, color: '#2563eb', fontWeight: 900 }}>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: '#2563eb',
+                          fontWeight: 900
+                        }}
+                      >
                         INICIAR GPS (GOOGLE MAPS)
                       </span>
                     </div>
@@ -697,11 +733,16 @@ export default function App() {
             </div>
           )}
 
-          {/* CREAR EVENTO */}
+          {/* ==================== CREAR EVENTO ==================== */}
           {view === 'create' && (
             <div
               className="no-scrollbar"
-              style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 150 }}
+              style={{
+                padding: 20,
+                height: '100%',
+                overflowY: 'auto',
+                paddingBottom: 150
+              }}
             >
               <div
                 className={isDark ? 'card-dark' : 'card-light'}
@@ -713,7 +754,13 @@ export default function App() {
                   flexDirection: 'column'
                 }}
               >
-                <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 16 }}>
+                <h2
+                  style={{
+                    textAlign: 'center',
+                    fontWeight: 900,
+                    fontSize: 16
+                  }}
+                >
                   AÑADIR EVENTO
                 </h2>
 
@@ -733,7 +780,13 @@ export default function App() {
                   onChange={handleInputChange}
                 />
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1.2fr 1fr',
+                    gap: 8
+                  }}
+                >
                   <input
                     name="city"
                     placeholder="CIUDAD"
@@ -804,7 +857,13 @@ export default function App() {
                   onChange={handleInputChange}
                 />
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 8
+                  }}
+                >
                   <input
                     name="date"
                     type="date"
@@ -835,7 +894,13 @@ export default function App() {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 8
+                  }}
+                >
                   <button
                     onClick={generateAIImage}
                     style={{
@@ -852,7 +917,11 @@ export default function App() {
                       gap: 5
                     }}
                   >
-                    {isGenerating ? <Loader2 className="animate-spin" size={14} /> : <Sparkles size={14} />}
+                    {isGenerating ? (
+                      <Loader2 className="animate-spin" size={14} />
+                    ) : (
+                      <Sparkles size={14} />
+                    )}
                     IA FOTO
                   </button>
 
@@ -869,7 +938,11 @@ export default function App() {
                     }}
                   >
                     GALERÍA
-                    <input type="file" style={{ display: 'none' }} onChange={handleGalleryUpload} />
+                    <input
+                      type="file"
+                      style={{ display: 'none' }}
+                      onChange={handleGalleryUpload}
+                    />
                   </label>
                 </div>
 
@@ -903,13 +976,24 @@ export default function App() {
             </div>
           )}
 
-          {/* GUARDADOS */}
+          {/* ==================== GUARDADOS ==================== */}
           {view === 'favorites' && (
             <div
               className="no-scrollbar"
-              style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 120 }}
+              style={{
+                padding: 20,
+                height: '100%',
+                overflowY: 'auto',
+                paddingBottom: 120
+              }}
             >
-              <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 20 }}>
+              <h2
+                style={{
+                  textAlign: 'center',
+                  fontWeight: 900,
+                  marginBottom: 20
+                }}
+              >
                 MIS GUARDADOS
               </h2>
 
@@ -951,11 +1035,17 @@ export default function App() {
                     />
                     <div style={{ flex: 1 }}>
                       <p style={{ fontWeight: 900 }}>{ev.title}</p>
-                      <p style={{ fontSize: 10, color: '#6366f1' }}>{ev.city}</p>
+                      <p style={{ fontSize: 10, color: '#6366f1' }}>
+                        {ev.city}
+                      </p>
                     </div>
                     <button
                       onClick={() => toggleFavorite(ev.id)}
-                      style={{ background: 'none', border: 'none', color: '#ef4444' }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#ef4444'
+                      }}
                     >
                       <Trash2 size={22} />
                     </button>
@@ -965,7 +1055,7 @@ export default function App() {
             </div>
           )}
 
-          {/* SOPORTE */}
+          {/* ==================== SOPORTE ==================== */}
           {view === 'profile' && (
             <div
               style={{
@@ -1027,7 +1117,7 @@ export default function App() {
                 <button
                   onClick={() => {
                     const e = prompt('Email Admin:');
-                    if (e && isSupabaseConfigured) supabase.auth.signInWithOtp({ email: e });
+                    if (e) supabase.auth.signInWithOtp({ email: e });
                   }}
                   style={{ opacity: 0.1, fontSize: 10 }}
                 >
@@ -1054,7 +1144,9 @@ export default function App() {
             justifyContent: 'space-around',
             boxShadow: '0 15px 35px rgba(0,0,0,0.4)',
             zIndex: 3000,
-            background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)'
+            background: isDark
+              ? 'rgba(15, 23, 42, 0.95)'
+              : 'rgba(255, 255, 255, 0.95)'
           }}
         >
           <button
@@ -1065,7 +1157,8 @@ export default function App() {
             style={{
               background: 'none',
               border: 'none',
-              color: view === 'home' ? '#4f46e5' : '#64748b'
+              color: view === 'home' ? '#4f46e5' : '#64748b',
+              cursor: 'pointer'
             }}
           >
             <LayoutList size={26} />
@@ -1079,10 +1172,14 @@ export default function App() {
             style={{
               background: 'none',
               border: 'none',
-              color: view === 'favorites' ? '#ef4444' : '#64748b'
+              color: view === 'favorites' ? '#ef4444' : '#64748b',
+              cursor: 'pointer'
             }}
           >
-            <Heart size={26} fill={view === 'favorites' ? '#ef4444' : 'none'} />
+            <Heart
+              size={26}
+              fill={view === 'favorites' ? '#ef4444' : 'none'}
+            />
           </button>
 
           <button
@@ -1093,7 +1190,8 @@ export default function App() {
             style={{
               background: 'none',
               border: 'none',
-              color: view === 'create' ? '#4f46e5' : '#64748b'
+              color: view === 'create' ? '#4f46e5' : '#64748b',
+              cursor: 'pointer'
             }}
           >
             <PlusCircle size={26} />
@@ -1107,7 +1205,8 @@ export default function App() {
             style={{
               background: 'none',
               border: 'none',
-              color: view === 'map' ? '#4f46e5' : '#64748b'
+              color: view === 'map' ? '#4f46e5' : '#64748b',
+              cursor: 'pointer'
             }}
           >
             <MapIcon size={26} />
