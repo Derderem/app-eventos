@@ -11,20 +11,29 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// CONFIGURACIÓN DE ESTILOS (CONTROL TOTAL DE VISIBILIDAD)
+// CONFIGURACIÓN DE ESTILOS (FIX MAPA Y DISEÑO)
 // ============================================================
 const globalStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
   
-  /* ESTO ASEGURA QUE EL MAPA SE VEA */
+  /* ESTO FUERZA LA VISIBILIDAD DEL MAPA */
   .leaflet-container { 
     background-color: #aad3df !important; 
     height: 100% !important; 
     width: 100% !important;
     border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
   }
   
-  .leaflet-tile { transform: scale(1.02) !important; outline: 1px solid transparent; }
+  /* FIX LÍNEAS BLANCAS */
+  .leaflet-tile { 
+    transform: scale(1.025) !important; 
+    outline: 1px solid transparent; 
+    -webkit-backface-visibility: hidden;
+  }
+  
+  .leaflet-container img { max-width: none !important; max-height: none !important; }
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -36,7 +45,7 @@ const globalStyles = `
 
   @keyframes admin-pulse {
     0% { transform: scale(1); color: #818cf8; }
-    50% { transform: scale(1.15); color: #ef4444; }
+    50% { transform: scale(1.1); color: #ef4444; }
     100% { transform: scale(1); color: #818cf8; }
   }
   .pulse-admin { animation: admin-pulse 2s infinite; }
@@ -49,19 +58,19 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// CONTROLADOR DE MAPA: ESTA PARTE ES CRÍTICA PARA QUE EL MAPA NO SALGA GRIS O VACÍO
+// CONTROLADOR PARA FORZAR EL RENDERIZADO DEL MAPA
 function MapResizer({ center }) {
   const map = useMap();
   useEffect(() => {
-    // Forzamos al mapa a reconocer el tamaño del contenedor
-    setTimeout(() => { 
-      map.invalidateSize(); 
+    const timer = setTimeout(() => {
+      map.invalidateSize();
       if (center) {
         map.setView(center, 13, { animate: true });
       } else {
         map.setView([40.4167, -3.7037], 6);
       }
-    }, 400);
+    }, 500);
+    return () => clearTimeout(timer);
   }, [map, center]);
   return null;
 }
@@ -82,7 +91,7 @@ const supabase = createClient(
 export default function App() {
   const [events, setEvents] = useState([]);
   const [favorites, setFavorites] = useState(() => {
-    const saved = localStorage.getItem('eventora_favs_pro');
+    const saved = localStorage.getItem('eventora_favs_v2');
     return saved ? JSON.parse(saved) : [];
   });
   const [profile, setProfile] = useState(null);
@@ -95,17 +104,18 @@ export default function App() {
 
   useEffect(() => {
     fetchEvents();
-    localStorage.setItem('eventora_favs_pro', JSON.stringify(favorites));
+    localStorage.setItem('eventora_favs_v2', JSON.stringify(favorites));
     supabase.auth.onAuthStateChange((event, session) => {
-      // ID DE ADMIN EXCLUSIVO
       if (session?.user.id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
       else setProfile(null);
     });
   }, [favorites]);
 
   const fetchEvents = async () => {
-    const { data } = await supabase.from('events').select('*').order('date', { ascending: true });
-    if (data) setEvents(data);
+    const { data } = await supabase.from('events').select('*');
+    if (data) {
+      setEvents(data.sort((a, b) => new Date(a.date) - new Date(b.date)));
+    }
   };
 
   const handleInputChange = (e) => {
@@ -113,10 +123,6 @@ export default function App() {
     const needsUpper = ['title', 'city', 'localidad'];
     const val = needsUpper.includes(name) ? value.toUpperCase() : value;
     setForm({ ...form, [name]: val });
-  };
-
-  const toggleFavorite = (id) => {
-    setFavorites(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
   };
 
   const jumpToCity = async (city) => {
@@ -130,7 +136,7 @@ export default function App() {
   const publicEvents = events.filter(e => e.status === 'approved' && e.date >= today);
   const filteredEvents = publicEvents.filter(e => selectedCategory === 'TODOS' || e.category === selectedCategory);
   const favoriteEvents = publicEvents.filter(e => favorites.includes(e.id));
-  const citiesInMap = [...new Set(publicEvents.map(e => e.city))];
+  const citiesWithEvents = [...new Set(publicEvents.map(e => e.city))];
 
   return (
     <div className={isDark ? "dark-theme" : "light-theme"} style={{ margin: 0, padding: 0, width: '100vw', height: '100vh', overflow: 'hidden' }}>
@@ -154,7 +160,7 @@ export default function App() {
 
         <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           
-          {/* VISTA MAPA: CAPA INDEPENDIENTE PARA ASEGURAR VISIBILIDAD */}
+          {/* VISTA MAPA */}
           {view === 'map' && (
             <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: '#aad3df' }}>
               <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
@@ -162,11 +168,11 @@ export default function App() {
                   <Search size={18} color="#6366f1" />
                   <select onChange={(e) => jumpToCity(e.target.value)} style={{ width: '100%', padding: 12, border: 'none', outline: 'none', fontWeight: 900, fontSize: 12, color: '#0f172a', background: 'transparent' }}>
                     <option value="ESPAÑA">📍 BUSCAR CIUDAD...</option>
-                    {citiesInMap.map(c => <option key={c} value={c}>{c}</option>)}
+                    {citiesWithEvents.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
-              <MapContainer key="map-pro-final" center={[40.41, -3.70]} zoom={6} style={{ width: '100%', height: '100%' }} zoomSnap={1}>
+              <MapContainer key="global-map" center={[40.41, -3.70]} zoom={6} style={{ width: '100%', height: '100%' }} zoomSnap={1}>
                 <MapResizer center={mapCenter} />
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; España' />
                 {publicEvents.map(ev => ev.lat && ev.lng && (
@@ -178,7 +184,7 @@ export default function App() {
             </div>
           )}
 
-          {/* HOME: LISTADO Y CATEGORÍAS */}
+          {/* HOME */}
           {view === 'home' && !selectedEvent && (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className="no-scrollbar" style={{ display: 'flex', gap: 10, padding: '15px 20px', overflowX: 'auto', background: isDark ? '#020617' : '#f8fafc', borderBottom: '1px solid rgba(128,128,128,0.1)' }}>
@@ -187,28 +193,26 @@ export default function App() {
                 ))}
               </div>
               <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: 20, paddingBottom: 150 }}>
-                {filteredEvents.length === 0 ? <p style={{textAlign:'center', opacity:0.5, marginTop:50}}>No hay eventos en esta categoría</p> : 
-                  filteredEvents.map(ev => (
-                    <div key={ev.id} className={isDark ? "card-dark" : "card-light"} style={{ borderRadius: 32, overflow: 'hidden', marginBottom: 20 }}>
-                      <div style={{ position: 'relative', height: 180 }}>
-                        <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                        <button onClick={() => toggleFavorite(ev.id)} style={{ position: 'absolute', top: 15, right: 15, padding: 10, background: 'white', borderRadius: '50%', border: 'none', color: '#ef4444', display: 'flex' }}>
-                          <Heart size={20} fill={favorites.includes(ev.id) ? "red" : "none"} />
-                        </button>
-                      </div>
-                      <div style={{ padding: 20, textAlign: 'center' }}>
-                        <h3 style={{ fontWeight: 900, fontSize: 18 }}>{ev.title}</h3>
-                        <p style={{ fontSize: 10, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 15 }}>{ev.city} | {ev.date}</p>
-                        <button onClick={() => setSelectedEvent(ev)} style={{ width: '100%', padding: 14, borderRadius: 16, background: '#4f46e5', color: 'white', border: 'none', fontWeight: 900, fontSize: 11 }}>DETALLES</button>
-                      </div>
+                {filteredEvents.map(ev => (
+                  <div key={ev.id} className={isDark ? "card-dark" : "card-light"} style={{ borderRadius: 32, overflow: 'hidden', marginBottom: 20 }}>
+                    <div style={{ position: 'relative', height: 180 }}>
+                      <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                      <button onClick={() => toggleFavorite(ev.id)} style={{ position: 'absolute', top: 15, right: 15, padding: 10, background: 'white', borderRadius: '50%', border: 'none', color: '#ef4444', display: 'flex' }}>
+                        <Heart size={20} fill={favorites.includes(ev.id) ? "red" : "none"} />
+                      </button>
                     </div>
-                  ))
-                }
+                    <div style={{ padding: 20, textAlign: 'center' }}>
+                      <h3 style={{ fontWeight: 900, fontSize: 18 }}>{ev.title}</h3>
+                      <p style={{ fontSize: 10, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 15 }}>{ev.city} | {ev.date}</p>
+                      <button onClick={() => setSelectedEvent(ev)} style={{ width: '100%', padding: 14, borderRadius: 18, background: '#4f46e5', color: 'white', border: 'none', fontWeight: 900, fontSize: 11 }}>DETALLES</button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* DETALLES CON GPS */}
+          {/* DETALLES */}
           {selectedEvent && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
               <button onClick={() => setSelectedEvent(null)} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 8, marginBottom: 20 }}><ArrowLeft/> VOLVER</button>
@@ -221,7 +225,7 @@ export default function App() {
                     <div style={{ display: 'flex', gap: 10 }}><Clock color="#6366f1"/> <b>{selectedEvent.time}H</b></div>
                     <div onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedEvent.address + ' ' + (selectedEvent.localidad || '') + ' ' + selectedEvent.city)}`)} style={{ background: 'rgba(99,102,241,0.1)', padding: 20, borderRadius: 15, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1' }}>
                       <MapPin color="#6366f1" style={{margin:'0 auto 5px'}}/> <br/> <b>{selectedEvent.address}, {selectedEvent.localidad} - {selectedEvent.city}</b> <br/>
-                      <span style={{fontSize:10, color:'#2563eb', fontWeight: 900}}>IR CON GOOGLE MAPS (GPS)</span>
+                      <span style={{fontSize:10, color:'#2563eb', fontWeight: 900}}>INICIAR GPS (GOOGLE MAPS)</span>
                     </div>
                   </div>
                 </div>
@@ -229,7 +233,7 @@ export default function App() {
             </div>
           )}
 
-          {/* FAVORITOS CON MENSAJE PERSONALIZADO */}
+          {/* FAVORITOS */}
           {view === 'favorites' && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
               <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 20 }}>MIS GUARDADOS</h2>
@@ -247,25 +251,20 @@ export default function App() {
             </div>
           )}
 
-          {/* CREAR, PERFIL, ADMIN (Mantenidos) */}
+          {/* CREAR, PERFIL, ADMIN */}
           {view === 'create' && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 150 }}>
               <div className="card" style={{ padding: 20, borderRadius: 30, gap: 10, display: 'flex', flexDirection: 'column' }}>
                 <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 16 }}>AÑADIR EVENTO</h2>
                 <input name="title" placeholder="TÍTULO" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.title} onChange={handleInputChange} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
-                  <input name="city" placeholder="CIUDAD" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.city} onChange={handleInputChange} />
-                  <select name="category" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.category} onChange={handleInputChange}>
-                    <option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINO">TAURINO</option><option value="FIESTAS PATRONALES">FIESTAS</option><option value="OTROS">OTROS</option>
-                  </select>
-                </div>
+                <input name="city" placeholder="CIUDAD" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.city} onChange={handleInputChange} />
                 <input name="localidad" placeholder="LOCALIDAD" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.localidad} onChange={handleInputChange} />
                 <input name="address" placeholder="DIRECCIÓN" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.address} onChange={handleInputChange} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                   <input name="date" type="date" style={{ width: '100%', padding: 10, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit' }} value={form.date} onChange={handleInputChange} />
-                   <input name="time" type="time" style={{ width: '100%', padding: 10, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit' }} value={form.time} onChange={handleInputChange} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                   <input name="date" type="date" style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit' }} value={form.date} onChange={handleInputChange} />
+                   <input name="time" type="time" style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit' }} value={form.time} onChange={handleInputChange} />
                 </div>
-                <button style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 15, borderRadius: 12, border: 'none', fontWeight: 900 }}>ENVIAR REVISIÓN</button>
+                <button style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 18, borderRadius: 15, border: 'none', fontWeight: 900, marginTop: 10 }}>ENVIAR REVISIÓN</button>
               </div>
             </div>
           )}
@@ -278,13 +277,12 @@ export default function App() {
                    <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 18, borderRadius: 18, textDecoration: 'none', fontWeight: 900, fontSize: 12 }}>APOYAR EN KO-FI</a>
                    <a href="https://www.paypal.com/paypalme/jacobogarbas" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 18, borderRadius: 18, textDecoration: 'none', fontWeight: 900, fontSize: 12 }}>APOYAR EN PAYPAL</a>
                 </div>
-                <button onClick={() => { const e = prompt("Email Admin:"); if(e) supabase.auth.signInWithOtp({email:e}) }} style={{ opacity: 0.1, fontSize: 10 }}>Acceso Privado</button>
+                <button onClick={() => { const e = prompt("Email Admin:"); if(e) supabase.auth.signInWithOtp({email:e}) }} style={{ opacity: 0.1, fontSize: 10 }}>Admin</button>
               </div>
             </div>
           )}
         </main>
 
-        {/* BOT NAV */}
         <nav style={{ position: 'fixed', bottom: 15, left: '50%', transform: 'translateX(-50%)', width: '92%', maxWidth: 400, height: 75, borderRadius: 35, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', zIndex: 3000, background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)' }}>
           <button onClick={() => {setView('home'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'home' ? '#2563eb' : '#64748b' }}><LayoutList size={26}/></button>
           <button onClick={() => {setView('favorites'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b' }}><Heart size={26} fill={view === 'favorites' ? "#ef4444" : "none"}/></button>
