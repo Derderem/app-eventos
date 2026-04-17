@@ -10,56 +10,42 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// ESTILOS GLOBALES - MAPA EN ESPAÑOL SIN BORDES
+// ESTILOS GLOBALES - MAPA LIMPIO EN ESPAÑOL SIN BORDES
 // ============================================================
 const globalStyles = `
-  html, body, #root { 
-    margin: 0 !important; 
-    padding: 0 !important; 
-    width: 100% !important; 
-    height: 100% !important; 
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  html, body, #root {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
     overflow: hidden !important;
   }
 
-  /* FIX CRÍTICO: Elimina TODOS los espacios del contenedor del mapa */
   .leaflet-container { 
-    background-color: transparent !important; 
+    background: #aad3df !important; 
     height: 100% !important; 
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     border: none !important;
     outline: none !important;
-    box-sizing: border-box !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
   }
 
-  /* Forzar que las imágenes de los tiles no se corten ni tengan espacio */
-  .leaflet-tile-pane {
-    z-index: 1 !important;
-  }
-  
-  .leaflet-tile {
-    visibility: inherit !important;
-  }
-
-  .leaflet-tile img {
-    display: block !important;
-    max-width: none !important;
-    width: 256px !important;
-    height: 256px !important;
-  }
-
-  /* Quitar sombra/borde de paneles */
-  .leaflet-pane,
-  .leaflet-marker-icon,
-  .leaflet-marker-shadow {
-    pointer-events: auto !important;
+  .leaflet-control-attribution {
+    font-size: 9px !important;
+    background: rgba(255,255,255,0.7) !important;
   }
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* Temas */
   .dark-theme { background-color: #020617; color: white; }
   .light-theme { background-color: #f8fafc; color: #0f172a; }
   .card-dark { background-color: #0f172a; border: 1px solid #1e293b; color: white; }
@@ -87,7 +73,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-// CONTROLADOR DE MAPA
 function MapResizer({ center }) {
   const map = useMap();
   useEffect(() => {
@@ -98,7 +83,7 @@ function MapResizer({ center }) {
       } else {
         map.setView([40.4167, -3.7037], 6);
       }
-    }, 100);
+    }, 300);
     return () => clearTimeout(timer);
   }, [map, center]);
   return null;
@@ -200,7 +185,7 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city + ', Spain')}`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=${encodeURIComponent(city + ', España')}`);
       const data = await response.json();
       if (data && data[0]) {
         setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
@@ -238,9 +223,9 @@ export default function App() {
 
         <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           
-          {/* VISTA MAPA - ESPEÑO + SIN BORDES */}
+          {/* VISTA MAPA - ESPAÑOL + SIN BORDES (Google Maps Style) */}
           {view === 'map' && (
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1, background: 'transparent', margin: 0, padding: 0 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1, background: '#aad3df', margin: 0, padding: 0 }}>
               <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
                 <div style={{ background: '#fff', borderRadius: 15, padding: '5px 15px', display: 'flex', alignItems: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
                   <Search size={18} color="#6366f1" />
@@ -253,19 +238,17 @@ export default function App() {
               <MapContainer 
                 center={[40.4167, -3.7037]} 
                 zoom={6} 
-                style={{ width: '100%', height: '100%' }} 
+                style={{ width: '100%', height: '100%', margin: 0, padding: 0 }} 
                 zoomControl={true}
                 scrollWheelZoom={true}
-                fadeAnimation={false}
-                zoomAnimation={false}
               >
                 <MapResizer center={mapCenter} />
-                {/* TILES EN ESPAÑOL (OpenStreetMap España) */}
+                {/* GOOGLE MAPS - EN ESPAÑOL Y SIN BORDES DE PAÍSES */}
                 <TileLayer 
-                  url="https://{s}.tile.openstreetmap.es/osm/{z}/{x}/{y}.png" 
-                  attribution='&copy; OpenStreetMap España'
-                  maxZoom={19}
-                  subdomains={['a', 'b', 'c']}
+                  url="https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}" 
+                  attribution='&copy; Google Maps'
+                  maxZoom={20}
+                  subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
                 />
                 {publicEvents.map(ev => ev.lat && ev.lng && (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]}>
@@ -398,5 +381,5 @@ export default function App() {
         </nav>
       </div>
     </div>
-  );
+   );
 }
