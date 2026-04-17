@@ -3,8 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import {
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, X, Trash2, Map as MapIcon,
   Navigation, Clock, LayoutList, ShieldCheck, Sparkles, Camera, Loader2, 
-  CheckCircle2, Share2, Upload, Coffee, LogOut, ExternalLink, CreditCard, ArrowLeft, Search,
-  RefreshCw
+  CheckCircle2, Share2, Upload, Coffee, LogOut, ExternalLink, CreditCard, ArrowLeft, Search
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -71,33 +70,28 @@ const globalStyles = `
   }
   .fade-in { animation: fadeIn 0.4s ease-out; }
 
-  @keyframes shimmerAnim {
+  @keyframes shimmer {
     0% { background-position: -1000px 0; }
     100% { background-position: 1000px 0; }
   }
   .shimmer-bg {
     background: linear-gradient(90deg, #1e293b 0%, #334155 50%, #1e293b 100%);
     background-size: 1000px 100%;
-    animation: shimmerAnim 1.5s infinite linear;
+    animation: shimmer 1.5s infinite linear;
   }
 
-  .ia-card {
+  .ia-image-option {
     transition: all 0.3s ease;
     cursor: pointer;
     border: 3px solid transparent;
-    border-radius: 20px;
-    overflow: hidden;
-    position: relative;
-    background: #1e293b;
-    min-height: 200px;
   }
-  .ia-card:hover {
-    transform: scale(1.02);
+  .ia-image-option:hover {
+    transform: scale(1.03);
     border-color: #6366f1;
   }
-  .ia-card.selected {
-    border-color: #4f46e5;
-    box-shadow: 0 0 25px rgba(79, 70, 229, 0.6);
+  .ia-image-selected {
+    border-color: #4f46e5 !important;
+    box-shadow: 0 0 20px rgba(79, 70, 229, 0.5);
   }
 `;
 
@@ -138,13 +132,116 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_ANON_KEY || ''
 );
 
-// ⭐⭐⭐ FUNCIÓN PARA GENERAR URL DE IA (con timestamp único)
-const buildPollinationsUrl = (prompt, seed) => {
-  const cleanPrompt = encodeURIComponent(prompt);
-  // Usamos timestamp único + seed para evitar caché del navegador
-  const timestamp = Date.now() + Math.floor(Math.random() * 10000);
-  return `https://image.pollinations.ai/prompt/${cleanPrompt}?width=800&height=600&seed=${seed}&nologo=true&safe=false&t=${timestamp}`;
-};
+// ⭐ COMPONENTE: Imagen IA con loading individual
+function IAImageCard({ id, url, index, isSelected, onSelect }) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  // Cada vez que la 'url' o el 'id' cambian, reiniciamos los estados
+  useEffect(() => {
+    setLoaded(false);
+    setError(false);
+  }, [id, url]); // Dependencia del ID para forzar el reseteo incluso si la URL fuera la misma
+
+  return (
+    <div 
+      className={`ia-image-option ${isSelected ? 'ia-image-selected' : ''}`}
+      onClick={() => loaded && !error && onSelect(url)}
+      style={{ 
+        borderRadius: 20, 
+        overflow: 'hidden', 
+        position: 'relative',
+        background: '#1e293b',
+        minHeight: 200
+      }}
+    >
+      {/* Loading skeleton */}
+      {!loaded && !error && (
+        <div className="shimmer-bg" style={{ 
+          width: '100%', 
+          height: 200, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: 10
+        }}>
+          <Loader2 className="animate-spin" size={30} color="#6366f1"/>
+          <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
+            Generando opción {index + 1}...
+          </p>
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div style={{ 
+          width: '100%', 
+          height: 200, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: 10,
+          background: '#1e293b'
+        }}>
+          <X size={30} color="#ef4444"/>
+          <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
+            Error al cargar
+          </p>
+        </div>
+      )}
+
+      {/* Imagen */}
+      <img 
+        src={url} 
+        style={{ 
+          width: '100%', 
+          height: 200, 
+          objectFit: 'cover', 
+          display: loaded ? 'block' : 'none' 
+        }} 
+        alt={`Opción ${index + 1}`}
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+      />
+
+      {/* Etiqueta de estilo */}
+      {loaded && (
+        <>
+          <div style={{ 
+            position: 'absolute', 
+            top: 10, 
+            left: 10, 
+            background: index === 0 ? '#4f46e5' : '#ec4899', 
+            color: 'white', 
+            padding: '6px 12px', 
+            borderRadius: 12, 
+            fontSize: 10, 
+            fontWeight: 900,
+            letterSpacing: 1
+          }}>
+            {index === 0 ? '🎬 OPCIÓN 1' : '🎨 OPCIÓN 2'}
+          </div>
+          <div style={{ 
+            position: 'absolute', 
+            bottom: 0, 
+            left: 0, 
+            right: 0, 
+            background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', 
+            padding: '20px 15px 12px', 
+            color: 'white', 
+            fontSize: 11, 
+            fontWeight: 900,
+            textAlign: 'center'
+          }}>
+            👆 TOCA PARA ELEGIR ESTA
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function App() {
   const [events, setEvents] = useState([]);
@@ -158,15 +255,10 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('TODOS');
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
-  
-  // ⭐ ESTADO IA - 2 fotos completamente independientes
+  const [iaOptions, setIaOptions] = useState([]); // Ahora guarda objetos {id, url}
   const [showIaModal, setShowIaModal] = useState(false);
-  const [iaUrl1, setIaUrl1] = useState('');
-  const [iaUrl2, setIaUrl2] = useState('');
-  const [iaStatus1, setIaStatus1] = useState('idle'); // idle, loading, loaded, error
-  const [iaStatus2, setIaStatus2] = useState('idle');
-  const [generationKey, setGenerationKey] = useState(0); // Para forzar remount
-
+  const [iaLoadingGlobal, setIaLoadingGlobal] = useState(false); // Loader global para el modal
+  const [regenerationCounter, setRegenerationCounter] = useState(0); // Para forzar remount en IAImageCard
   const [form, setForm] = useState({ title: '', city: '', localidad: '', address: '', time: '21:00', date: '', category: 'MUSICA', image_url: '' });
 
   useEffect(() => {
@@ -211,71 +303,71 @@ export default function App() {
     setForm({ ...form, [name]: val });
   };
 
-  // ⭐⭐⭐ GENERAR 2 IMÁGENES IA - VERSIÓN DEFINITIVA
-  const triggerGeneration = () => {
-    const cat = (form.category || 'event').toLowerCase().replace(/\s+/g, ' ');
-    const title = form.title.toLowerCase().substring(0, 60);
+  // ⭐ FUNCIÓN MEJORADA: Genera URLs únicas con seeds aleatorios y anti-caché
+  const buildIaUrls = (counter) => {
+    const cat = (form.category || 'event').toLowerCase().replace(/\s+/g, '_');
+    const title = encodeURIComponent(form.title.toLowerCase().replace(/\s+/g, '_'));
     
-    // 2 SEEDS COMPLETAMENTE DIFERENTES Y ALEATORIOS
-    const seed1 = Math.floor(Math.random() * 999999);
-    const seed2 = Math.floor(Math.random() * 999999) + 1000000; // Garantiza que sean diferentes
-    
-    // 2 PROMPTS MUY DIFERENTES
-    const prompt1 = `professional event poster ${title} ${cat}, photorealistic, high quality, detailed, vibrant`;
-    const prompt2 = `artistic illustration ${title} ${cat}, digital art, dramatic, colorful, modern design`;
-    
-    const url1 = buildPollinationsUrl(prompt1, seed1);
-    const url2 = buildPollinationsUrl(prompt2, seed2);
-    
-    console.log('🎨 GENERANDO 2 IMÁGENES IA');
-    console.log('📸 URL 1:', url1);
-    console.log('📸 URL 2:', url2);
-    
-    setIaUrl1(url1);
-    setIaUrl2(url2);
-    setIaStatus1('loading');
-    setIaStatus2('loading');
-    setGenerationKey(prev => prev + 1); // Fuerza remount de las imágenes
+    // Seeds totalmente aleatorios y únicos
+    const seed1 = Math.floor(Math.random() * 1000000000);
+    const seed2 = Math.floor(Math.random() * 1000000000) + 500000;
+    const timestamp = Date.now();
+
+    // Prompts MUY diferentes para que las imágenes salgan distintas
+    // Añadimos también el contador para más diferenciación
+    const prompt1 = `cinematic_photo_of_a_vibrant_event_${cat}_${title}_high_detail_realistic_composition`;
+    const prompt2 = `conceptual_illustration_of_an_energetic_event_${cat}_${title}_abstract_dynamic_art_style`;
+
+    // Añadimos timestamp, nocache y el contador de regeneración a la URL
+    return [
+      { id: `img-1-${counter}`, url: `https://image.pollinations.ai/prompt/${prompt1}?width=800&height=600&seed=${seed1}&nologo=true&t=${timestamp}-${counter}&nocache=true` },
+      { id: `img-2-${counter}`, url: `https://image.pollinations.ai/prompt/${prompt2}?width=800&height=600&seed=${seed2}&nologo=true&t=${timestamp + 1}-${counter}&nocache=true` }
+    ];
   };
 
+  // ⭐ Genera 2 fotos IA y abre modal
   const generateAIImages = () => {
     if (!form.title) {
       alert("Escribe un título primero");
       return;
     }
-    
+    setIaLoadingGlobal(true); // Activar loader global
+    setIaOptions([]); // Limpiar opciones anteriores
     setShowIaModal(true);
-    setIaUrl1('');
-    setIaUrl2('');
-    setIaStatus1('idle');
-    setIaStatus2('idle');
-    
-    // Pequeño delay para que el modal se monte
+    setRegenerationCounter(prev => prev + 1); // Incrementar contador
+
+    // Simular un tiempo mínimo de carga del servidor de IA
     setTimeout(() => {
-      triggerGeneration();
-    }, 200);
+      setIaOptions(buildIaUrls(regenerationCounter + 1)); // Generar nuevas URLs con el nuevo contador
+      setIaLoadingGlobal(false); // Desactivar loader global tras el tiempo simulado
+    }, 2500); // Mínimo 2.5 segundos para el loader global
   };
 
-  const regenerateIaImages = () => {
-    console.log('🔄 REGENERANDO IMÁGENES');
-    setIaUrl1('');
-    setIaUrl2('');
-    setIaStatus1('idle');
-    setIaStatus2('idle');
-    
-    // Delay mayor para garantizar el remount
-    setTimeout(() => {
-      triggerGeneration();
-    }, 300);
-  };
-
+  // ⭐ Selecciona una imagen
   const selectIaImage = (url) => {
     setForm({ ...form, image_url: url });
     setShowIaModal(false);
+    setIaOptions([]); // Limpiar al cerrar para que la próxima vez se generen nuevas
   };
 
+  // ⭐ Cierra modal
   const closeIaModal = () => {
     setShowIaModal(false);
+    setIaOptions([]); // Limpiar al cerrar
+    setIaLoadingGlobal(false); // Asegurarse de que el loader global esté apagado
+  };
+
+  // ⭐ Regenera nuevas opciones
+  const regenerateIaImages = () => {
+    setIaLoadingGlobal(true); // Activar loader global
+    setIaOptions([]); // Limpiar opciones anteriores
+    setRegenerationCounter(prev => prev + 1); // Incrementar contador para nuevas keys
+
+    // Simular un tiempo mínimo de carga del servidor de IA
+    setTimeout(() => {
+      setIaOptions(buildIaUrls(regenerationCounter + 1)); // Generar nuevas URLs con el nuevo contador
+      setIaLoadingGlobal(false); // Desactivar loader global
+    }, 2500); // Mínimo 2.5 segundos para el loader global
   };
 
   const handleGalleryUpload = (e) => {
@@ -487,7 +579,7 @@ export default function App() {
           )}
         </main>
 
-        {/* ⭐⭐⭐ MODAL IA - VERSIÓN DEFINITIVA ⭐⭐⭐ */}
+        {/* ⭐ MODAL DE SELECCIÓN DE FOTOS IA - MEJORADO */}
         {showIaModal && (
           <div style={{ 
             position: 'fixed', 
@@ -541,232 +633,59 @@ export default function App() {
                   ELIGE TU FOTO FAVORITA
                 </h2>
                 <p style={{ fontSize: 11, color: '#6366f1', fontWeight: 700 }}>
-                  2 opciones únicas generadas con IA
-                </p>
-                <p style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, marginTop: 5 }}>
-                  ⏱️ Puede tardar 5-15 segundos
+                  La IA ha generado 2 opciones para ti
                 </p>
               </div>
 
-              {/* ⭐ IMAGEN 1 - Con KEY único para forzar remount */}
-              <div 
-                className={`ia-card ${form.image_url === iaUrl1 ? 'selected' : ''}`}
-                onClick={() => iaStatus1 === 'loaded' && selectIaImage(iaUrl1)}
-                style={{ marginBottom: 15 }}
-              >
-                {iaStatus1 === 'loading' && (
-                  <div className="shimmer-bg" style={{ 
-                    width: '100%', 
-                    height: 200, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    flexDirection: 'column',
-                    gap: 10,
-                    position: 'absolute',
-                    top: 0, left: 0,
-                    zIndex: 1
-                  }}>
-                    <Loader2 className="animate-spin" size={30} color="#6366f1"/>
-                    <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-                      Generando OPCIÓN 1...
-                    </p>
-                  </div>
-                )}
-                {iaStatus1 === 'error' && (
-                  <div style={{ 
-                    width: '100%', 
-                    height: 200, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    flexDirection: 'column',
-                    gap: 10,
-                    background: '#1e293b'
-                  }}>
-                    <X size={30} color="#ef4444"/>
-                    <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-                      Error - Pulsa "Regenerar"
-                    </p>
-                  </div>
-                )}
-                {iaUrl1 && (
-                  <img 
-                    key={`img1-${generationKey}`}
-                    src={iaUrl1}
-                    style={{ 
-                      width: '100%', 
-                      height: 200, 
-                      objectFit: 'cover', 
-                      display: iaStatus1 === 'loaded' ? 'block' : 'none' 
-                    }} 
-                    alt="Opción 1"
-                    onLoad={() => {
-                      console.log('✅ IMAGEN 1 CARGADA');
-                      setIaStatus1('loaded');
-                    }}
-                    onError={() => {
-                      console.log('❌ ERROR IMAGEN 1');
-                      setIaStatus1('error');
-                    }}
-                  />
-                )}
-                {iaStatus1 === 'loaded' && (
-                  <>
-                    <div style={{ 
-                      position: 'absolute', 
-                      top: 10, 
-                      left: 10, 
-                      background: '#4f46e5', 
-                      color: 'white', 
-                      padding: '6px 12px', 
-                      borderRadius: 12, 
-                      fontSize: 10, 
-                      fontWeight: 900,
-                      letterSpacing: 1,
-                      zIndex: 2
-                    }}>
-                      🎬 OPCIÓN 1
-                    </div>
-                    <div style={{ 
-                      position: 'absolute', 
-                      bottom: 0, 
-                      left: 0, 
-                      right: 0, 
-                      background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', 
-                      padding: '20px 15px 12px', 
-                      color: 'white', 
-                      fontSize: 11, 
-                      fontWeight: 900,
-                      textAlign: 'center',
-                      zIndex: 2
-                    }}>
-                      👆 TOCA PARA ELEGIR ESTA
-                    </div>
-                  </>
-                )}
-              </div>
+              {/* Loader global (cuando el modal se abre o regenera) */}
+              {iaLoadingGlobal && (
+                <div style={{ textAlign: 'center', padding: 40 }}>
+                  <Loader2 className="animate-spin" size={40} color="#6366f1" style={{ margin: '0 auto 15px' }}/>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: isDark ? '#fff' : '#0f172a' }}>
+                    Generando nuevas imágenes con IA...
+                  </p>
+                </div>
+              )}
 
-              {/* ⭐ IMAGEN 2 - Con KEY único para forzar remount */}
-              <div 
-                className={`ia-card ${form.image_url === iaUrl2 ? 'selected' : ''}`}
-                onClick={() => iaStatus2 === 'loaded' && selectIaImage(iaUrl2)}
-                style={{ marginBottom: 20 }}
-              >
-                {iaStatus2 === 'loading' && (
-                  <div className="shimmer-bg" style={{ 
-                    width: '100%', 
-                    height: 200, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    flexDirection: 'column',
-                    gap: 10,
-                    position: 'absolute',
-                    top: 0, left: 0,
-                    zIndex: 1
-                  }}>
-                    <Loader2 className="animate-spin" size={30} color="#ec4899"/>
-                    <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-                      Generando OPCIÓN 2...
-                    </p>
-                  </div>
-                )}
-                {iaStatus2 === 'error' && (
-                  <div style={{ 
-                    width: '100%', 
-                    height: 200, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    flexDirection: 'column',
-                    gap: 10,
-                    background: '#1e293b'
-                  }}>
-                    <X size={30} color="#ef4444"/>
-                    <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-                      Error - Pulsa "Regenerar"
-                    </p>
-                  </div>
-                )}
-                {iaUrl2 && (
-                  <img 
-                    key={`img2-${generationKey}`}
-                    src={iaUrl2}
-                    style={{ 
-                      width: '100%', 
-                      height: 200, 
-                      objectFit: 'cover', 
-                      display: iaStatus2 === 'loaded' ? 'block' : 'none' 
-                    }} 
-                    alt="Opción 2"
-                    onLoad={() => {
-                      console.log('✅ IMAGEN 2 CARGADA');
-                      setIaStatus2('loaded');
-                    }}
-                    onError={() => {
-                      console.log('❌ ERROR IMAGEN 2');
-                      setIaStatus2('error');
-                    }}
-                  />
-                )}
-                {iaStatus2 === 'loaded' && (
-                  <>
-                    <div style={{ 
-                      position: 'absolute', 
-                      top: 10, 
-                      left: 10, 
-                      background: '#ec4899', 
-                      color: 'white', 
-                      padding: '6px 12px', 
-                      borderRadius: 12, 
-                      fontSize: 10, 
-                      fontWeight: 900,
-                      letterSpacing: 1,
-                      zIndex: 2
-                    }}>
-                      🎨 OPCIÓN 2
-                    </div>
-                    <div style={{ 
-                      position: 'absolute', 
-                      bottom: 0, 
-                      left: 0, 
-                      right: 0, 
-                      background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', 
-                      padding: '20px 15px 12px', 
-                      color: 'white', 
-                      fontSize: 11, 
-                      fontWeight: 900,
-                      textAlign: 'center',
-                      zIndex: 2
-                    }}>
-                      👆 TOCA PARA ELEGIR ESTA
-                    </div>
-                  </>
-                )}
-              </div>
+              {/* Las 2 opciones de imagen - cada una con su propio loading */}
+              {!iaLoadingGlobal && iaOptions.length > 0 && (
+                <div style={{ display: 'grid', gap: 15, marginBottom: 20 }}>
+                  {iaOptions.map((option, idx) => (
+                    <IAImageCard
+                      key={option.id} // Usamos el ID único para la key
+                      id={option.id}
+                      url={option.url}
+                      index={idx}
+                      isSelected={form.image_url === option.url}
+                      onSelect={selectIaImage}
+                    />
+                  ))}
+                </div>
+              )}
 
               {/* Botón regenerar */}
-              <button 
-                onClick={regenerateIaImages}
-                style={{ 
-                  width: '100%', 
-                  padding: 14, 
-                  background: 'transparent', 
-                  color: '#6366f1', 
-                  border: '2px dashed #6366f1', 
-                  borderRadius: 12, 
-                  fontSize: 11, 
-                  fontWeight: 900, 
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8
-                }}
-              >
-                <RefreshCw size={14}/> GENERAR 2 NUEVAS OPCIONES
-              </button>
+              {!iaLoadingGlobal && (
+                <button 
+                  onClick={regenerateIaImages}
+                  style={{ 
+                    width: '100%', 
+                    padding: 14, 
+                    background: 'transparent', 
+                    color: '#6366f1', 
+                    border: '2px dashed #6366f1', 
+                    borderRadius: 12, 
+                    fontSize: 11, 
+                    fontWeight: 900, 
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8
+                  }}
+                >
+                  <Sparkles size={14}/> GENERAR 2 NUEVAS OPCIONES
+                </button>
+              )}
             </div>
           </div>
         )}
