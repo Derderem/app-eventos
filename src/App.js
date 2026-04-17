@@ -70,28 +70,33 @@ const globalStyles = `
   }
   .fade-in { animation: fadeIn 0.4s ease-out; }
 
-  @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+  @keyframes shimmerAnim {
+    0% { background-position: -1000px 0; }
+    100% { background-position: 1000px 0; }
   }
-  .shimmer-loader {
+  .shimmer-bg {
     background: linear-gradient(90deg, #1e293b 0%, #334155 50%, #1e293b 100%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
+    background-size: 1000px 100%;
+    animation: shimmerAnim 1.5s infinite linear;
   }
 
-  .ia-image-option {
+  .ia-card {
     transition: all 0.3s ease;
     cursor: pointer;
     border: 3px solid transparent;
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    background: #1e293b;
+    min-height: 200px;
   }
-  .ia-image-option:hover {
-    transform: scale(1.03);
+  .ia-card:hover {
+    transform: scale(1.02);
     border-color: #6366f1;
   }
-  .ia-image-selected {
-    border-color: #4f46e5 !important;
-    box-shadow: 0 0 20px rgba(79, 70, 229, 0.5);
+  .ia-card.selected {
+    border-color: #4f46e5;
+    box-shadow: 0 0 25px rgba(79, 70, 229, 0.6);
   }
 `;
 
@@ -144,10 +149,16 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('TODOS');
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [iaOptions, setIaOptions] = useState([]);
-  const [imageLoaded, setImageLoaded] = useState([false, false]); // ⭐ NUEVO: tracking de cada imagen
+  
+  // ⭐ ESTADO IA - cada foto independiente
   const [showIaModal, setShowIaModal] = useState(false);
+  const [iaUrl1, setIaUrl1] = useState('');
+  const [iaUrl2, setIaUrl2] = useState('');
+  const [iaLoaded1, setIaLoaded1] = useState(false);
+  const [iaLoaded2, setIaLoaded2] = useState(false);
+  const [iaError1, setIaError1] = useState(false);
+  const [iaError2, setIaError2] = useState(false);
+
   const [form, setForm] = useState({ title: '', city: '', localidad: '', address: '', time: '21:00', date: '', category: 'MUSICA', image_url: '' });
 
   useEffect(() => {
@@ -192,93 +203,82 @@ export default function App() {
     setForm({ ...form, [name]: val });
   };
 
-  // ⭐ FUNCIÓN MEJORADA: Genera 2 fotos con URLs únicas
+  // ⭐ GENERAR 2 IMÁGENES IA - Versión robusta
   const generateAIImages = () => {
     if (!form.title) {
       alert("Escribe un título primero");
       return;
     }
     
+    // Resetear estados
+    setIaLoaded1(false);
+    setIaLoaded2(false);
+    setIaError1(false);
+    setIaError2(false);
+    setIaUrl1('');
+    setIaUrl2('');
+    
     setShowIaModal(true);
-    setIsGenerating(true);
-    setIaOptions([]);
-    setImageLoaded([false, false]);
-
-    const categoryPrompt = form.category ? form.category.toLowerCase() : 'event';
-    const baseTitle = encodeURIComponent(form.title.replace(/\s+/g, '_'));
     
-    // Seeds totalmente únicos con timestamp + random
-    const seed1 = Math.floor(Math.random() * 999999) + Date.now();
-    const seed2 = Math.floor(Math.random() * 999999) + Date.now() + 50000;
-    const cacheBuster = Date.now();
-    
-    // URLs con prompts MUY diferentes y cache buster
-    const url1 = `https://image.pollinations.ai/prompt/professional_event_photography_${categoryPrompt}_${baseTitle}_high_quality_realistic_4k?width=800&height=600&seed=${seed1}&nologo=true&t=${cacheBuster}`;
-    const url2 = `https://image.pollinations.ai/prompt/cinematic_artistic_${categoryPrompt}_${baseTitle}_vibrant_dramatic_lighting?width=800&height=600&seed=${seed2}&nologo=true&t=${cacheBuster + 1}`;
-
-    setIaOptions([url1, url2]);
+    // Pequeño delay para que el modal se monte antes de poner las URLs
+    setTimeout(() => {
+      const cat = (form.category || 'event').toLowerCase().replace(/\s+/g, '-');
+      const title = form.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 50);
+      
+      // Seeds totalmente aleatorios
+      const seed1 = Math.floor(Math.random() * 999999999);
+      const seed2 = Math.floor(Math.random() * 999999999);
+      
+      // PROMPTS MUY DIFERENTES para garantizar imágenes distintas
+      const prompt1 = encodeURIComponent(`professional photography of ${title} ${cat} event, realistic, high quality, 8k`);
+      const prompt2 = encodeURIComponent(`artistic cinematic poster of ${title} ${cat}, vibrant colors, dramatic lighting, illustration`);
+      
+      // URLs con seeds únicos y nologo
+      const url1 = `https://image.pollinations.ai/prompt/${prompt1}?width=800&height=600&seed=${seed1}&nologo=true&model=flux`;
+      const url2 = `https://image.pollinations.ai/prompt/${prompt2}?width=800&height=600&seed=${seed2}&nologo=true&model=flux`;
+      
+      console.log('Generando IA URL 1:', url1);
+      console.log('Generando IA URL 2:', url2);
+      
+      setIaUrl1(url1);
+      setIaUrl2(url2);
+    }, 100);
   };
 
-  // ⭐ Cuando una imagen carga
-  const handleImageLoad = (idx) => {
-    setImageLoaded(prev => {
-      const newState = [...prev];
-      newState[idx] = true;
-      // Si ambas cargaron, quitar el "isGenerating"
-      if (newState[0] && newState[1]) {
-        setIsGenerating(false);
-      }
-      return newState;
-    });
-  };
-
-  // ⭐ Si una imagen falla, también la marcamos como cargada para no quedarnos en loop
-  const handleImageError = (idx) => {
-    setImageLoaded(prev => {
-      const newState = [...prev];
-      newState[idx] = true;
-      if (newState[0] && newState[1]) {
-        setIsGenerating(false);
-      }
-      return newState;
-    });
+  // ⭐ REGENERAR - resetea todo y vuelve a generar
+  const regenerateIaImages = () => {
+    setIaLoaded1(false);
+    setIaLoaded2(false);
+    setIaError1(false);
+    setIaError2(false);
+    setIaUrl1('');
+    setIaUrl2('');
+    
+    setTimeout(() => {
+      const cat = (form.category || 'event').toLowerCase().replace(/\s+/g, '-');
+      const title = form.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 50);
+      
+      const seed1 = Math.floor(Math.random() * 999999999);
+      const seed2 = Math.floor(Math.random() * 999999999);
+      
+      const prompt1 = encodeURIComponent(`professional photography of ${title} ${cat} event, realistic, high quality, 8k`);
+      const prompt2 = encodeURIComponent(`artistic cinematic poster of ${title} ${cat}, vibrant colors, dramatic lighting, illustration`);
+      
+      const url1 = `https://image.pollinations.ai/prompt/${prompt1}?width=800&height=600&seed=${seed1}&nologo=true&model=flux`;
+      const url2 = `https://image.pollinations.ai/prompt/${prompt2}?width=800&height=600&seed=${seed2}&nologo=true&model=flux`;
+      
+      setIaUrl1(url1);
+      setIaUrl2(url2);
+    }, 200);
   };
 
   const selectIaImage = (url) => {
     setForm({ ...form, image_url: url });
     setShowIaModal(false);
-    setIaOptions([]);
-    setImageLoaded([false, false]);
   };
 
   const closeIaModal = () => {
     setShowIaModal(false);
-    setIaOptions([]);
-    setImageLoaded([false, false]);
-    setIsGenerating(false);
-  };
-
-  // ⭐ REGENERAR (con nuevos seeds totalmente únicos)
-  const regenerateIaImages = () => {
-    setIaOptions([]);
-    setImageLoaded([false, false]);
-    setIsGenerating(true);
-    
-    const categoryPrompt = form.category ? form.category.toLowerCase() : 'event';
-    const baseTitle = encodeURIComponent(form.title.replace(/\s+/g, '_'));
-    
-    // Seeds totalmente nuevos
-    const seed1 = Math.floor(Math.random() * 999999) + Date.now() + Math.random() * 10000;
-    const seed2 = Math.floor(Math.random() * 999999) + Date.now() + Math.random() * 99999;
-    const cacheBuster = Date.now() + Math.random() * 1000;
-    
-    const url1 = `https://image.pollinations.ai/prompt/professional_event_photography_${categoryPrompt}_${baseTitle}_high_quality_realistic_4k?width=800&height=600&seed=${seed1}&nologo=true&t=${cacheBuster}`;
-    const url2 = `https://image.pollinations.ai/prompt/cinematic_artistic_${categoryPrompt}_${baseTitle}_vibrant_dramatic_lighting?width=800&height=600&seed=${seed2}&nologo=true&t=${cacheBuster + 1}`;
-
-    // Pequeño delay para forzar re-render
-    setTimeout(() => {
-      setIaOptions([url1, url2]);
-    }, 100);
   };
 
   const handleGalleryUpload = (e) => {
@@ -439,7 +439,7 @@ export default function App() {
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                    <button onClick={generateAIImages} style={{ padding: 12, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, cursor: 'pointer' }}>
-                    {isGenerating ? <Loader2 className="animate-spin" size={14}/> : <Sparkles size={14}/>} IA FOTO
+                    <Sparkles size={14}/> IA FOTO
                    </button>
                    <label style={{ padding: 12, background: '#1e293b', color: 'white', textAlign:'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>GALERÍA <input type="file" style={{display:'none'}} onChange={handleGalleryUpload}/></label>
                 </div>
@@ -490,7 +490,7 @@ export default function App() {
           )}
         </main>
 
-        {/* ⭐ MODAL IA MEJORADO */}
+        {/* ⭐⭐⭐ MODAL IA - VERSIÓN ROBUSTA CON 2 IMÁGENES INDEPENDIENTES ⭐⭐⭐ */}
         {showIaModal && (
           <div style={{ 
             position: 'fixed', 
@@ -544,123 +544,224 @@ export default function App() {
                   ELIGE TU FOTO FAVORITA
                 </h2>
                 <p style={{ fontSize: 11, color: '#6366f1', fontWeight: 700 }}>
-                  La IA está generando 2 opciones para ti
+                  La IA está generando 2 opciones únicas para ti
+                </p>
+                <p style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, marginTop: 5 }}>
+                  ⏱️ Puede tardar entre 5-15 segundos
                 </p>
               </div>
 
-              {/* ⭐ LAS 2 IMÁGENES SIEMPRE VISIBLES con loaders individuales */}
-              {iaOptions.length > 0 && (
-                <>
-                  <div style={{ display: 'grid', gap: 15, marginBottom: 20 }}>
-                    {iaOptions.map((url, idx) => (
-                      <div 
-                        key={`${url}-${idx}`}
-                        className={`ia-image-option ${form.image_url === url ? 'ia-image-selected' : ''}`}
-                        onClick={() => imageLoaded[idx] && selectIaImage(url)}
-                        style={{ 
-                          borderRadius: 20, 
-                          overflow: 'hidden', 
-                          position: 'relative',
-                          background: '#1e293b',
-                          minHeight: 200
-                        }}
-                      >
-                        {/* Loader individual mientras carga */}
-                        {!imageLoaded[idx] && (
-                          <div className="shimmer-loader" style={{ 
-                            width: '100%', 
-                            height: 200, 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            flexDirection: 'column',
-                            gap: 10
-                          }}>
-                            <Loader2 className="animate-spin" size={32} color="#6366f1"/>
-                            <p style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700 }}>
-                              Generando opción {idx + 1}...
-                            </p>
-                          </div>
-                        )}
-                        
-                        {/* La imagen (siempre se renderiza pero oculta hasta que carga) */}
-                        <img 
-                          src={url} 
-                          style={{ 
-                            width: '100%', 
-                            height: 200, 
-                            objectFit: 'cover', 
-                            display: imageLoaded[idx] ? 'block' : 'none'
-                          }} 
-                          alt={`Opción ${idx + 1}`}
-                          onLoad={() => handleImageLoad(idx)}
-                          onError={() => handleImageError(idx)}
-                          crossOrigin="anonymous"
-                        />
-                        
-                        {/* Etiqueta de estilo */}
-                        {imageLoaded[idx] && (
-                          <>
-                            <div style={{ 
-                              position: 'absolute', 
-                              top: 10, 
-                              left: 10, 
-                              background: idx === 0 ? '#4f46e5' : '#ec4899', 
-                              color: 'white', 
-                              padding: '6px 12px', 
-                              borderRadius: 12, 
-                              fontSize: 10, 
-                              fontWeight: 900,
-                              letterSpacing: 1
-                            }}>
-                              {idx === 0 ? '🎬 REALISTA' : '🎨 ARTÍSTICA'}
-                            </div>
-                            <div style={{ 
-                              position: 'absolute', 
-                              bottom: 0, 
-                              left: 0, 
-                              right: 0, 
-                              background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', 
-                              padding: '20px 15px 12px', 
-                              color: 'white', 
-                              fontSize: 11, 
-                              fontWeight: 900,
-                              textAlign: 'center'
-                            }}>
-                              👆 TOCA PARA ELEGIR ESTA
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ))}
+              {/* IMAGEN 1 */}
+              <div 
+                className={`ia-card ${form.image_url === iaUrl1 ? 'selected' : ''}`}
+                onClick={() => iaLoaded1 && !iaError1 && selectIaImage(iaUrl1)}
+                style={{ marginBottom: 15 }}
+              >
+                {!iaLoaded1 && !iaError1 && iaUrl1 && (
+                  <div className="shimmer-bg" style={{ 
+                    width: '100%', 
+                    height: 200, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                    gap: 10,
+                    position: 'absolute',
+                    top: 0, left: 0
+                  }}>
+                    <Loader2 className="animate-spin" size={30} color="#6366f1"/>
+                    <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
+                      Generando OPCIÓN 1...
+                    </p>
                   </div>
-
-                  {/* Botón regenerar */}
-                  <button 
-                    onClick={regenerateIaImages}
-                    disabled={!imageLoaded[0] || !imageLoaded[1]}
+                )}
+                {iaError1 && (
+                  <div style={{ 
+                    width: '100%', 
+                    height: 200, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                    gap: 10,
+                    background: '#1e293b'
+                  }}>
+                    <X size={30} color="#ef4444"/>
+                    <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
+                      Error - Pulsa "Regenerar"
+                    </p>
+                  </div>
+                )}
+                {iaUrl1 && (
+                  <img 
+                    src={iaUrl1}
                     style={{ 
                       width: '100%', 
-                      padding: 14, 
-                      background: 'transparent', 
-                      color: (!imageLoaded[0] || !imageLoaded[1]) ? '#64748b' : '#6366f1', 
-                      border: `2px dashed ${(!imageLoaded[0] || !imageLoaded[1]) ? '#64748b' : '#6366f1'}`, 
-                      borderRadius: 12, 
-                      fontSize: 11, 
-                      fontWeight: 900, 
-                      cursor: (!imageLoaded[0] || !imageLoaded[1]) ? 'not-allowed' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      opacity: (!imageLoaded[0] || !imageLoaded[1]) ? 0.5 : 1
+                      height: 200, 
+                      objectFit: 'cover', 
+                      display: iaLoaded1 ? 'block' : 'none' 
+                    }} 
+                    alt="Opción 1"
+                    onLoad={() => {
+                      console.log('✅ Imagen 1 cargada');
+                      setIaLoaded1(true);
                     }}
-                  >
-                    <Sparkles size={14}/> 
-                    {(!imageLoaded[0] || !imageLoaded[1]) ? 'ESPERA A QUE CARGUEN...' : 'GENERAR 2 NUEVAS OPCIONES'}
-                  </button>
-                </>
-              )}
+                    onError={() => {
+                      console.log('❌ Error imagen 1');
+                      setIaError1(true);
+                    }}
+                  />
+                )}
+                {iaLoaded1 && (
+                  <>
+                    <div style={{ 
+                      position: 'absolute', 
+                      top: 10, 
+                      left: 10, 
+                      background: '#4f46e5', 
+                      color: 'white', 
+                      padding: '6px 12px', 
+                      borderRadius: 12, 
+                      fontSize: 10, 
+                      fontWeight: 900,
+                      letterSpacing: 1
+                    }}>
+                      🎬 OPCIÓN 1 - REALISTA
+                    </div>
+                    <div style={{ 
+                      position: 'absolute', 
+                      bottom: 0, 
+                      left: 0, 
+                      right: 0, 
+                      background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', 
+                      padding: '20px 15px 12px', 
+                      color: 'white', 
+                      fontSize: 11, 
+                      fontWeight: 900,
+                      textAlign: 'center'
+                    }}>
+                      👆 TOCA PARA ELEGIR ESTA
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* IMAGEN 2 */}
+              <div 
+                className={`ia-card ${form.image_url === iaUrl2 ? 'selected' : ''}`}
+                onClick={() => iaLoaded2 && !iaError2 && selectIaImage(iaUrl2)}
+                style={{ marginBottom: 20 }}
+              >
+                {!iaLoaded2 && !iaError2 && iaUrl2 && (
+                  <div className="shimmer-bg" style={{ 
+                    width: '100%', 
+                    height: 200, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                    gap: 10,
+                    position: 'absolute',
+                    top: 0, left: 0
+                  }}>
+                    <Loader2 className="animate-spin" size={30} color="#ec4899"/>
+                    <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
+                      Generando OPCIÓN 2...
+                    </p>
+                  </div>
+                )}
+                {iaError2 && (
+                  <div style={{ 
+                    width: '100%', 
+                    height: 200, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                    gap: 10,
+                    background: '#1e293b'
+                  }}>
+                    <X size={30} color="#ef4444"/>
+                    <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
+                      Error - Pulsa "Regenerar"
+                    </p>
+                  </div>
+                )}
+                {iaUrl2 && (
+                  <img 
+                    src={iaUrl2}
+                    style={{ 
+                      width: '100%', 
+                      height: 200, 
+                      objectFit: 'cover', 
+                      display: iaLoaded2 ? 'block' : 'none' 
+                    }} 
+                    alt="Opción 2"
+                    onLoad={() => {
+                      console.log('✅ Imagen 2 cargada');
+                      setIaLoaded2(true);
+                    }}
+                    onError={() => {
+                      console.log('❌ Error imagen 2');
+                      setIaError2(true);
+                    }}
+                  />
+                )}
+                {iaLoaded2 && (
+                  <>
+                    <div style={{ 
+                      position: 'absolute', 
+                      top: 10, 
+                      left: 10, 
+                      background: '#ec4899', 
+                      color: 'white', 
+                      padding: '6px 12px', 
+                      borderRadius: 12, 
+                      fontSize: 10, 
+                      fontWeight: 900,
+                      letterSpacing: 1
+                    }}>
+                      🎨 OPCIÓN 2 - ARTÍSTICA
+                    </div>
+                    <div style={{ 
+                      position: 'absolute', 
+                      bottom: 0, 
+                      left: 0, 
+                      right: 0, 
+                      background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', 
+                      padding: '20px 15px 12px', 
+                      color: 'white', 
+                      fontSize: 11, 
+                      fontWeight: 900,
+                      textAlign: 'center'
+                    }}>
+                      👆 TOCA PARA ELEGIR ESTA
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Botón regenerar */}
+              <button 
+                onClick={regenerateIaImages}
+                style={{ 
+                  width: '100%', 
+                  padding: 14, 
+                  background: 'transparent', 
+                  color: '#6366f1', 
+                  border: '2px dashed #6366f1', 
+                  borderRadius: 12, 
+                  fontSize: 11, 
+                  fontWeight: 900, 
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8
+                }}
+              >
+                <Sparkles size={14}/> GENERAR 2 NUEVAS OPCIONES
+              </button>
             </div>
           </div>
         )}
