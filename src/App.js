@@ -11,28 +11,20 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// CONFIGURACIÓN DE ESTILOS
+// CONFIGURACIÓN DE ESTILOS (MÁXIMA SIMPLICIDAD PARA EL MAPA)
 // ============================================================
 const globalStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
   
-  /* FIX MAPA: Altura fija y bordes limpios para evitar cuadros blancos */
-  .map-wrapper {
-    height: 70vh !important;
+  /* ESTILO ESTÁNDAR PARA QUE EL MAPA NO SE ROMPA */
+  .map-container-style {
+    height: 400px !important;
     width: 100% !important;
-    border-radius: 24px;
+    border-radius: 20px;
     overflow: hidden;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
     border: 1px solid rgba(128,128,128,0.2);
   }
-  
-  .leaflet-container { 
-    height: 100% !important; 
-    width: 100% !important; 
-    background-color: #aad3df !important;
-  }
-  
-  .leaflet-tile { transform: scale(1.02) !important; outline: 1px solid transparent; }
+
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -56,17 +48,11 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Controlador para mover el mapa
-function MapController({ center }) {
+function SpainMapController() {
   const map = useMap();
   useEffect(() => {
-    if (center) {
-      map.setView(center, 13, { animate: true });
-    } else {
-      map.setView([40.4167, -3.7037], 6);
-    }
-    setTimeout(() => map.invalidateSize(), 500);
-  }, [center, map]);
+    setTimeout(() => { map.invalidateSize(); map.setView([40.4167, -3.7037], 6); }, 300);
+  }, [map]);
   return null;
 }
 
@@ -92,10 +78,6 @@ export default function App() {
   const [selectedCity, setSelectedCity] = useState('TODAS');
   const [activeCategory, setActiveCategory] = useState('TODOS');
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [mapCenter, setMapCenter] = useState(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  
-  // FORMULARIO CON LOCALIDAD INCLUIDA
   const [form, setForm] = useState({ title: '', city: '', locality: '', address: '', time: '21:00', date: '', category: 'MUSICA', image_url: '' });
 
   useEffect(() => {
@@ -125,18 +107,6 @@ export default function App() {
     setFavorites(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
   };
 
-  const jumpToCity = async (city) => {
-    if (city === 'ESPAÑA') return setMapCenter([40.4167, -3.7037]);
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city + ', Spain')}`);
-    const data = await res.json();
-    if (data[0]) setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
-  };
-
-  const openGoogleMaps = (ev) => {
-    const query = encodeURIComponent(`${ev.address || ''} ${ev.locality || ''} ${ev.city}, España`);
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${query}`, '_blank');
-  };
-
   const today = new Date().toISOString().split('T')[0];
   const publicEvents = events.filter(e => e.status === 'approved' && e.date >= today);
   const filteredEvents = publicEvents.filter(e => 
@@ -145,9 +115,6 @@ export default function App() {
   );
   
   const citiesList = ['TODOS', ...new Set(publicEvents.map(e => e.city))];
-  const categoriesList = ['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINO', 'FIESTAS PATRONALES', 'OTROS'];
-  const adminEvents = events.filter(e => e.status === 'pending');
-  const favoriteEvents = publicEvents.filter(e => favorites.includes(e.id));
 
   return (
     <div className={isDark ? "dark-mode" : "light-mode"} style={{ margin: 0, padding: 0, width: '100vw', height: '100vh', overflow: 'hidden' }}>
@@ -158,54 +125,25 @@ export default function App() {
         {/* NAV SUPERIOR */}
         <nav style={{ height: 65, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,0.2)', background: isDark ? '#0f172a' : '#fff' }}>
           <div style={{ cursor: 'pointer' }} onClick={() => {setView('home'); setSelectedEvent(null);}}><LogoSVG /></div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             {profile?.role === 'admin' && (
-              <ShieldCheck size={28} className={adminEvents.length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1', cursor: 'pointer' }} onClick={() => setView('admin')} />
+              <ShieldCheck size={26} className={events.filter(e => e.status === 'pending').length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1', cursor: 'pointer' }} onClick={() => setView('admin')} />
             )}
-            <button onClick={() => setIsDark(!isDark)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
-               {isDark ? <Sun size={24} color="#facc15" /> : <Moon size={24} color="#4f46e5" />}
+            <button onClick={() => setIsDark(!isDark)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+               {isDark ? <Sun size={22} color="#facc15" /> : <Moon size={22} color="#4f46e5" />}
             </button>
-            <Sparkles size={24} color="#6366f1" style={{ cursor: 'pointer' }} onClick={() => setView('profile')} />
+            <Sparkles size={22} color="#6366f1" style={{ cursor: 'pointer' }} onClick={() => setView('profile')} />
           </div>
         </nav>
 
-        <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        <main style={{ flex: 1, overflowY: 'auto' }} className="no-scrollbar">
           
-          {/* VISTA MAPA (NUEVA ESTRUCTURA ANTIFALLOS) */}
-          {view === 'map' && (
-            <div style={{ padding: 20, height: '100%', display: 'flex', flexDirection: 'column', gap: 15 }}>
-              <div style={{ background: isDark ? '#0f172a' : '#fff', borderRadius: 15, padding: '5px 15px', display: 'flex', alignItems: 'center', boxShadow: '0 5px 15px rgba(0,0,0,0.1)', border: '1px solid rgba(128,128,128,0.2)' }}>
-                <Search size={18} color="#6366f1" />
-                <select 
-                  onChange={(e) => jumpToCity(e.target.value)}
-                  style={{ width: '100%', padding: 12, border: 'none', outline: 'none', fontWeight: 900, fontSize: 12, color: 'inherit', background: 'transparent' }}
-                >
-                  <option value="ESPAÑA">📍 BUSCAR CIUDAD...</option>
-                  {[...new Set(publicEvents.map(e => e.city))].map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-
-              <div className="map-wrapper">
-                <MapContainer center={[40.41, -3.70]} zoom={6} zoomSnap={1}>
-                  <MapController center={mapCenter} />
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='ESPAÑA' />
-                  {publicEvents.map(ev => ev.lat && <Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><b>{ev.title}</b></Popup></Marker>)}
-                </MapContainer>
-              </div>
-            </div>
-          )}
-
-          {/* HOME CON CIUDADES Y CATEGORÍAS */}
+          {/* VISTA HOME */}
           {view === 'home' && !selectedEvent && (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className="no-scrollbar" style={{ display: 'flex', gap: 8, padding: '12px 16px', overflowX: 'auto', background: isDark ? '#020617' : '#f8fafc', borderBottom: '1px solid rgba(128,128,128,0.1)' }}>
                 {citiesList.map(city => (
                   <button key={city} onClick={() => setSelectedCity(city)} style={{ padding: '8px 16px', borderRadius: 20, border: 'none', background: selectedCity === city ? '#2563eb' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCity === city ? 'white' : 'inherit', fontSize: 9, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer' }}>{city}</button>
-                ))}
-              </div>
-              <div className="no-scrollbar" style={{ display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto', background: isDark ? '#020617' : '#f8fafc' }}>
-                {categoriesList.map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} style={{ padding: '6px 14px', borderRadius: 10, border: '1px solid rgba(128,128,128,0.2)', background: activeCategory === cat ? '#4f46e5' : 'transparent', color: activeCategory === cat ? 'white' : 'inherit', fontSize: 8, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer' }}>{cat}</button>
                 ))}
               </div>
               
@@ -220,7 +158,7 @@ export default function App() {
                     </div>
                     <div style={{ padding: 16, textAlign: 'center' }}>
                       <h3 style={{ fontWeight: 900, fontSize: 16 }}>{ev.title}</h3>
-                      <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 10 }}>{ev.city} | {ev.date}</p>
+                      <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 10 }}>{ev.city} {ev.locality && `(${ev.locality})`} | {ev.date}</p>
                       <button onClick={() => setSelectedEvent(ev)} style={{ width: '100%', padding: 12, borderRadius: 12, background: '#4f46e5', color: 'white', border: 'none', fontWeight: 900, fontSize: 10 }}>DETALLES</button>
                     </div>
                   </div>
@@ -229,19 +167,32 @@ export default function App() {
             </div>
           )}
 
+          {/* VISTA MAPA (FIJA EN SU PROPIO MARCO PARA QUE NO SE ROMPA) */}
+          {view === 'map' && (
+            <div style={{ padding: 20, height: '100%' }}>
+              <div className="map-container-style">
+                <MapContainer center={[40.41, -3.70]} zoom={6} style={{ width: '100%', height: '100%' }}>
+                  <SpainMapController />
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; España' />
+                  {publicEvents.map(ev => ev.lat && <Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><b>{ev.title}</b></Popup></Marker>)}
+                </MapContainer>
+              </div>
+            </div>
+          )}
+
           {/* DETALLES */}
           {selectedEvent && (
             <div className="no-scrollbar" style={{ padding: 16, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
               <button onClick={() => setSelectedEvent(null)} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 16, fontSize: 12 }}><ArrowLeft size={18}/> VOLVER</button>
-              <div className="card" style={{ borderRadius: 28, overflow: 'hidden', padding: 0 }}>
+              <div className="card" style={{ borderRadius: 28, overflow: 'hidden' }}>
                 <img src={selectedEvent.image_url} style={{ width: '100%', height: 220, objectFit: 'cover' }} />
                 <div style={{ padding: 20 }}>
                   <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>{selectedEvent.title}</h2>
-                  <div style={{ display: 'grid', gap: 15 }}>
+                  <div style={{ display: 'grid', gap: 12 }}>
                     <div style={{ display: 'flex', gap: 10, fontSize: 13 }}><Calendar size={18} color="#6366f1"/> <b>{selectedEvent.date}</b></div>
                     <div style={{ display: 'flex', gap: 10, fontSize: 13 }}><Clock size={18} color="#6366f1"/> <b>{selectedEvent.time}H</b></div>
-                    <div onClick={() => openGoogleMaps(selectedEvent)} style={{ display: 'flex', gap: 10, cursor: 'pointer', background: 'rgba(99,102,241,0.1)', padding: 16, borderRadius: 16 }}>
-                      <MapPin size={18} color="#6366f1"/> <b>{selectedEvent.address}, {selectedEvent.locality || ''}, {selectedEvent.city}<br/><span style={{fontSize:9, color:'#2563eb'}}>COMO LLEGAR (GPS)</span></b>
+                    <div onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.locality + ' ' + selectedEvent.city)}`)} style={{ background: 'rgba(99,102,241,0.1)', padding: 16, borderRadius: 16, cursor: 'pointer' }}>
+                      <MapPin size={18} color="#6366f1"/> <b>{selectedEvent.address}, {selectedEvent.locality} ({selectedEvent.city})<br/><span style={{fontSize:9, color:'#2563eb'}}>TOCA PARA IR (GOOGLE MAPS)</span></b>
                     </div>
                   </div>
                 </div>
@@ -249,11 +200,11 @@ export default function App() {
             </div>
           )}
 
-          {/* CREAR EVENTO CON "LOCALIDAD" */}
+          {/* CREAR EVENTO */}
           {view === 'create' && (
-            <div className="no-scrollbar" style={{ padding: 16, height: '100%', overflowY: 'auto', paddingBottom: 150 }}>
+            <div className="no-scrollbar" style={{ padding: 16, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
               <div className="card" style={{ padding: 20, borderRadius: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 16, marginBottom: 5 }}>AÑADIR EVENTO</h2>
+                <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 16 }}>AÑADIR EVENTO</h2>
                 
                 <input name="title" placeholder="TÍTULO" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700, fontSize: 12 }} value={form.title} onChange={handleInputChange} />
                 
@@ -262,7 +213,7 @@ export default function App() {
                   <input name="locality" placeholder="LOCALIDAD / PUEBLO" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700, fontSize: 12 }} value={form.locality} onChange={handleInputChange} />
                 </div>
 
-                <input name="address" placeholder="DIRECCIÓN EXACTA" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700, fontSize: 12 }} value={form.address} onChange={handleInputChange} />
+                <input name="address" placeholder="DIRECCIÓN" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700, fontSize: 12 }} value={form.address} onChange={handleInputChange} />
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                    <input name="date" type="date" style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontSize: 12 }} value={form.date} onChange={handleInputChange} />
@@ -274,28 +225,12 @@ export default function App() {
             </div>
           )}
 
-          {/* GUARDADOS */}
-          {view === 'favorites' && (
-            <div className="no-scrollbar" style={{ padding: 16, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
-              <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 20 }}>MIS GUARDADOS</h2>
-              {favoriteEvents.length === 0 ? <p style={{textAlign:'center', opacity:0.5}}>Vacío</p> : 
-                favoriteEvents.map(ev => (
-                  <div key={ev.id} className="card" style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 20, marginBottom: 10, alignItems: 'center' }}>
-                    <img src={ev.image_url} style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover' }} />
-                    <div style={{ flex: 1 }}><p style={{ fontWeight: 900, fontSize: 14 }}>{ev.title}</p><p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city}</p></div>
-                    <button onClick={() => toggleFavorite(ev.id)} style={{ background: 'none', border: 'none', color: '#ef4444' }}><Trash2 size={20}/></button>
-                  </div>
-                ))
-              }
-            </div>
-          )}
-
-          {/* PERFIL */}
+          {/* SOPORTE */}
           {view === 'profile' && (
             <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
               <div className="card" style={{ padding: 25, borderRadius: 35, width: '100%', maxWidth: 320, textAlign: 'center' }}>
                 <h2 style={{ fontWeight: 900, fontSize: 18, marginBottom: 20 }}>SOPORTE</h2>
-                <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ display: 'grid', gap: 10, marginBottom: 15 }}>
                    <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 16, borderRadius: 14, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>APOYAR EN KO-FI</a>
                    <a href="https://www.paypal.com/paypalme/jacobogarbas" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 16, borderRadius: 14, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>APOYAR EN PAYPAL</a>
                 </div>
