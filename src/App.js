@@ -151,13 +151,12 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
   
-  // ⭐ ESTADO IA
+  // ⭐ ESTADO IA - Sistema con BLOBS para evitar cache
   const [showIaModal, setShowIaModal] = useState(false);
-  const [iaUrl1, setIaUrl1] = useState('');
-  const [iaUrl2, setIaUrl2] = useState('');
+  const [iaBlob1, setIaBlob1] = useState('');
+  const [iaBlob2, setIaBlob2] = useState('');
   const [iaStatus1, setIaStatus1] = useState('idle');
   const [iaStatus2, setIaStatus2] = useState('idle');
-  const [generationKey, setGenerationKey] = useState(0);
 
   const [form, setForm] = useState({ title: '', city: '', localidad: '', address: '', time: '21:00', date: '', category: 'MUSICA', image_url: '' });
 
@@ -203,34 +202,90 @@ export default function App() {
     setForm({ ...form, [name]: val });
   };
 
-  // ⭐⭐⭐ GENERAR 2 IMÁGENES - CON 2 SERVICIOS DIFERENTES
-  const triggerGeneration = () => {
+  // ⭐⭐⭐ FUNCIÓN CLAVE: Descarga la imagen con FETCH y la convierte a Blob URL
+  // Esto fuerza al navegador a hacer la petición REAL y no reutilizar caché
+  const fetchAndConvertToBlob = async (url, label) => {
+    try {
+      console.log(`🔄 Descargando ${label}...`);
+      const response = await fetch(url, { 
+        method: 'GET',
+        cache: 'no-cache',
+        mode: 'cors'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      console.log(`✅ ${label} descargada como Blob`);
+      return blobUrl;
+    } catch (error) {
+      console.error(`❌ Error en ${label}:`, error);
+      return null;
+    }
+  };
+
+  // ⭐ Construye URL de pollinations con un modelo específico
+  const buildIaUrl = (titulo, categoria, seed, model) => {
+    // Prompt SIMPLE y enfocado en el TÍTULO (clave para que se relacione)
+    const prompt = `${titulo} ${categoria} event poster professional`;
+    const cleanPrompt = encodeURIComponent(prompt);
+    return `https://image.pollinations.ai/prompt/${cleanPrompt}?width=800&height=600&seed=${seed}&nologo=true&model=${model}`;
+  };
+
+  // ⭐⭐⭐ GENERAR 2 IMÁGENES IA - VERSIÓN DEFINITIVA CON FETCH
+  const triggerGeneration = async () => {
     const cat = (form.category || 'event').toLowerCase();
-    const title = form.title.toLowerCase().substring(0, 50);
+    const titulo = form.title.toLowerCase().trim();
     
-    // Seeds totalmente aleatorios
-    const seed1 = Math.floor(Math.random() * 999999);
-    const seed2 = Math.floor(Math.random() * 999999) + 500000;
-    const timestamp = Date.now();
+    // Liberar Blobs anteriores para evitar memory leaks
+    if (iaBlob1) URL.revokeObjectURL(iaBlob1);
+    if (iaBlob2) URL.revokeObjectURL(iaBlob2);
     
-    // ⭐ SERVICIO 1: Pollinations.ai (estilo realista)
-    const prompt1 = encodeURIComponent(`professional event poster ${title} ${cat}, photorealistic, high quality`);
-    const url1 = `https://image.pollinations.ai/prompt/${prompt1}?width=800&height=600&seed=${seed1}&nologo=true&t=${timestamp}`;
-    
-    // ⭐ SERVICIO 2: Picsum (placeholder con seed) o Unsplash (REAL y siempre funciona)
-    // Usamos Unsplash Source que devuelve fotos reales según términos de búsqueda
-    const searchTerms = `${cat},event,party,celebration`.replace(/\s+/g, ',');
-    const url2 = `https://source.unsplash.com/800x600/?${encodeURIComponent(searchTerms)}&sig=${seed2}`;
-    
-    console.log('🎨 GENERANDO 2 IMÁGENES');
-    console.log('📸 URL 1 (Pollinations IA):', url1);
-    console.log('📸 URL 2 (Unsplash):', url2);
-    
-    setIaUrl1(url1);
-    setIaUrl2(url2);
+    setIaBlob1('');
+    setIaBlob2('');
     setIaStatus1('loading');
     setIaStatus2('loading');
-    setGenerationKey(prev => prev + 1);
+    
+    // 2 SEEDS muy diferentes
+    const seed1 = Math.floor(Math.random() * 100000);
+    const seed2 = Math.floor(Math.random() * 100000) + 500000;
+    
+    // 2 MODELOS DIFERENTES de pollinations (esto garantiza imágenes muy distintas)
+    const url1 = buildIaUrl(titulo, cat, seed1, 'flux');      // Modelo realista
+    const url2 = buildIaUrl(titulo, cat, seed2, 'turbo');     // Modelo rápido (estilo diferente)
+    
+    console.log('🎨 ========================================');
+    console.log('🎨 INICIANDO GENERACIÓN DE 2 IMÁGENES IA');
+    console.log('📸 URL 1 (FLUX):', url1);
+    console.log('📸 URL 2 (TURBO):', url2);
+    console.log('🎨 ========================================');
+    
+    // ⭐ DESCARGAR LAS 2 EN PARALELO con fetch
+    // Cada una es independiente, si una falla la otra continúa
+    const promise1 = fetchAndConvertToBlob(url1, 'IMAGEN 1 (FLUX)').then(blob => {
+      if (blob) {
+        setIaBlob1(blob);
+        setIaStatus1('loaded');
+      } else {
+        setIaStatus1('error');
+      }
+    });
+    
+    const promise2 = fetchAndConvertToBlob(url2, 'IMAGEN 2 (TURBO)').then(blob => {
+      if (blob) {
+        setIaBlob2(blob);
+        setIaStatus2('loaded');
+      } else {
+        setIaStatus2('error');
+      }
+    });
+    
+    // Esperamos las 2 (sin bloquear si una falla)
+    await Promise.allSettled([promise1, promise2]);
+    console.log('🏁 Generación finalizada');
   };
 
   const generateAIImages = () => {
@@ -240,30 +295,16 @@ export default function App() {
     }
     
     setShowIaModal(true);
-    setIaUrl1('');
-    setIaUrl2('');
-    setIaStatus1('idle');
-    setIaStatus2('idle');
-    
-    setTimeout(() => {
-      triggerGeneration();
-    }, 200);
+    triggerGeneration();
   };
 
   const regenerateIaImages = () => {
     console.log('🔄 REGENERANDO IMÁGENES');
-    setIaUrl1('');
-    setIaUrl2('');
-    setIaStatus1('idle');
-    setIaStatus2('idle');
-    
-    setTimeout(() => {
-      triggerGeneration();
-    }, 300);
+    triggerGeneration();
   };
 
-  const selectIaImage = (url) => {
-    setForm({ ...form, image_url: url });
+  const selectIaImage = (blobUrl) => {
+    setForm({ ...form, image_url: blobUrl });
     setShowIaModal(false);
   };
 
@@ -480,7 +521,7 @@ export default function App() {
           )}
         </main>
 
-        {/* ⭐⭐⭐ MODAL IA - 2 SERVICIOS DIFERENTES ⭐⭐⭐ */}
+        {/* ⭐⭐⭐ MODAL IA - SISTEMA CON BLOBS ⭐⭐⭐ */}
         {showIaModal && (
           <div style={{ 
             position: 'fixed', 
@@ -532,17 +573,17 @@ export default function App() {
                   ELIGE TU FOTO FAVORITA
                 </h2>
                 <p style={{ fontSize: 11, color: '#6366f1', fontWeight: 700 }}>
-                  IA generada + Foto profesional
+                  2 estilos diferentes generados con IA
                 </p>
                 <p style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, marginTop: 5 }}>
-                  ⏱️ Puede tardar unos segundos
+                  ⏱️ Cada imagen tarda 5-15 segundos
                 </p>
               </div>
 
-              {/* ⭐ IMAGEN 1 - POLLINATIONS IA */}
+              {/* ⭐ IMAGEN 1 - FLUX (alta calidad) */}
               <div 
-                className={`ia-card ${form.image_url === iaUrl1 ? 'selected' : ''}`}
-                onClick={() => iaStatus1 === 'loaded' && selectIaImage(iaUrl1)}
+                className={`ia-card ${form.image_url === iaBlob1 ? 'selected' : ''}`}
+                onClick={() => iaStatus1 === 'loaded' && selectIaImage(iaBlob1)}
                 style={{ marginBottom: 15 }}
               >
                 {iaStatus1 === 'loading' && (
@@ -553,14 +594,11 @@ export default function App() {
                     alignItems: 'center', 
                     justifyContent: 'center',
                     flexDirection: 'column',
-                    gap: 10,
-                    position: 'absolute',
-                    top: 0, left: 0,
-                    zIndex: 1
+                    gap: 10
                   }}>
                     <Loader2 className="animate-spin" size={30} color="#6366f1"/>
                     <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-                      Generando con IA...
+                      Generando OPCIÓN 1 (Alta calidad)...
                     </p>
                   </div>
                 )}
@@ -581,29 +619,13 @@ export default function App() {
                     </p>
                   </div>
                 )}
-                {iaUrl1 && (
-                  <img 
-                    key={`img1-${generationKey}`}
-                    src={iaUrl1}
-                    style={{ 
-                      width: '100%', 
-                      height: 200, 
-                      objectFit: 'cover', 
-                      display: iaStatus1 === 'loaded' ? 'block' : 'none' 
-                    }} 
-                    alt="Opción 1 IA"
-                    onLoad={() => {
-                      console.log('✅ IMAGEN 1 (IA) CARGADA');
-                      setIaStatus1('loaded');
-                    }}
-                    onError={() => {
-                      console.log('❌ ERROR IMAGEN 1');
-                      setIaStatus1('error');
-                    }}
-                  />
-                )}
-                {iaStatus1 === 'loaded' && (
+                {iaStatus1 === 'loaded' && iaBlob1 && (
                   <>
+                    <img 
+                      src={iaBlob1}
+                      style={{ width: '100%', height: 200, objectFit: 'cover', display: 'block' }} 
+                      alt="Opción 1"
+                    />
                     <div style={{ 
                       position: 'absolute', 
                       top: 10, 
@@ -617,7 +639,7 @@ export default function App() {
                       letterSpacing: 1,
                       zIndex: 2
                     }}>
-                      🤖 OPCIÓN 1 - IA
+                      🎬 OPCIÓN 1 - REALISTA
                     </div>
                     <div style={{ 
                       position: 'absolute', 
@@ -638,10 +660,10 @@ export default function App() {
                 )}
               </div>
 
-              {/* ⭐ IMAGEN 2 - UNSPLASH (foto profesional real) */}
+              {/* ⭐ IMAGEN 2 - TURBO (estilo diferente) */}
               <div 
-                className={`ia-card ${form.image_url === iaUrl2 ? 'selected' : ''}`}
-                onClick={() => iaStatus2 === 'loaded' && selectIaImage(iaUrl2)}
+                className={`ia-card ${form.image_url === iaBlob2 ? 'selected' : ''}`}
+                onClick={() => iaStatus2 === 'loaded' && selectIaImage(iaBlob2)}
                 style={{ marginBottom: 20 }}
               >
                 {iaStatus2 === 'loading' && (
@@ -652,14 +674,11 @@ export default function App() {
                     alignItems: 'center', 
                     justifyContent: 'center',
                     flexDirection: 'column',
-                    gap: 10,
-                    position: 'absolute',
-                    top: 0, left: 0,
-                    zIndex: 1
+                    gap: 10
                   }}>
                     <Loader2 className="animate-spin" size={30} color="#ec4899"/>
                     <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-                      Buscando foto profesional...
+                      Generando OPCIÓN 2 (Estilo creativo)...
                     </p>
                   </div>
                 )}
@@ -680,29 +699,13 @@ export default function App() {
                     </p>
                   </div>
                 )}
-                {iaUrl2 && (
-                  <img 
-                    key={`img2-${generationKey}`}
-                    src={iaUrl2}
-                    style={{ 
-                      width: '100%', 
-                      height: 200, 
-                      objectFit: 'cover', 
-                      display: iaStatus2 === 'loaded' ? 'block' : 'none' 
-                    }} 
-                    alt="Opción 2 Unsplash"
-                    onLoad={() => {
-                      console.log('✅ IMAGEN 2 (Unsplash) CARGADA');
-                      setIaStatus2('loaded');
-                    }}
-                    onError={() => {
-                      console.log('❌ ERROR IMAGEN 2');
-                      setIaStatus2('error');
-                    }}
-                  />
-                )}
-                {iaStatus2 === 'loaded' && (
+                {iaStatus2 === 'loaded' && iaBlob2 && (
                   <>
+                    <img 
+                      src={iaBlob2}
+                      style={{ width: '100%', height: 200, objectFit: 'cover', display: 'block' }} 
+                      alt="Opción 2"
+                    />
                     <div style={{ 
                       position: 'absolute', 
                       top: 10, 
@@ -716,7 +719,7 @@ export default function App() {
                       letterSpacing: 1,
                       zIndex: 2
                     }}>
-                      📸 OPCIÓN 2 - PROFESIONAL
+                      🎨 OPCIÓN 2 - CREATIVA
                     </div>
                     <div style={{ 
                       position: 'absolute', 
@@ -739,6 +742,7 @@ export default function App() {
 
               <button 
                 onClick={regenerateIaImages}
+                disabled={iaStatus1 === 'loading' || iaStatus2 === 'loading'}
                 style={{ 
                   width: '100%', 
                   padding: 14, 
@@ -748,11 +752,12 @@ export default function App() {
                   borderRadius: 12, 
                   fontSize: 11, 
                   fontWeight: 900, 
-                  cursor: 'pointer',
+                  cursor: (iaStatus1 === 'loading' || iaStatus2 === 'loading') ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: 8
+                  gap: 8,
+                  opacity: (iaStatus1 === 'loading' || iaStatus2 === 'loading') ? 0.5 : 1
                 }}
               >
                 <RefreshCw size={14}/> GENERAR 2 NUEVAS OPCIONES
