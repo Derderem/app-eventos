@@ -39,11 +39,6 @@ const globalStyles = `
     bottom: 0 !important;
   }
 
-  .leaflet-control-attribution {
-    font-size: 9px !important;
-    background: rgba(255,255,255,0.7) !important;
-  }
-
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -52,34 +47,8 @@ const globalStyles = `
   .card-dark { background-color: #0f172a; border: 1px solid #1e293b; color: white; }
   .card-light { background-color: white; border: 1px solid #e2e8f0; color: #0f172a; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
-  @keyframes admin-pulse {
-    0% { transform: scale(1); color: #818cf8; }
-    50% { transform: scale(1.15); color: #ef4444; }
-    100% { transform: scale(1); color: #818cf8; }
-  }
-  .pulse-admin { animation: admin-pulse 2s infinite; }
-
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   .animate-spin { animation: spin 1s linear infinite; }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.9); }
-    to { opacity: 1; transform: scale(1); }
-  }
-  .fade-in { animation: fadeIn 0.4s ease-out; }
-
-  @keyframes shimmerAnim {
-    0% { background-position: -1000px 0; }
-    100% { background-position: 1000px 0; }
-  }
-  .shimmer-bg {
-    background: linear-gradient(90deg, #1e293b 0%, #334155 50%, #1e293b 100%);
-    background-size: 1000px 100%;
-    animation: shimmerAnim 1.5s infinite linear;
-  }
 
   .ia-card {
     transition: all 0.3s ease;
@@ -91,17 +60,14 @@ const globalStyles = `
     background: #1e293b;
     min-height: 200px;
   }
-  .ia-card:hover {
-    transform: scale(1.02);
-    border-color: #6366f1;
-  }
   .ia-card.selected {
     border-color: #4f46e5;
     box-shadow: 0 0 25px rgba(79, 70, 229, 0.6);
   }
+  .fade-in { animation: fadeIn 0.4s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 `;
 
-// FIX ICONOS LEAFLET
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -114,11 +80,8 @@ function MapResizer({ center }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       map.invalidateSize();
-      if (center) {
-        map.setView(center, 13, { animate: true });
-      } else {
-        map.setView([40.4167, -3.7037], 6);
-      }
+      if (center) map.setView(center, 13, { animate: true });
+      else map.setView([40.4167, -3.7037], 6);
     }, 300);
     return () => clearTimeout(timer);
   }, [map, center]);
@@ -151,27 +114,21 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
   
-  // ⭐ ESTADO IA - Sistema con BLOBS para evitar cache
+  // ESTADOS IA
   const [showIaModal, setShowIaModal] = useState(false);
-  const [iaBlob1, setIaBlob1] = useState('');
-  const [iaBlob2, setIaBlob2] = useState('');
-  const [iaStatus1, setIaStatus1] = useState('idle');
-  const [iaStatus2, setIaStatus2] = useState('idle');
+  const [iaUrl1, setIaUrl1] = useState('');
+  const [iaUrl2, setIaUrl2] = useState('');
+  const [loading1, setLoading1] = useState(false);
+  const [loading2, setLoading2] = useState(false);
 
   const [form, setForm] = useState({ title: '', city: '', localidad: '', address: '', time: '21:00', date: '', category: 'MUSICA', image_url: '' });
 
   useEffect(() => {
     fetchEvents();
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
-        setProfile({ role: 'admin' });
-      } else {
-        setProfile(null);
-      }
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
+      else setProfile(null);
     });
-    return () => {
-      authListener?.subscription?.unsubscribe();
-    };
   }, []);
 
   useEffect(() => {
@@ -179,16 +136,8 @@ export default function App() {
   }, [favorites]);
 
   const fetchEvents = async () => {
-    try {
-      const { data, error } = await supabase.from('events').select('*');
-      if (error) {
-        console.error('Error fetching events:', error);
-        return;
-      }
-      if (data) setEvents(data.sort((a, b) => new Date(a.date) - new Date(b.date)));
-    } catch (err) {
-      console.error('Error:', err);
-    }
+    const { data } = await supabase.from('events').select('*');
+    if (data) setEvents(data.sort((a, b) => new Date(a.date) - new Date(b.date)));
   };
 
   const toggleFavorite = (id) => {
@@ -198,117 +147,40 @@ export default function App() {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     const needsUpper = ['title', 'city', 'localidad'];
-    const val = needsUpper.includes(name) ? value.toUpperCase() : value;
-    setForm({ ...form, [name]: val });
+    setForm({ ...form, [name]: needsUpper.includes(name) ? value.toUpperCase() : value });
   };
 
-  // ⭐⭐⭐ FUNCIÓN CLAVE: Descarga la imagen con FETCH y la convierte a Blob URL
-  // Esto fuerza al navegador a hacer la petición REAL y no reutilizar caché
-  const fetchAndConvertToBlob = async (url, label) => {
-    try {
-      console.log(`🔄 Descargando ${label}...`);
-      const response = await fetch(url, { 
-        method: 'GET',
-        cache: 'no-cache',
-        mode: 'cors'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      console.log(`✅ ${label} descargada como Blob`);
-      return blobUrl;
-    } catch (error) {
-      console.error(`❌ Error en ${label}:`, error);
-      return null;
-    }
-  };
+  // ⭐⭐⭐ FUNCIÓN IA MEJORADA ⭐⭐⭐
+  const generateImages = async () => {
+    if (!form.title) return alert("Escribe un título");
 
-  // ⭐ Construye URL de pollinations con un modelo específico
-  const buildIaUrl = (titulo, categoria, seed, model) => {
-    // Prompt SIMPLE y enfocado en el TÍTULO (clave para que se relacione)
-    const prompt = `${titulo} ${categoria} event poster professional`;
-    const cleanPrompt = encodeURIComponent(prompt);
-    return `https://image.pollinations.ai/prompt/${cleanPrompt}?width=800&height=600&seed=${seed}&nologo=true&model=${model}`;
-  };
-
-  // ⭐⭐⭐ GENERAR 2 IMÁGENES IA - VERSIÓN DEFINITIVA CON FETCH
-  const triggerGeneration = async () => {
-    const cat = (form.category || 'event').toLowerCase();
-    const titulo = form.title.toLowerCase().trim();
-    
-    // Liberar Blobs anteriores para evitar memory leaks
-    if (iaBlob1) URL.revokeObjectURL(iaBlob1);
-    if (iaBlob2) URL.revokeObjectURL(iaBlob2);
-    
-    setIaBlob1('');
-    setIaBlob2('');
-    setIaStatus1('loading');
-    setIaStatus2('loading');
-    
-    // 2 SEEDS muy diferentes
-    const seed1 = Math.floor(Math.random() * 100000);
-    const seed2 = Math.floor(Math.random() * 100000) + 500000;
-    
-    // 2 MODELOS DIFERENTES de pollinations (esto garantiza imágenes muy distintas)
-    const url1 = buildIaUrl(titulo, cat, seed1, 'flux');      // Modelo realista
-    const url2 = buildIaUrl(titulo, cat, seed2, 'turbo');     // Modelo rápido (estilo diferente)
-    
-    console.log('🎨 ========================================');
-    console.log('🎨 INICIANDO GENERACIÓN DE 2 IMÁGENES IA');
-    console.log('📸 URL 1 (FLUX):', url1);
-    console.log('📸 URL 2 (TURBO):', url2);
-    console.log('🎨 ========================================');
-    
-    // ⭐ DESCARGAR LAS 2 EN PARALELO con fetch
-    // Cada una es independiente, si una falla la otra continúa
-    const promise1 = fetchAndConvertToBlob(url1, 'IMAGEN 1 (FLUX)').then(blob => {
-      if (blob) {
-        setIaBlob1(blob);
-        setIaStatus1('loaded');
-      } else {
-        setIaStatus1('error');
-      }
-    });
-    
-    const promise2 = fetchAndConvertToBlob(url2, 'IMAGEN 2 (TURBO)').then(blob => {
-      if (blob) {
-        setIaBlob2(blob);
-        setIaStatus2('loaded');
-      } else {
-        setIaStatus2('error');
-      }
-    });
-    
-    // Esperamos las 2 (sin bloquear si una falla)
-    await Promise.allSettled([promise1, promise2]);
-    console.log('🏁 Generación finalizada');
-  };
-
-  const generateAIImages = () => {
-    if (!form.title) {
-      alert("Escribe un título primero");
-      return;
-    }
-    
     setShowIaModal(true);
-    triggerGeneration();
+    setIaUrl1('');
+    setIaUrl2('');
+    setLoading1(true);
+    setLoading2(true);
+
+    // 1. Limpiamos el título y categoría para el prompt
+    const cleanTitle = form.title.toLowerCase();
+    const cleanCat = form.category.toLowerCase();
+    
+    // 2. Definimos Seeds y Parámetros Únicos
+    const seed1 = Math.floor(Math.random() * 1000000);
+    const seed2 = Math.floor(Math.random() * 1000000) + 1000;
+
+    // 3. GENERAR OPCIÓN 1 (Realista)
+    const prompt1 = encodeURIComponent(`Professional high-quality photography of ${cleanTitle} ${cleanCat} event, realistic, 8k, highly detailed`);
+    setIaUrl1(`https://image.pollinations.ai/prompt/${prompt1}?width=800&height=600&seed=${seed1}&nologo=true&model=flux`);
+
+    // 4. GENERAR OPCIÓN 2 (Cinematográfica) con un pequeño retraso para no bloquear el servidor
+    setTimeout(() => {
+        const prompt2 = encodeURIComponent(`Cinematic artistic poster for ${cleanTitle} ${cleanCat}, vibrant colors, dramatic lighting, epic composition`);
+        setIaUrl2(`https://image.pollinations.ai/prompt/${prompt2}?width=800&height=600&seed=${seed2}&nologo=true&model=flux-pro`);
+    }, 800);
   };
 
-  const regenerateIaImages = () => {
-    console.log('🔄 REGENERANDO IMÁGENES');
-    triggerGeneration();
-  };
-
-  const selectIaImage = (blobUrl) => {
-    setForm({ ...form, image_url: blobUrl });
-    setShowIaModal(false);
-  };
-
-  const closeIaModal = () => {
+  const selectIaImage = (url) => {
+    setForm({ ...form, image_url: url });
     setShowIaModal(false);
   };
 
@@ -322,80 +194,49 @@ export default function App() {
   };
 
   const handleCitySearch = async (city) => {
-    if (city === 'ESPAÑA') {
-      setMapCenter(null);
-      return;
-    }
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=${encodeURIComponent(city + ', España')}`);
-      const data = await response.json();
-      if (data && data[0]) {
-        setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
-      }
-    } catch (err) {
-      console.error('Error buscando ciudad:', err);
-    }
+    if (city === 'ESPAÑA') return setMapCenter(null);
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=${encodeURIComponent(city + ', España')}`);
+    const data = await response.json();
+    if (data[0]) setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
   };
 
   const today = new Date().toISOString().split('T')[0];
   const publicEvents = events.filter(e => e.status === 'approved' && e.date >= today);
   const filteredEvents = publicEvents.filter(e => selectedCategory === 'TODOS' || e.category === selectedCategory);
-  const favoriteEvents = publicEvents.filter(e => favorites.includes(e.id));
   const citiesList = [...new Set(publicEvents.map(e => e.city))];
 
   return (
-    <div className={isDark ? "dark-theme" : "light-theme"} style={{ margin: 0, padding: 0, width: '100vw', height: '100vh', overflow: 'hidden' }}>
+    <div className={isDark ? "dark-theme" : "light-theme"} style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
       <style>{globalStyles}</style>
 
-      <div style={{ position: 'relative', zIndex: 10, width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
         
-        {/* NAV SUPERIOR */}
-        <nav style={{ height: 65, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,0.2)', background: isDark ? '#0f172a' : '#fff' }}>
-          <div style={{ cursor: 'pointer' }} onClick={() => {setView('home'); setSelectedEvent(null);}}><LogoSVG /></div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-            {profile?.role === 'admin' && (
-              <ShieldCheck size={28} className={events.filter(e => e.status === 'pending').length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1', cursor: 'pointer' }} onClick={() => setView('admin')} />
-            )}
-            <button onClick={() => setIsDark(!isDark)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
-               {isDark ? <Sun size={24} color="#facc15" /> : <Moon size={24} color="#4f46e5" />}
+        {/* NAV */}
+        <nav style={{ height: 65, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px', borderBottom: '1px solid rgba(128,128,128,0.2)', background: isDark ? '#0f172a' : '#fff', zIndex: 10 }}>
+          <div onClick={() => setView('home')}><LogoSVG /></div>
+          <div style={{ display: 'flex', gap: 15 }}>
+            <button onClick={() => setIsDark(!isDark)} style={{ background: 'none', border: 'none' }}>
+               {isDark ? <Sun color="#facc15" /> : <Moon color="#4f46e5" />}
             </button>
-            <Sparkles size={24} color="#6366f1" style={{ cursor: 'pointer' }} onClick={() => setView('profile')} />
+            <Sparkles color="#6366f1" onClick={() => setView('profile')} />
           </div>
         </nav>
 
-        <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        <main style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           
-          {/* VISTA MAPA */}
+          {/* MAPA */}
           {view === 'map' && (
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1, background: '#aad3df', margin: 0, padding: 0 }}>
+            <div style={{ position: 'absolute', inset: 0 }}>
               <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
-                <div style={{ background: '#fff', borderRadius: 15, padding: '5px 15px', display: 'flex', alignItems: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
-                  <Search size={18} color="#6366f1" />
-                  <select onChange={(e) => handleCitySearch(e.target.value)} style={{ width: '100%', padding: 12, border: 'none', outline: 'none', fontWeight: 900, fontSize: 12, color: '#0f172a', background: 'transparent' }}>
-                    <option value="ESPAÑA">📍 BUSCAR CIUDAD...</option>
-                    {citiesList.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
+                <select onChange={(e) => handleCitySearch(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 15, border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', fontWeight: 900 }}>
+                  <option value="ESPAÑA">📍 BUSCAR CIUDAD...</option>
+                  {citiesList.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
-              <MapContainer 
-                center={[40.4167, -3.7037]} 
-                zoom={6} 
-                style={{ width: '100%', height: '100%', margin: 0, padding: 0 }} 
-                zoomControl={true}
-                scrollWheelZoom={true}
-              >
+              <MapContainer center={[40.41, -3.7]} zoom={6} style={{ width: '100%', height: '100%' }}>
                 <MapResizer center={mapCenter} />
-                <TileLayer 
-                  url="https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}" 
-                  attribution='&copy; Google Maps'
-                  maxZoom={20}
-                  subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
-                />
-                {publicEvents.map(ev => ev.lat && ev.lng && (
-                  <Marker key={ev.id} position={[ev.lat, ev.lng]}>
-                    <Popup><b>{ev.title}</b><br/>{ev.city}</Popup>
-                  </Marker>
-                ))}
+                <TileLayer url="https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}" />
+                {publicEvents.map(ev => ev.lat && <Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><b>{ev.title}</b></Popup></Marker>)}
               </MapContainer>
             </div>
           )}
@@ -403,24 +244,19 @@ export default function App() {
           {/* HOME */}
           {view === 'home' && !selectedEvent && (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <div className="no-scrollbar" style={{ display: 'flex', gap: 10, padding: '15px 20px', overflowX: 'auto', background: isDark ? '#020617' : '#f8fafc', borderBottom: '1px solid rgba(128,128,128,0.1)' }}>
+              <div className="no-scrollbar" style={{ display: 'flex', gap: 10, padding: 15, overflowX: 'auto', borderBottom: '1px solid rgba(128,128,128,0.1)' }}>
                 {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINO', 'FIESTAS PATRONALES', 'OTROS'].map(cat => (
-                  <button key={cat} onClick={() => setSelectedCategory(cat)} style={{ padding: '10px 22px', borderRadius: 25, border: 'none', background: selectedCategory === cat ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory === cat ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer' }}>{cat}</button>
+                  <button key={cat} onClick={() => setSelectedCategory(cat)} style={{ padding: '8px 18px', borderRadius: 20, border: 'none', background: selectedCategory === cat ? '#4f46e5' : '#e2e8f0', fontWeight: 900, whiteSpace: 'nowrap' }}>{cat}</button>
                 ))}
               </div>
-              <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: 20, paddingBottom: 150 }}>
+              <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: 20, paddingBottom: 100 }}>
                 {filteredEvents.map(ev => (
-                  <div key={ev.id} className={isDark ? "card-dark" : "card-light"} style={{ borderRadius: 32, overflow: 'hidden', marginBottom: 20 }}>
-                    <div style={{ position: 'relative', height: 180 }}>
-                      <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                      <button onClick={() => toggleFavorite(ev.id)} style={{ position: 'absolute', top: 15, right: 15, padding: 10, background: 'white', borderRadius: '50%', border: 'none', color: '#ef4444', display: 'flex', cursor: 'pointer' }}>
-                        <Heart size={20} fill={favorites.includes(ev.id) ? "red" : "none"} />
-                      </button>
-                    </div>
-                    <div style={{ padding: 20, textAlign: 'center' }}>
-                      <h3 style={{ fontWeight: 900, fontSize: 18 }}>{ev.title}</h3>
-                      <p style={{ fontSize: 10, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 15 }}>{ev.city} | {ev.date}</p>
-                      <button onClick={() => setSelectedEvent(ev)} style={{ width: '100%', padding: 14, borderRadius: 16, background: '#4f46e5', color: 'white', border: 'none', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>DETALLES</button>
+                  <div key={ev.id} className={isDark ? "card-dark" : "card-light"} style={{ borderRadius: 25, overflow: 'hidden', marginBottom: 20 }}>
+                    <img src={ev.image_url} style={{ width: '100%', height: 180, objectFit: 'cover' }} />
+                    <div style={{ padding: 15, textAlign: 'center' }}>
+                      <h3 style={{ fontWeight: 900 }}>{ev.title}</h3>
+                      <p style={{ fontSize: 11, color: '#6366f1' }}>{ev.city} | {ev.date}</p>
+                      <button onClick={() => setSelectedEvent(ev)} style={{ width: '100%', marginTop: 10, padding: 10, borderRadius: 12, background: '#4f46e5', color: 'white', border: 'none', fontWeight: 900 }}>DETALLES</button>
                     </div>
                   </div>
                 ))}
@@ -428,351 +264,62 @@ export default function App() {
             </div>
           )}
 
-          {/* DETALLES */}
-          {selectedEvent && (
-            <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
-              <button onClick={() => setSelectedEvent(null)} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 8, marginBottom: 20, cursor: 'pointer' }}><ArrowLeft/> VOLVER</button>
-              <div className={isDark ? "card-dark" : "card-light"} style={{ borderRadius: 30, overflow: 'hidden', padding: 0 }}>
-                <img src={selectedEvent.image_url} style={{ width: '100%', height: 250, objectFit: 'cover' }} alt="" />
-                <div style={{ padding: 25 }}>
-                  <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 15 }}>{selectedEvent.title}</h2>
-                  <div style={{ display: 'grid', gap: 15 }}>
-                    <div style={{ display: 'flex', gap: 10 }}><Calendar color="#6366f1"/> <b>{selectedEvent.date}</b></div>
-                    <div style={{ display: 'flex', gap: 10 }}><Clock color="#6366f1"/> <b>{selectedEvent.time}H</b></div>
-                    <div onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.localidad + ' ' + selectedEvent.city)}`)} style={{ background: 'rgba(99,102,241,0.1)', padding: 20, borderRadius: 15, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1' }}>
-                      <MapPin color="#6366f1" style={{margin:'0 auto 5px'}}/> <br/> <b>{selectedEvent.address}, {selectedEvent.localidad} - {selectedEvent.city}</b> <br/>
-                      <span style={{fontSize:10, color:'#2563eb', fontWeight: 900}}>INICIAR GPS (GOOGLE MAPS)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* CREAR EVENTO */}
+          {/* CREAR */}
           {view === 'create' && (
-            <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 150 }}>
-              <div className={isDark ? "card-dark" : "card-light"} style={{ padding: 20, borderRadius: 30, gap: 10, display: 'flex', flexDirection: 'column' }}>
-                <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 16 }}>AÑADIR EVENTO</h2>
-                <input name="title" placeholder="TÍTULO" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.title} onChange={handleInputChange} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
-                  <input name="city" placeholder="CIUDAD" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.city} onChange={handleInputChange} />
-                  <select name="category" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.category} onChange={handleInputChange}>
-                    <option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINO">TAURINO</option><option value="FIESTAS PATRONALES">FIESTAS</option><option value="OTROS">OTROS</option>
-                  </select>
-                </div>
-                <input name="localidad" placeholder="LOCALIDAD" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.localidad} onChange={handleInputChange} />
-                <input name="address" placeholder="DIRECCIÓN" style={{ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 }} value={form.address} onChange={handleInputChange} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                   <input name="date" type="date" style={{ width: '100%', padding: 10, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit' }} value={form.date} onChange={handleInputChange} />
-                   <input name="time" type="time" style={{ width: '100%', padding: 10, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit' }} value={form.time} onChange={handleInputChange} />
-                </div>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                   <button onClick={generateAIImages} style={{ padding: 12, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, cursor: 'pointer' }}>
-                    <Sparkles size={14}/> IA FOTO
-                   </button>
-                   <label style={{ padding: 12, background: '#1e293b', color: 'white', textAlign:'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>GALERÍA <input type="file" style={{display:'none'}} onChange={handleGalleryUpload}/></label>
-                </div>
-                {form.image_url && (
-                  <div style={{ position: 'relative' }}>
-                    <img src={form.image_url} style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 15 }} alt="" />
-                    <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(34, 197, 94, 0.9)', color: 'white', padding: '4px 10px', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <CheckCircle2 size={12}/> SELECCIONADA
-                    </div>
-                  </div>
-                )}
-
-                <button style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 15, borderRadius: 12, border: 'none', fontWeight: 900, cursor: 'pointer' }}>ENVIAR REVISIÓN</button>
-              </div>
-            </div>
-          )}
-
-          {/* GUARDADOS */}
-          {view === 'favorites' && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
-              <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 20 }}>MIS GUARDADOS</h2>
-              {favoriteEvents.length === 0 ? (
-                <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700, padding: 40 }}>EN ESTOS MOMENTOS NO HAY NINGÚN EVENTO GUARDADO</p>
-              ) : (
-                favoriteEvents.map(ev => (
-                  <div key={ev.id} className={isDark ? "card-dark" : "card-light"} style={{ display: 'flex', gap: 15, padding: 15, borderRadius: 25, marginBottom: 12, alignItems: 'center' }}>
-                    <img src={ev.image_url} style={{ width: 60, height: 60, borderRadius: 15, objectFit: 'cover' }} alt="" />
-                    <div style={{ flex: 1 }}><p style={{ fontWeight: 900 }}>{ev.title}</p><p style={{ fontSize: 10, color: '#6366f1' }}>{ev.city}</p></div>
-                    <button onClick={() => toggleFavorite(ev.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={22}/></button>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {/* SOPORTE */}
-          {view === 'profile' && (
-            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-              <div className={isDark ? "card-dark" : "card-light"} style={{ padding: 30, borderRadius: 45, width: '100%', maxWidth: 350, textAlign: 'center' }}>
-                <h2 style={{ fontWeight: 900, marginBottom: 20 }}>SOPORTE</h2>
-                <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
-                   <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 18, borderRadius: 18, textDecoration: 'none', fontWeight: 900, fontSize: 12 }}>APOYAR EN KO-FI</a>
-                   <a href="https://www.paypal.com/paypalme/jacobogarbas" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 18, borderRadius: 18, textDecoration: 'none', fontWeight: 900, fontSize: 12 }}>APOYAR EN PAYPAL</a>
+              <div className={isDark ? "card-dark" : "card-light"} style={{ padding: 20, borderRadius: 25, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <h2 style={{ textAlign: 'center', fontWeight: 900 }}>AÑADIR EVENTO</h2>
+                <input name="title" placeholder="TÍTULO" style={{ padding: 12, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)' }} onChange={handleInputChange} />
+                <input name="city" placeholder="CIUDAD" style={{ padding: 12, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)' }} onChange={handleInputChange} />
+                <select name="category" style={{ padding: 12, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)' }} onChange={handleInputChange}>
+                  <option value="MUSICA">MÚSICA</option><option value="GASTRONOMIA">GASTRONOMÍA</option><option value="TAURINO">TAURINO</option><option value="OTROS">OTROS</option>
+                </select>
+                <div style={{ display: 'flex', gap: 10 }}>
+                   <button onClick={generateImages} style={{ flex: 1, padding: 12, background: '#4f46e5', color: 'white', borderRadius: 10, border: 'none', fontWeight: 900 }}><Sparkles size={16}/> IA FOTO</button>
+                   <label style={{ flex: 1, padding: 12, background: '#1e293b', color: 'white', borderRadius: 10, textAlign: 'center', fontWeight: 900 }}>SUBIR <input type="file" style={{display:'none'}} onChange={handleGalleryUpload}/></label>
                 </div>
-                <button onClick={() => { const e = prompt("Email Admin:"); if(e) supabase.auth.signInWithOtp({email:e}) }} style={{ opacity: 0.1, fontSize: 10, background: 'none', border: 'none', cursor: 'pointer' }}>Admin Login</button>
+                {form.image_url && <img src={form.image_url} style={{ width: '100%', borderRadius: 15 }} />}
+                <button style={{ padding: 15, background: '#4f46e5', color: 'white', borderRadius: 12, border: 'none', fontWeight: 900 }}>ENVIAR REVISIÓN</button>
               </div>
             </div>
           )}
         </main>
 
-        {/* ⭐⭐⭐ MODAL IA - SISTEMA CON BLOBS ⭐⭐⭐ */}
+        {/* MODAL IA */}
         {showIaModal && (
-          <div style={{ 
-            position: 'fixed', 
-            top: 0, left: 0, right: 0, bottom: 0, 
-            background: 'rgba(0,0,0,0.85)', 
-            zIndex: 5000, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            padding: 20,
-            backdropFilter: 'blur(8px)'
-          }}>
-            <div className="fade-in" style={{ 
-              background: isDark ? '#0f172a' : '#fff', 
-              borderRadius: 30, 
-              padding: 25, 
-              width: '100%', 
-              maxWidth: 500, 
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              position: 'relative',
-              boxShadow: '0 25px 80px rgba(79, 70, 229, 0.4)'
-            }}>
-              <button 
-                onClick={closeIaModal} 
-                style={{ 
-                  position: 'absolute', 
-                  top: 15, 
-                  right: 15, 
-                  background: isDark ? '#1e293b' : '#f1f5f9', 
-                  border: 'none', 
-                  borderRadius: '50%', 
-                  width: 35, 
-                  height: 35, 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  cursor: 'pointer',
-                  color: isDark ? '#fff' : '#0f172a',
-                  zIndex: 10
-                }}
-              >
-                <X size={18}/>
-              </button>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 5000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div className="fade-in" style={{ background: isDark ? '#0f172a' : '#fff', borderRadius: 25, padding: 20, width: '100%', maxWidth: 450, position: 'relative' }}>
+              <button onClick={closeIaModal} style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', color: '#6366f1' }}><X/></button>
+              <h3 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 15 }}>ELIGE TU FOTO IA</h3>
+              
+              <div style={{ display: 'grid', gap: 15 }}>
+                {/* FOTO 1 */}
+                <div className="ia-card" onClick={() => !loading1 && selectIaImage(iaUrl1)}>
+                  {loading1 && <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="animate-spin" color="#6366f1"/></div>}
+                  <img src={iaUrl1} style={{ width: '100%', height: 200, objectFit: 'cover', display: loading1 ? 'none' : 'block' }} onLoad={() => setLoading1(false)} />
+                  {!loading1 && <div style={{ position: 'absolute', bottom: 0, width: '100%', padding: 5, background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: 10, textAlign: 'center' }}>OPCIÓN 1: REALISTA</div>}
+                </div>
 
-              <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                <Sparkles size={32} color="#6366f1" style={{ margin: '0 auto 10px' }}/>
-                <h2 style={{ fontWeight: 900, fontSize: 18, color: isDark ? '#fff' : '#0f172a', marginBottom: 5 }}>
-                  ELIGE TU FOTO FAVORITA
-                </h2>
-                <p style={{ fontSize: 11, color: '#6366f1', fontWeight: 700 }}>
-                  2 estilos diferentes generados con IA
-                </p>
-                <p style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, marginTop: 5 }}>
-                  ⏱️ Cada imagen tarda 5-15 segundos
-                </p>
+                {/* FOTO 2 */}
+                <div className="ia-card" onClick={() => !loading2 && selectIaImage(iaUrl2)}>
+                  {loading2 && <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="animate-spin" color="#ec4899"/></div>}
+                  <img src={iaUrl2} style={{ width: '100%', height: 200, objectFit: 'cover', display: loading2 ? 'none' : 'block' }} onLoad={() => setLoading2(false)} />
+                  {!loading2 && <div style={{ position: 'absolute', bottom: 0, width: '100%', padding: 5, background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: 10, textAlign: 'center' }}>OPCIÓN 2: ARTÍSTICA</div>}
+                </div>
               </div>
 
-              {/* ⭐ IMAGEN 1 - FLUX (alta calidad) */}
-              <div 
-                className={`ia-card ${form.image_url === iaBlob1 ? 'selected' : ''}`}
-                onClick={() => iaStatus1 === 'loaded' && selectIaImage(iaBlob1)}
-                style={{ marginBottom: 15 }}
-              >
-                {iaStatus1 === 'loading' && (
-                  <div className="shimmer-bg" style={{ 
-                    width: '100%', 
-                    height: 200, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    flexDirection: 'column',
-                    gap: 10
-                  }}>
-                    <Loader2 className="animate-spin" size={30} color="#6366f1"/>
-                    <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-                      Generando OPCIÓN 1 (Alta calidad)...
-                    </p>
-                  </div>
-                )}
-                {iaStatus1 === 'error' && (
-                  <div style={{ 
-                    width: '100%', 
-                    height: 200, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    flexDirection: 'column',
-                    gap: 10,
-                    background: '#1e293b'
-                  }}>
-                    <X size={30} color="#ef4444"/>
-                    <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-                      Error - Pulsa "Regenerar"
-                    </p>
-                  </div>
-                )}
-                {iaStatus1 === 'loaded' && iaBlob1 && (
-                  <>
-                    <img 
-                      src={iaBlob1}
-                      style={{ width: '100%', height: 200, objectFit: 'cover', display: 'block' }} 
-                      alt="Opción 1"
-                    />
-                    <div style={{ 
-                      position: 'absolute', 
-                      top: 10, 
-                      left: 10, 
-                      background: '#4f46e5', 
-                      color: 'white', 
-                      padding: '6px 12px', 
-                      borderRadius: 12, 
-                      fontSize: 10, 
-                      fontWeight: 900,
-                      letterSpacing: 1,
-                      zIndex: 2
-                    }}>
-                      🎬 OPCIÓN 1 - REALISTA
-                    </div>
-                    <div style={{ 
-                      position: 'absolute', 
-                      bottom: 0, 
-                      left: 0, 
-                      right: 0, 
-                      background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', 
-                      padding: '20px 15px 12px', 
-                      color: 'white', 
-                      fontSize: 11, 
-                      fontWeight: 900,
-                      textAlign: 'center',
-                      zIndex: 2
-                    }}>
-                      👆 TOCA PARA ELEGIR ESTA
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* ⭐ IMAGEN 2 - TURBO (estilo diferente) */}
-              <div 
-                className={`ia-card ${form.image_url === iaBlob2 ? 'selected' : ''}`}
-                onClick={() => iaStatus2 === 'loaded' && selectIaImage(iaBlob2)}
-                style={{ marginBottom: 20 }}
-              >
-                {iaStatus2 === 'loading' && (
-                  <div className="shimmer-bg" style={{ 
-                    width: '100%', 
-                    height: 200, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    flexDirection: 'column',
-                    gap: 10
-                  }}>
-                    <Loader2 className="animate-spin" size={30} color="#ec4899"/>
-                    <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-                      Generando OPCIÓN 2 (Estilo creativo)...
-                    </p>
-                  </div>
-                )}
-                {iaStatus2 === 'error' && (
-                  <div style={{ 
-                    width: '100%', 
-                    height: 200, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    flexDirection: 'column',
-                    gap: 10,
-                    background: '#1e293b'
-                  }}>
-                    <X size={30} color="#ef4444"/>
-                    <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-                      Error - Pulsa "Regenerar"
-                    </p>
-                  </div>
-                )}
-                {iaStatus2 === 'loaded' && iaBlob2 && (
-                  <>
-                    <img 
-                      src={iaBlob2}
-                      style={{ width: '100%', height: 200, objectFit: 'cover', display: 'block' }} 
-                      alt="Opción 2"
-                    />
-                    <div style={{ 
-                      position: 'absolute', 
-                      top: 10, 
-                      left: 10, 
-                      background: '#ec4899', 
-                      color: 'white', 
-                      padding: '6px 12px', 
-                      borderRadius: 12, 
-                      fontSize: 10, 
-                      fontWeight: 900,
-                      letterSpacing: 1,
-                      zIndex: 2
-                    }}>
-                      🎨 OPCIÓN 2 - CREATIVA
-                    </div>
-                    <div style={{ 
-                      position: 'absolute', 
-                      bottom: 0, 
-                      left: 0, 
-                      right: 0, 
-                      background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', 
-                      padding: '20px 15px 12px', 
-                      color: 'white', 
-                      fontSize: 11, 
-                      fontWeight: 900,
-                      textAlign: 'center',
-                      zIndex: 2
-                    }}>
-                      👆 TOCA PARA ELEGIR ESTA
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <button 
-                onClick={regenerateIaImages}
-                disabled={iaStatus1 === 'loading' || iaStatus2 === 'loading'}
-                style={{ 
-                  width: '100%', 
-                  padding: 14, 
-                  background: 'transparent', 
-                  color: '#6366f1', 
-                  border: '2px dashed #6366f1', 
-                  borderRadius: 12, 
-                  fontSize: 11, 
-                  fontWeight: 900, 
-                  cursor: (iaStatus1 === 'loading' || iaStatus2 === 'loading') ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  opacity: (iaStatus1 === 'loading' || iaStatus2 === 'loading') ? 0.5 : 1
-                }}
-              >
-                <RefreshCw size={14}/> GENERAR 2 NUEVAS OPCIONES
-              </button>
+              <button onClick={generateImages} style={{ width: '100%', marginTop: 15, padding: 12, border: '2px dashed #6366f1', background: 'none', color: '#6366f1', borderRadius: 10, fontWeight: 900 }}>REGENERAR FOTOS</button>
             </div>
           </div>
         )}
 
-        <nav style={{ position: 'fixed', bottom: 15, left: '50%', transform: 'translateX(-50%)', width: '92%', maxWidth: 400, height: 75, borderRadius: 35, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', zIndex: 3000, background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)' }}>
-          <button onClick={() => {setView('home'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><LayoutList size={26}/></button>
-          <button onClick={() => {setView('favorites'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer' }}><Heart size={26} fill={view === 'favorites' ? "#ef4444" : "none"}/></button>
-          <button onClick={() => {setView('create'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><PlusCircle size={26}/></button>
-          <button onClick={() => {setView('map'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><MapIcon size={26}/></button>
+        {/* NAV INFERIOR */}
+        <nav style={{ position: 'fixed', bottom: 15, left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: 400, height: 70, borderRadius: 30, background: isDark ? 'rgba(15,23,42,0.9)' : 'rgba(255,255,255,0.9)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.3)', zIndex: 100 }}>
+          <LayoutList onClick={() => setView('home')} color={view === 'home' ? '#4f46e5' : '#64748b'} />
+          <PlusCircle onClick={() => setView('create')} color={view === 'create' ? '#4f46e5' : '#64748b'} />
+          <MapIcon onClick={() => setView('map')} color={view === 'map' ? '#4f46e5' : '#64748b'} />
         </nav>
       </div>
     </div>
-   );
+  );
 }
