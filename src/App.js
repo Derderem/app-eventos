@@ -138,14 +138,6 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_ANON_KEY || ''
 );
 
-// ⭐⭐⭐ FUNCIÓN PARA GENERAR URL DE IA (con timestamp único)
-const buildPollinationsUrl = (prompt, seed) => {
-  const cleanPrompt = encodeURIComponent(prompt);
-  // Usamos timestamp único + seed para evitar caché del navegador
-  const timestamp = Date.now() + Math.floor(Math.random() * 10000);
-  return `https://image.pollinations.ai/prompt/${cleanPrompt}?width=800&height=600&seed=${seed}&nologo=true&safe=false&t=${timestamp}`;
-};
-
 export default function App() {
   const [events, setEvents] = useState([]);
   const [favorites, setFavorites] = useState(() => {
@@ -159,13 +151,13 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
   
-  // ⭐ ESTADO IA - 2 fotos completamente independientes
+  // ⭐ ESTADO IA
   const [showIaModal, setShowIaModal] = useState(false);
   const [iaUrl1, setIaUrl1] = useState('');
   const [iaUrl2, setIaUrl2] = useState('');
-  const [iaStatus1, setIaStatus1] = useState('idle'); // idle, loading, loaded, error
+  const [iaStatus1, setIaStatus1] = useState('idle');
   const [iaStatus2, setIaStatus2] = useState('idle');
-  const [generationKey, setGenerationKey] = useState(0); // Para forzar remount
+  const [generationKey, setGenerationKey] = useState(0);
 
   const [form, setForm] = useState({ title: '', city: '', localidad: '', address: '', time: '21:00', date: '', category: 'MUSICA', image_url: '' });
 
@@ -211,31 +203,34 @@ export default function App() {
     setForm({ ...form, [name]: val });
   };
 
-  // ⭐⭐⭐ GENERAR 2 IMÁGENES IA - VERSIÓN DEFINITIVA
+  // ⭐⭐⭐ GENERAR 2 IMÁGENES - CON 2 SERVICIOS DIFERENTES
   const triggerGeneration = () => {
-    const cat = (form.category || 'event').toLowerCase().replace(/\s+/g, ' ');
-    const title = form.title.toLowerCase().substring(0, 60);
+    const cat = (form.category || 'event').toLowerCase();
+    const title = form.title.toLowerCase().substring(0, 50);
     
-    // 2 SEEDS COMPLETAMENTE DIFERENTES Y ALEATORIOS
+    // Seeds totalmente aleatorios
     const seed1 = Math.floor(Math.random() * 999999);
-    const seed2 = Math.floor(Math.random() * 999999) + 1000000; // Garantiza que sean diferentes
+    const seed2 = Math.floor(Math.random() * 999999) + 500000;
+    const timestamp = Date.now();
     
-    // 2 PROMPTS MUY DIFERENTES
-    const prompt1 = `professional event poster ${title} ${cat}, photorealistic, high quality, detailed, vibrant`;
-    const prompt2 = `artistic illustration ${title} ${cat}, digital art, dramatic, colorful, modern design`;
+    // ⭐ SERVICIO 1: Pollinations.ai (estilo realista)
+    const prompt1 = encodeURIComponent(`professional event poster ${title} ${cat}, photorealistic, high quality`);
+    const url1 = `https://image.pollinations.ai/prompt/${prompt1}?width=800&height=600&seed=${seed1}&nologo=true&t=${timestamp}`;
     
-    const url1 = buildPollinationsUrl(prompt1, seed1);
-    const url2 = buildPollinationsUrl(prompt2, seed2);
+    // ⭐ SERVICIO 2: Picsum (placeholder con seed) o Unsplash (REAL y siempre funciona)
+    // Usamos Unsplash Source que devuelve fotos reales según términos de búsqueda
+    const searchTerms = `${cat},event,party,celebration`.replace(/\s+/g, ',');
+    const url2 = `https://source.unsplash.com/800x600/?${encodeURIComponent(searchTerms)}&sig=${seed2}`;
     
-    console.log('🎨 GENERANDO 2 IMÁGENES IA');
-    console.log('📸 URL 1:', url1);
-    console.log('📸 URL 2:', url2);
+    console.log('🎨 GENERANDO 2 IMÁGENES');
+    console.log('📸 URL 1 (Pollinations IA):', url1);
+    console.log('📸 URL 2 (Unsplash):', url2);
     
     setIaUrl1(url1);
     setIaUrl2(url2);
     setIaStatus1('loading');
     setIaStatus2('loading');
-    setGenerationKey(prev => prev + 1); // Fuerza remount de las imágenes
+    setGenerationKey(prev => prev + 1);
   };
 
   const generateAIImages = () => {
@@ -250,7 +245,6 @@ export default function App() {
     setIaStatus1('idle');
     setIaStatus2('idle');
     
-    // Pequeño delay para que el modal se monte
     setTimeout(() => {
       triggerGeneration();
     }, 200);
@@ -263,7 +257,6 @@ export default function App() {
     setIaStatus1('idle');
     setIaStatus2('idle');
     
-    // Delay mayor para garantizar el remount
     setTimeout(() => {
       triggerGeneration();
     }, 300);
@@ -487,7 +480,7 @@ export default function App() {
           )}
         </main>
 
-        {/* ⭐⭐⭐ MODAL IA - VERSIÓN DEFINITIVA ⭐⭐⭐ */}
+        {/* ⭐⭐⭐ MODAL IA - 2 SERVICIOS DIFERENTES ⭐⭐⭐ */}
         {showIaModal && (
           <div style={{ 
             position: 'fixed', 
@@ -511,7 +504,6 @@ export default function App() {
               position: 'relative',
               boxShadow: '0 25px 80px rgba(79, 70, 229, 0.4)'
             }}>
-              {/* Cerrar */}
               <button 
                 onClick={closeIaModal} 
                 style={{ 
@@ -534,21 +526,20 @@ export default function App() {
                 <X size={18}/>
               </button>
 
-              {/* Título */}
               <div style={{ textAlign: 'center', marginBottom: 20 }}>
                 <Sparkles size={32} color="#6366f1" style={{ margin: '0 auto 10px' }}/>
                 <h2 style={{ fontWeight: 900, fontSize: 18, color: isDark ? '#fff' : '#0f172a', marginBottom: 5 }}>
                   ELIGE TU FOTO FAVORITA
                 </h2>
                 <p style={{ fontSize: 11, color: '#6366f1', fontWeight: 700 }}>
-                  2 opciones únicas generadas con IA
+                  IA generada + Foto profesional
                 </p>
                 <p style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, marginTop: 5 }}>
-                  ⏱️ Puede tardar 5-15 segundos
+                  ⏱️ Puede tardar unos segundos
                 </p>
               </div>
 
-              {/* ⭐ IMAGEN 1 - Con KEY único para forzar remount */}
+              {/* ⭐ IMAGEN 1 - POLLINATIONS IA */}
               <div 
                 className={`ia-card ${form.image_url === iaUrl1 ? 'selected' : ''}`}
                 onClick={() => iaStatus1 === 'loaded' && selectIaImage(iaUrl1)}
@@ -569,7 +560,7 @@ export default function App() {
                   }}>
                     <Loader2 className="animate-spin" size={30} color="#6366f1"/>
                     <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-                      Generando OPCIÓN 1...
+                      Generando con IA...
                     </p>
                   </div>
                 )}
@@ -600,9 +591,9 @@ export default function App() {
                       objectFit: 'cover', 
                       display: iaStatus1 === 'loaded' ? 'block' : 'none' 
                     }} 
-                    alt="Opción 1"
+                    alt="Opción 1 IA"
                     onLoad={() => {
-                      console.log('✅ IMAGEN 1 CARGADA');
+                      console.log('✅ IMAGEN 1 (IA) CARGADA');
                       setIaStatus1('loaded');
                     }}
                     onError={() => {
@@ -626,7 +617,7 @@ export default function App() {
                       letterSpacing: 1,
                       zIndex: 2
                     }}>
-                      🎬 OPCIÓN 1
+                      🤖 OPCIÓN 1 - IA
                     </div>
                     <div style={{ 
                       position: 'absolute', 
@@ -647,7 +638,7 @@ export default function App() {
                 )}
               </div>
 
-              {/* ⭐ IMAGEN 2 - Con KEY único para forzar remount */}
+              {/* ⭐ IMAGEN 2 - UNSPLASH (foto profesional real) */}
               <div 
                 className={`ia-card ${form.image_url === iaUrl2 ? 'selected' : ''}`}
                 onClick={() => iaStatus2 === 'loaded' && selectIaImage(iaUrl2)}
@@ -668,7 +659,7 @@ export default function App() {
                   }}>
                     <Loader2 className="animate-spin" size={30} color="#ec4899"/>
                     <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-                      Generando OPCIÓN 2...
+                      Buscando foto profesional...
                     </p>
                   </div>
                 )}
@@ -699,9 +690,9 @@ export default function App() {
                       objectFit: 'cover', 
                       display: iaStatus2 === 'loaded' ? 'block' : 'none' 
                     }} 
-                    alt="Opción 2"
+                    alt="Opción 2 Unsplash"
                     onLoad={() => {
-                      console.log('✅ IMAGEN 2 CARGADA');
+                      console.log('✅ IMAGEN 2 (Unsplash) CARGADA');
                       setIaStatus2('loaded');
                     }}
                     onError={() => {
@@ -725,7 +716,7 @@ export default function App() {
                       letterSpacing: 1,
                       zIndex: 2
                     }}>
-                      🎨 OPCIÓN 2
+                      📸 OPCIÓN 2 - PROFESIONAL
                     </div>
                     <div style={{ 
                       position: 'absolute', 
@@ -746,7 +737,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* Botón regenerar */}
               <button 
                 onClick={regenerateIaImages}
                 style={{ 
