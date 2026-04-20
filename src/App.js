@@ -11,7 +11,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// ✅ UNICO CAMBIO 1: Añadidas estas 2 lineas para quitar lineas blancas del mapa
+// ESTILOS CON FIX PARA LINEAS BLANCAS DEL MAPA
 // ============================================================
 const globalStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
@@ -22,10 +22,19 @@ const globalStyles = `
     width: 100% !important;
     border: none !important;
   }
-
-  .leaflet-tile { border: none !important; outline: none !important; transform: translateZ(0); }
-  .leaflet-tile-container { filter: none !important; }
-
+  
+  /* FIX LINEAS BLANCAS EN MAPA (especialmente móvil) */
+  .leaflet-tile { 
+    border: none !important; 
+    outline: none !important;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+  .leaflet-tile-container {
+    filter: none !important;
+    will-change: transform;
+  }
+  
   .leaflet-container img { max-width: none !important; max-height: none !important; }
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -95,10 +104,19 @@ export default function App() {
   useEffect(() => {
     fetchEvents();
     localStorage.setItem('eventora_favs_v4', JSON.stringify(favorites));
-    supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user.id === '4d76c965-66de-491d-8cc1-6d37096262c9') setProfile({ role: 'admin' });
-      else setProfile(null);
+    
+    // Escuchar cambios de auth
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
+        setProfile({ role: 'admin' });
+      } else {
+        setProfile(null);
+      }
     });
+    
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
   }, [favorites]);
 
   const fetchEvents = async () => {
@@ -117,11 +135,18 @@ export default function App() {
     setForm({ ...form, [name]: val });
   };
 
+  // ✅ GENERAR UNA SOLA FOTO IA REALISTA BASADA EN EL TÍTULO
   const generateAIImage = () => {
     if (!form.title) return alert("Escribe un título primero");
     setIsGenerating(true);
+    
+    // Usamos el título del evento en el prompt para que la imagen sea relevante
+    const title = encodeURIComponent(form.title);
     const seed = Math.floor(Math.random() * 999999);
-    const url = `https://image.pollinations.ai/prompt/professional_event_photography_${encodeURIComponent(form.title)}?width=800&height=600&seed=${seed}&nologo=true&t=${Date.now()}`;
+    const timestamp = Date.now();
+    
+    const url = `https://image.pollinations.ai/prompt/professional_event_photography_${title}_realistic_high_quality?width=800&height=600&seed=${seed}&nologo=true&t=${timestamp}`;
+    
     setForm({ ...form, image_url: url });
     setTimeout(() => setIsGenerating(false), 2000);
   };
@@ -157,19 +182,24 @@ export default function App() {
 
       <div style={{ position: 'relative', zIndex: 10, width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
         
-        {/* NAV SUPERIOR */}
+        {/* NAV SUPERIOR - GAP AUMENTADO PARA QUE EL ESCUDO QUEPA EN MÓVIL */}
         <nav style={{ height: 65, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,0.2)', background: isDark ? '#0f172a' : '#fff' }}>
           <div style={{ cursor: 'pointer' }} onClick={() => {setView('home'); setSelectedEvent(null);}}><LogoSVG /></div>
-
-          {/* ✅ UNICO CAMBIO 2: gap cambiado de 15 a 22 para que entre el escudo en movil */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
+          
+          {/* GAP: 24px para asegurar que el escudo se vea en móvil */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
             {profile?.role === 'admin' && (
-              <ShieldCheck size={28} className={events.filter(e => e.status === 'pending').length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1', cursor: 'pointer' }} onClick={() => setView('admin')} />
+              <ShieldCheck 
+                size={28} 
+                className={events.filter(e => e.status === 'pending').length > 0 ? 'pulse-admin' : ''} 
+                style={{ color: '#6366f1', cursor: 'pointer', flexShrink: 0 }} 
+                onClick={() => setView('admin')} 
+              />
             )}
-            <button onClick={() => setIsDark(!isDark)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
+            <button onClick={() => setIsDark(!isDark)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexShrink: 0 }}>
                {isDark ? <Sun size={24} color="#facc15" /> : <Moon size={24} color="#4f46e5" />}
             </button>
-            <Sparkles size={24} color="#6366f1" style={{ cursor: 'pointer' }} onClick={() => setView('profile')} />
+            <Sparkles size={24} color="#6366f1" style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => setView('profile')} />
           </div>
         </nav>
 
