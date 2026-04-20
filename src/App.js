@@ -11,7 +11,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// ESTILOS CON FIX PARA LINEAS BLANCAS DEL MAPA
+// ESTILOS - FIX DEFINITIVO PARA LAS LÍNEAS BLANCAS DEL MAPA
 // ============================================================
 const globalStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
@@ -21,18 +21,32 @@ const globalStyles = `
     height: 100% !important; 
     width: 100% !important;
     border: none !important;
+    outline: none !important;
   }
   
-  /* FIX LINEAS BLANCAS EN MAPA (especialmente móvil) */
-  .leaflet-tile { 
-    border: none !important; 
-    outline: none !important;
-    transform: translateZ(0);
-    backface-visibility: hidden;
-  }
-  .leaflet-tile-container {
+  /* ✅ FIX COMPLETO LÍNEAS BLANCAS - TODOS LOS ELEMENTOS DE LEAFLET */
+  .leaflet-pane,
+  .leaflet-tile,
+  .leaflet-marker-icon,
+  .leaflet-marker-shadow,
+  .leaflet-tile-container,
+  .leaflet-pane > svg,
+  .leaflet-pane > canvas,
+  .leaflet-zoom-box,
+  .leaflet-image-layer,
+  .leaflet-layer {
     filter: none !important;
+    -webkit-filter: none !important;
+  }
+  
+  .leaflet-tile {
+    border: none !important;
+    outline: none !important;
+    border-radius: 0 !important;
+    -webkit-transform: translateZ(0) scale(1) !important;
+    transform: translateZ(0) scale(1) !important;
     will-change: transform;
+    backface-visibility: hidden;
   }
   
   .leaflet-container img { max-width: none !important; max-height: none !important; }
@@ -100,17 +114,41 @@ export default function App() {
   const [mapCenter, setMapCenter] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [form, setForm] = useState({ title: '', city: '', localidad: '', address: '', time: '21:00', date: '', category: 'MUSICA', image_url: '' });
+  const [debugInfo, setDebugInfo] = useState(null); // ✅ PARA VER POR QUÉ NO SALE EL ESCUDO
 
+  // ✅ EFECTO PARA DEBUGEAR EL ESCUDO DE ADMIN
   useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        console.log('📌 USER ID:', session.user.id);
+        console.log('📌 ADMIN ID:', '4d76c965-66de-491d-8cc1-6d37096262c9');
+        console.log('📌 MATCH:', session.user.id === '4d76c965-66de-491d-8cc1-6d37096262c9');
+        
+        setDebugInfo({
+          userId: session.user.id,
+          isAdmin: session.user.id === '4d76c965-66de-491d-8cc1-6d37096262c9'
+        });
+      } else {
+        console.log('📌 NO HAY SESIÓN DE USUARIO');
+        setDebugInfo({ userId: 'sin-sesión', isAdmin: false });
+      }
+    };
+    
+    checkAdmin();
+    
     fetchEvents();
     localStorage.setItem('eventora_favs_v4', JSON.stringify(favorites));
     
-    // Escuchar cambios de auth
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔐 EVENTO AUTH:', event);
       if (session?.user?.id === '4d76c965-66de-491d-8cc1-6d37096262c9') {
         setProfile({ role: 'admin' });
+        console.log('✅ ADMINISTRADOR DETECTADO');
       } else {
         setProfile(null);
+        console.log('❌ NO ES ADMINISTRADOR');
       }
     });
     
@@ -135,12 +173,10 @@ export default function App() {
     setForm({ ...form, [name]: val });
   };
 
-  // ✅ GENERAR UNA SOLA FOTO IA REALISTA BASADA EN EL TÍTULO
   const generateAIImage = () => {
     if (!form.title) return alert("Escribe un título primero");
     setIsGenerating(true);
     
-    // Usamos el título del evento en el prompt para que la imagen sea relevante
     const title = encodeURIComponent(form.title);
     const seed = Math.floor(Math.random() * 999999);
     const timestamp = Date.now();
@@ -180,32 +216,60 @@ export default function App() {
     <div className={isDark ? "dark-theme" : "light-theme"} style={{ margin: 0, padding: 0, width: '100vw', height: '100vh', overflow: 'hidden' }}>
       <style>{globalStyles}</style>
 
+      {/* ✅ BOTÓN DE DEBUG EN MOVIL PARA VER SI SE VE O NO */}
+      {view === 'map' && debugInfo && (
+        <div style={{ position: 'fixed', bottom: 100, right: 10, zIndex: 5000, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '5px 10px', borderRadius: 8, fontSize: 9, maxWidth: '200px' }}>
+          <strong>DEBUG:</strong><br/>ID: {debugInfo.userId}<br/>Admin: {debugInfo.isAdmin ? 'SÍ' : 'NO'}
+        </div>
+      )}
+
       <div style={{ position: 'relative', zIndex: 10, width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
         
-        {/* NAV SUPERIOR - GAP AUMENTADO PARA QUE EL ESCUDO QUEPA EN MÓVIL */}
+        {/* NAV SUPERIOR - GAP AUMENTADO + FLEXSHINK PARA QUE EL ESCUDO QUEDE VISIBLE */}
         <nav style={{ height: 65, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,0.2)', background: isDark ? '#0f172a' : '#fff' }}>
           <div style={{ cursor: 'pointer' }} onClick={() => {setView('home'); setSelectedEvent(null);}}><LogoSVG /></div>
           
-          {/* GAP: 24px para asegurar que el escudo se vea en móvil */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          {/* GAP: 28px para asegurar espacio suficiente en cualquier pantalla */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
             {profile?.role === 'admin' && (
               <ShieldCheck 
                 size={28} 
                 className={events.filter(e => e.status === 'pending').length > 0 ? 'pulse-admin' : ''} 
-                style={{ color: '#6366f1', cursor: 'pointer', flexShrink: 0 }} 
+                style={{ 
+                  color: '#6366f1', 
+                  cursor: 'pointer', 
+                  flexShrink: 0,
+                  minWidth: 28,
+                  marginTop: 0,
+                  marginBottom: 0
+                }} 
                 onClick={() => setView('admin')} 
               />
             )}
-            <button onClick={() => setIsDark(!isDark)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexShrink: 0 }}>
+            
+            <button onClick={() => setIsDark(!isDark)} style={{ 
+              background: 'none', 
+              border: 'none', 
+              cursor: 'pointer', 
+              display: 'flex', 
+              flexShrink: 0,
+              minWidth: 24
+            }}>
                {isDark ? <Sun size={24} color="#facc15" /> : <Moon size={24} color="#4f46e5" />}
             </button>
-            <Sparkles size={24} color="#6366f1" style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => setView('profile')} />
+            
+            <Sparkles 
+              size={24} 
+              color="#6366f1" 
+              style={{ cursor: 'pointer', flexShrink: 0, minWidth: 24 }} 
+              onClick={() => setView('profile')} 
+            />
           </div>
         </nav>
 
         <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           
-          {/* VISTA MAPA */}
+          {/* VISTA MAPA - CON FIX CSS TOTAL */}
           {view === 'map' && (
             <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: '#aad3df' }}>
               <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
