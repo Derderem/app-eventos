@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, X, Trash2, Map as MapIcon,
   Clock, LayoutList, ShieldCheck, Sparkles, Loader2,
-  CheckCircle2, ArrowLeft, Search, RefreshCw
+  CheckCircle2, ArrowLeft, Search
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// ESTILOS GLOBALES
+// ESTILOS GLOBALES - FIX LINEAS BLANCAS MAPA MOVIL
 // ============================================================
 const globalStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
@@ -23,9 +23,9 @@ const globalStyles = `
     overflow: hidden !important;
   }
 
-  .leaflet-container {
-    background: #aad3df !important;
-    height: 100% !important;
+  .leaflet-container { 
+    background: #aad3df !important; 
+    height: 100% !important; 
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -38,8 +38,19 @@ const globalStyles = `
     bottom: 0 !important;
   }
 
-  .leaflet-tile { outline: 1px solid transparent; }
-  .leaflet-container img { max-width: none !important; max-height: none !important; }
+  /* ✅ FIX TOTAL LINEAS BLANCAS EN MOVIL */
+  .leaflet-tile { 
+    border: none !important;
+    outline: none !important;
+    filter: none !important;
+    transform: translateZ(0);
+  }
+
+  .leaflet-tile-container {
+    filter: none !important;
+    will-change: transform;
+  }
+
   .leaflet-control-attribution {
     font-size: 9px !important;
     background: rgba(255,255,255,0.7) !important;
@@ -82,32 +93,6 @@ const globalStyles = `
     to { opacity: 1; transform: scale(1); }
   }
   .fade-in { animation: fadeIn 0.25s ease-out; }
-
-  @keyframes shimmerAnim {
-    0% { background-position: -600px 0; }
-    100% { background-position: 600px 0; }
-  }
-  .shimmer-bg {
-    background: linear-gradient(90deg, #1e293b 0%, #334155 50%, #1e293b 100%);
-    background-size: 600px 100%;
-    animation: shimmerAnim 1.5s infinite linear;
-  }
-
-  .ia-card {
-    border: 3px solid transparent;
-    border-radius: 20px;
-    overflow: hidden;
-    position: relative;
-    background: #1e293b;
-    min-height: 190px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .ia-card:hover {
-    border-color: #6366f1;
-    transform: scale(1.01);
-  }
 `;
 
 // ============================================================
@@ -152,37 +137,7 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_ANON_KEY || ''
 );
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
 const randomSeed = () => Math.floor(Math.random() * 999999999);
-
-const buildPollinationsUrl = (prompt, seed) => {
-  const unique = `${Date.now()}-${seed}-${Math.floor(Math.random() * 99999)}`;
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&nologo=true&t=${unique}`;
-};
-
-// Precarga REAL de la imagen antes de mostrarla
-const preloadImage = (url, timeout = 45000) =>
-  new Promise((resolve, reject) => {
-    const img = new Image();
-    const timer = setTimeout(() => {
-      img.onload = null;
-      img.onerror = null;
-      reject(new Error('timeout'));
-    }, timeout);
-
-    img.onload = () => {
-      clearTimeout(timer);
-      resolve(url);
-    };
-
-    img.onerror = () => {
-      clearTimeout(timer);
-      reject(new Error('load-error'));
-    };
-
-    img.src = url;
-  });
 
 export default function App() {
   const [events, setEvents] = useState([]);
@@ -196,15 +151,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('TODOS');
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
-
-  // IA
-  const generationRef = useRef(0);
-  const [showIaModal, setShowIaModal] = useState(false);
-  const [iaUrl1, setIaUrl1] = useState('');
-  const [iaUrl2, setIaUrl2] = useState('');
-  const [iaStatus1, setIaStatus1] = useState('idle'); // idle loading loaded error
-  const [iaStatus2, setIaStatus2] = useState('idle');
-  const [isIaBusy, setIsIaBusy] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const [form, setForm] = useState({
     title: '',
@@ -288,136 +235,33 @@ export default function App() {
     }
   };
 
-  // ==========================================================
-  // IA HELPERS
-  // ==========================================================
-  const buildPromptRealista = () => {
-    const title = form.title.trim();
-    const city = form.city.trim();
-    const category = form.category.toLowerCase().replace(/_/g, ' ');
-    return `${title}, ${category} event in ${city || 'Spain'}, professional event photography, realistic, vibrant lights, detailed, high quality`;
-  };
-
-  const buildPromptCreativaA = () => {
-    const title = form.title.trim();
-    const city = form.city.trim();
-    const category = form.category.toLowerCase().replace(/_/g, ' ');
-    return `${title}, ${category} event poster in ${city || 'Spain'}, cinematic, colorful, creative composition, detailed`;
-  };
-
-  const buildPromptCreativaB = () => {
-    const title = form.title.trim();
-    const city = form.city.trim();
-    const category = form.category.toLowerCase().replace(/_/g, ' ');
-    return `${title}, ${category} festival poster in ${city || 'Spain'}, artistic, dramatic lights, vibrant, modern event design`;
-  };
-
-  const buildPromptCreativaC = () => {
-    const title = form.title.trim();
-    const city = form.city.trim();
-    const category = form.category.toLowerCase().replace(/_/g, ' ');
-    return `${title}, ${category} celebration poster in ${city || 'Spain'}, digital art, colorful event scene, eye-catching composition`;
-  };
-
-  const preloadWithRetries = async ({ urls, setUrl, setStatus, generationId }) => {
-    for (let i = 0; i < urls.length; i++) {
-      if (generationRef.current !== generationId) return null;
-
-      const currentUrl = urls[i];
-      setUrl(currentUrl);
-      setStatus('loading');
-
-      try {
-        await preloadImage(currentUrl, 40000);
-        if (generationRef.current !== generationId) return null;
-        setStatus('loaded');
-        return currentUrl;
-      } catch (err) {
-        console.error(`Intento ${i + 1} fallido`, err);
-        if (i < urls.length - 1) {
-          await sleep(1400);
-        }
-      }
-    }
-
-    if (generationRef.current === generationId) {
-      setStatus('error');
-    }
-    return null;
-  };
-
-  const startAiGeneration = async () => {
+  // ✅ GENERAR 1 SOLA FOTO IA REALISTA
+  const generateAIImage = () => {
     if (!form.title.trim()) {
-      alert('Escribe un título primero');
+      alert("Escribe un título primero");
       return;
     }
 
-    generationRef.current += 1;
-    const generationId = generationRef.current;
+    setIsGenerating(true);
 
-    setShowIaModal(true);
-    setIsIaBusy(true);
+    const title = form.title.trim();
+    const city = form.city.trim();
+    const category = form.category.toLowerCase().replace(/_/g, ' ');
 
-    setIaUrl1('');
-    setIaUrl2('');
-    setIaStatus1('loading');
-    setIaStatus2('idle');
+    const prompt = `${title}, ${category} event in ${city || 'Spain'}, professional event photography, realistic, high quality, vibrant`;
+    const seed = randomSeed();
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&nologo=true&t=${Date.now()}`;
 
-    const url1Candidates = [
-      buildPollinationsUrl(buildPromptRealista(), randomSeed()),
-      buildPollinationsUrl(buildPromptRealista(), randomSeed()),
-    ];
-
-    const firstLoaded = await preloadWithRetries({
-      urls: url1Candidates,
-      setUrl: setIaUrl1,
-      setStatus: setIaStatus1,
-      generationId
-    });
-
-    if (generationRef.current !== generationId) return;
-
-    await sleep(1600);
-
-    setIaStatus2('loading');
-
-    const url2Candidates = [
-      buildPollinationsUrl(buildPromptCreativaA(), randomSeed()),
-      buildPollinationsUrl(buildPromptCreativaB(), randomSeed()),
-      buildPollinationsUrl(buildPromptCreativaC(), randomSeed()),
-    ];
-
-    await preloadWithRetries({
-      urls: url2Candidates,
-      setUrl: setIaUrl2,
-      setStatus: setIaStatus2,
-      generationId
-    });
-
-    if (generationRef.current === generationId) {
-      setIsIaBusy(false);
-    }
-  };
-
-  const generateAIImages = () => {
-    startAiGeneration();
-  };
-
-  const regenerateIaImages = () => {
-    startAiGeneration();
-  };
-
-  const selectIaImage = (url) => {
-    setForm({ ...form, image_url: url });
-    generationRef.current += 1;
-    setIsIaBusy(false);
-    setShowIaModal(false);
-  };
-
-  const closeIaModal = () => {
-    generationRef.current += 1;
-    setIsIaBusy(false);
-    setShowIaModal(false);
+    const img = new Image();
+    img.onload = () => {
+      setForm({ ...form, image_url: url });
+      setIsGenerating(false);
+    };
+    img.onerror = () => {
+      alert("Error generando la imagen, inténtalo de nuevo");
+      setIsGenerating(false);
+    };
+    img.src = url;
   };
 
   const today = new Date().toISOString().split('T')[0];
@@ -426,107 +270,16 @@ export default function App() {
   const favoriteEvents = publicEvents.filter(e => favorites.includes(e.id));
   const citiesList = [...new Set(publicEvents.map(e => e.city))];
 
-  const renderIaCard = (url, status, label, accent) => (
-    <div
-      className="ia-card"
-      onClick={() => status === 'loaded' && selectIaImage(url)}
-      style={{ marginBottom: 14 }}
-    >
-      {status === 'loading' && (
-        <div
-          className="shimmer-bg"
-          style={{
-            width: '100%',
-            height: 190,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'column',
-            gap: 8
-          }}
-        >
-          <Loader2 className="animate-spin" size={30} color={accent} />
-          <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-            Generando {label}...
-          </p>
-        </div>
-      )}
-
-      {status === 'error' && (
-        <div
-          style={{
-            width: '100%',
-            height: 190,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'column',
-            gap: 8,
-            background: '#1e293b'
-          }}
-        >
-          <X size={28} color="#ef4444" />
-          <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>
-            No se pudo generar
-          </p>
-        </div>
-      )}
-
-      {status === 'loaded' && url && (
-        <>
-          <img
-            src={url}
-            style={{ width: '100%', height: 190, objectFit: 'cover', display: 'block' }}
-            alt={label}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              top: 10,
-              left: 10,
-              background: accent,
-              color: 'white',
-              padding: '6px 12px',
-              borderRadius: 12,
-              fontSize: 10,
-              fontWeight: 900,
-              zIndex: 2
-            }}
-          >
-            {label}
-          </div>
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
-              padding: '18px 12px 10px',
-              color: 'white',
-              fontSize: 10,
-              fontWeight: 900,
-              textAlign: 'center',
-              zIndex: 2
-            }}
-          >
-            👆 TOCA PARA ELEGIR ESTA
-          </div>
-        </>
-      )}
-    </div>
-  );
-
   return (
     <div className={isDark ? "dark-theme" : "light-theme"} style={{ margin: 0, padding: 0, width: '100vw', height: '100vh', overflow: 'hidden' }}>
       <style>{globalStyles}</style>
 
       <div style={{ position: 'relative', zIndex: 10, width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
         
-        {/* NAV SUPERIOR */}
+        {/* ✅ NAV SUPERIOR - FIX GAP PARA QUE APAREZCA EL ESCUDO EN MOVIL */}
         <nav style={{ height: 65, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,0.2)', background: isDark ? '#0f172a' : '#fff' }}>
           <div style={{ cursor: 'pointer' }} onClick={() => {setView('home'); setSelectedEvent(null);}}><LogoSVG /></div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
             {profile?.role === 'admin' && (
               <ShieldCheck size={28} className={events.filter(e => e.status === 'pending').length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1', cursor: 'pointer' }} onClick={() => setView('admin')} />
             )}
@@ -655,9 +408,10 @@ export default function App() {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <button onClick={generateAIImages} style={{ padding: 12, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, cursor: 'pointer' }}>
-                    <Sparkles size={14}/> IA FOTO
+                  <button onClick={generateAIImage} disabled={isGenerating} style={{ padding: 12, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, cursor: isGenerating ? 'not-allowed' : 'pointer', opacity: isGenerating ? 0.7 : 1 }}>
+                    {isGenerating ? <Loader2 className="animate-spin" size={14}/> : <Sparkles size={14}/>} IA FOTO
                   </button>
+
                   <label style={{ padding: 12, background: '#1e293b', color: 'white', textAlign:'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>
                     GALERÍA
                     <input type="file" style={{display:'none'}} onChange={handleGalleryUpload}/>
@@ -726,55 +480,7 @@ export default function App() {
           )}
         </main>
 
-        {/* MODAL IA */}
-        {showIaModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 5000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, backdropFilter: 'blur(8px)' }}>
-            <div className="fade-in" style={{ background: isDark ? '#0f172a' : '#fff', borderRadius: 30, padding: 25, width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 25px 80px rgba(79, 70, 229, 0.4)' }}>
-              <button onClick={closeIaModal} style={{ position: 'absolute', top: 15, right: 15, background: isDark ? '#1e293b' : '#f1f5f9', border: 'none', borderRadius: '50%', width: 35, height: 35, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isDark ? '#fff' : '#0f172a', zIndex: 10 }}>
-                <X size={18}/>
-              </button>
-
-              <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                <Sparkles size={32} color="#6366f1" style={{ margin: '0 auto 10px' }}/>
-                <h2 style={{ fontWeight: 900, fontSize: 18, color: isDark ? '#fff' : '#0f172a', marginBottom: 5 }}>
-                  ELIGE TU FOTO FAVORITA
-                </h2>
-                <p style={{ fontSize: 11, color: '#6366f1', fontWeight: 700 }}>
-                  Se generan de una en una para evitar fallos
-                </p>
-              </div>
-
-              {renderIaCard(iaUrl1, iaStatus1, 'OPCIÓN 1 - REALISTA', '#4f46e5')}
-              {renderIaCard(iaUrl2, iaStatus2, 'OPCIÓN 2 - CREATIVA', '#ec4899')}
-
-              <button
-                onClick={regenerateIaImages}
-                disabled={isIaBusy}
-                style={{
-                  width: '100%',
-                  padding: 14,
-                  background: 'transparent',
-                  color: '#6366f1',
-                  border: '2px dashed #6366f1',
-                  borderRadius: 12,
-                  fontSize: 11,
-                  fontWeight: 900,
-                  cursor: isIaBusy ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  opacity: isIaBusy ? 0.5 : 1,
-                  marginTop: 6
-                }}
-              >
-                <RefreshCw size={14}/> GENERAR 2 NUEVAS OPCIONES
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* BOTONERA INFERIOR ORIGINAL */}
+        {/* BOTONERA INFERIOR */}
         <nav style={{ position: 'fixed', bottom: 15, left: '50%', transform: 'translateX(-50%)', width: '92%', maxWidth: 400, height: 75, borderRadius: 35, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', zIndex: 3000, background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)' }}>
           <button onClick={() => {setView('home'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
             <LayoutList size={26}/>
