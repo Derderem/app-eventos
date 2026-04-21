@@ -146,7 +146,6 @@ export default function App() {
     const seed = Math.floor(Math.random() * 999999);
     const timestamp = Date.now();
     
-    // URL robusta para generar la foto
     const url = `https://image.pollinations.ai/prompt/professional_event_photography_${title}_realistic_high_quality?width=800&height=600&seed=${seed}&nologo=true&t=${timestamp}`;
     
     setForm({ ...form, image_url: url });
@@ -196,9 +195,11 @@ export default function App() {
         <nav style={{ height: 65, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 15px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,0.2)', background: isDark ? '#0f172a' : '#fff' }}>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-            <div style={{ cursor: 'pointer' }} onClick={() => {setView('home'); setSelectedEvent(null);}}><LogoSVG /></div>
+            <div style={{ cursor: 'pointer' }} onClick={() => {setView('home'); setSelectedEvent(null);}}>
+              <LogoSVG />
+            </div>
             
-            {/* EL ESCUDO SE HEMOS MOVIDO AQUI. Nunca se ocultará */}
+            {/* EL ESCUDO SE HA MOVIDO AQUI. Nunca se ocultará */}
             {profile?.role === 'admin' && (
               <ShieldCheck 
                 size={24} 
@@ -236,7 +237,9 @@ export default function App() {
                 <MapResizer center={mapCenter} />
                 <TileLayer url="https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}" attribution='&copy; Google Maps' maxZoom={20} subdomains={['mt0','mt1','mt2','mt3']} />
                 {publicEvents.map(ev => ev.lat && ev.lng && (
-                  <Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><b>{ev.title}</b><br/>{ev.city}</Popup></Marker>
+                  <Marker key={ev.id} position={[ev.lat, ev.lng]}>
+                    <Popup><b>{ev.title}</b><br/>{ev.city}</Popup>
+                  </Marker>
                 ))}
               </MapContainer>
             </div>
@@ -273,14 +276,20 @@ export default function App() {
           {/* DETALLES */}
           {selectedEvent && (
             <div className="no-scrollbar" style={{ padding: 20, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
-              <button onClick={() => setSelectedEvent(null)} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 8, marginBottom: 20, cursor: 'pointer' }}><ArrowLeft/> VOLVER</button>
+              <button onClick={() => setSelectedEvent(null)} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 8, marginBottom: 20, cursor: 'pointer' }}>
+                <ArrowLeft/> VOLVER
+              </button>
               <div className={isDark ? "card-dark" : "card-light"} style={{ borderRadius: 30, overflow: 'hidden', padding: 0 }}>
                 <img src={selectedEvent.image_url} style={{ width: '100%', height: 250, objectFit: 'cover' }} alt="" />
                 <div style={{ padding: 25 }}>
                   <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 15 }}>{selectedEvent.title}</h2>
                   <div style={{ display: 'grid', gap: 15 }}>
-                    <div style={{ display: 'flex', gap: 10 }}><Calendar color="#6366f1"/> <b>{selectedEvent.date}</b></div>
-                    <div style={{ display: 'flex', gap: 10 }}><Clock color="#6366f1"/> <b>{selectedEvent.time}H</b></div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <Calendar color="#6366f1"/> <b>{selectedEvent.date}</b>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <Clock color="#6366f1"/> <b>{selectedEvent.time}H</b>
+                    </div>
                     <div onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.localidad + ' ' + selectedEvent.city)}`)} style={{ background: 'rgba(99,102,241,0.1)', padding: 20, borderRadius: 15, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1' }}>
                       <MapPin color="#6366f1" style={{margin:'0 auto 5px'}}/> <br/> <b>{selectedEvent.address}, {selectedEvent.localidad} - {selectedEvent.city}</b> <br/>
                       <span style={{fontSize:10, color:'#2563eb', fontWeight: 900}}>INICIAR GPS (GOOGLE MAPS)</span>
@@ -333,8 +342,13 @@ export default function App() {
                 favoriteEvents.map(ev => (
                   <div key={ev.id} className={isDark ? "card-dark" : "card-light"} style={{ display: 'flex', gap: 15, padding: 15, borderRadius: 25, marginBottom: 12, alignItems: 'center' }}>
                     <img src={ev.image_url} style={{ width: 60, height: 60, borderRadius: 15, objectFit: 'cover' }} alt="" />
-                    <div style={{ flex: 1 }}><p style={{ fontWeight: 900 }}>{ev.title}</p><p style={{ fontSize: 10, color: '#6366f1' }}>{ev.city}</p></div>
-                    <button onClick={() => toggleFavorite(ev.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={22}/></button>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontWeight: 900 }}>{ev.title}</p>
+                      <p style={{ fontSize: 10, color: '#6366f1' }}>{ev.city}</p>
+                    </div>
+                    <button onClick={() => toggleFavorite(ev.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
+                      <Trash2 size={22}/>
+                    </button>
                   </div>
                 ))
               )}
@@ -357,10 +371,18 @@ export default function App() {
         </main>
 
         <nav style={{ position: 'fixed', bottom: 15, left: '50%', transform: 'translateX(-50%)', width: '92%', maxWidth: 400, height: 75, borderRadius: 35, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', zIndex: 3000, background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)' }}>
-          <button onClick={() => {setView('home'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><LayoutList size={26}/></button>
-          <button onClick={() => {setView('favorites'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer' }}><Heart size={26} fill={view === 'favorites' ? "#ef4444" : "none"}/></button>
-          <button onClick={() => {setView('create'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><PlusCircle size={26}/></button>
-          <button onClick={() => {setView('map'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><MapIcon size={26}/></button>
+          <button onClick={() => {setView('home'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+            <LayoutList size={26}/>
+          </button>
+          <button onClick={() => {setView('favorites'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer' }}>
+            <Heart size={26} fill={view === 'favorites' ? "#ef4444" : "none"}/>
+          </button>
+          <button onClick={() => {setView('create'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+            <PlusCircle size={26}/>
+          </button>
+          <button onClick={() => {setView('map'); setSelectedEvent(null);}} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+            <MapIcon size={26}/>
+          </button>
         </nav>
       </div>
     </div>
