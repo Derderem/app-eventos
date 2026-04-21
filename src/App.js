@@ -11,10 +11,15 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ============================================================
-// ESTILOS CON FIX PARA LINEAS BLANCAS DEL MAPA
+// ESTILOS GLOBALES - CON FIX DEFINITIVO PARA MAPA Y NAV
 // ============================================================
 const globalStyles = `
-  * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    transition: background-color 0.3s, color 0.3s;
+  }
 
   html, body, #root {
     margin: 0 !important;
@@ -24,40 +29,21 @@ const globalStyles = `
     overflow: hidden !important;
   }
 
-  .leaflet-container {
-    background-color: #aad3df !important;
-    height: 100% !important;
-    width: 100% !important;
-    border: none !important;
-    outline: none !important;
+  /* ✅ FIX LÍNEAS BLANCAS MAPA MÓVIL */
+  .leaflet-tile-container {
     transform: translateZ(0);
+    will-change: transform;
   }
-
-  /* FIX DEFINITIVO LÍNEAS BLANCAS EN MÓVIL */
   .leaflet-tile {
-    border: none !important;
+    transform-origin: center center !important;
+    transform: scale(1.005) translateZ(0) !important; /* Ligero zoom para tapar huecos */
     outline: 1px solid transparent !important;
-    backface-visibility: hidden !important;
-    -webkit-backface-visibility: hidden !important;
-    transform: translateZ(0) !important;
-  }
-
-  .leaflet-tile-container,
-  .leaflet-pane,
-  .leaflet-overlay-pane,
-  .leaflet-shadow-pane,
-  .leaflet-marker-pane,
-  .leaflet-popup-pane {
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
   }
 
   .leaflet-container img {
     max-width: none !important;
     max-height: none !important;
   }
-
   .leaflet-control-attribution {
     font-size: 9px !important;
     background: rgba(255,255,255,0.7) !important;
@@ -68,19 +54,8 @@ const globalStyles = `
 
   .dark-theme { background-color: #020617; color: white; }
   .light-theme { background-color: #f8fafc; color: #0f172a; }
-
-  .card-dark {
-    background-color: #0f172a;
-    border: 1px solid #1e293b;
-    color: white;
-  }
-
-  .card-light {
-    background-color: white;
-    border: 1px solid #e2e8f0;
-    color: #0f172a;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  }
+  .card-dark { background-color: #0f172a; border: 1px solid #1e293b; color: white; }
+  .card-light { background-color: white; border: 1px solid #e2e8f0; color: #0f172a; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
   @keyframes admin-pulse {
     0% { transform: scale(1); color: #818cf8; }
@@ -91,7 +66,7 @@ const globalStyles = `
 `;
 
 // ============================================================
-// LEAFLET ICON FIX
+// HELPERS
 // ============================================================
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -107,7 +82,7 @@ function MapResizer({ center }) {
       map.invalidateSize();
       if (center) map.setView(center, 13, { animate: true });
       else map.setView([40.4167, -3.7037], 6);
-    }, 500);
+    }, 300);
     return () => clearTimeout(timer);
   }, [map, center]);
   return null;
@@ -126,7 +101,7 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_ANON_KEY || ''
 );
 
-// ✅ CONFIGURACIÓN DE ADMIN - Pon aquí tu email o el ID de Supabase
+// ✅ CONFIGURACIÓN DE ADMIN - Comprueba tanto email como ID
 const ADMIN_EMAILS = ['jacobogarver@gmail.com'];
 const ADMIN_IDS = ['4d76c965-66de-491d-8cc1-6d37096262c9'];
 
@@ -167,35 +142,30 @@ export default function App() {
 
   // ✅ FIX ADMIN: Comprueba sesión al cargar y escucha cambios
   useEffect(() => {
-    let mounted = true;
-
-    const checkIsAdmin = (session) => {
-      const user = session?.user;
-      return user && (ADMIN_EMAILS.includes(user.email) || ADMIN_IDS.includes(user.id));
+    const checkIsAdmin = (user) => {
+      if (!user) return false;
+      return ADMIN_EMAILS.includes(user.email) || ADMIN_IDS.includes(user.id);
     };
 
-    const handleSession = (session) => {
-      if (!mounted) return;
-      if (checkIsAdmin(session)) {
+    // 1. Comprobar sesión al cargar la página
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (checkIsAdmin(session?.user)) {
         setProfile({ role: 'admin' });
       } else {
         setProfile(null);
       }
-    };
+    });
 
-    const loadInitialSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      handleSession(data.session);
-    };
-
-    loadInitialSession();
-
+    // 2. Escuchar cambios de sesión (login/logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      handleSession(session);
+      if (checkIsAdmin(session?.user)) {
+        setProfile({ role: 'admin' });
+      } else {
+        setProfile(null);
+      }
     });
 
     return () => {
-      mounted = false;
       subscription?.unsubscribe();
     };
   }, []);
@@ -216,7 +186,7 @@ export default function App() {
     setForm({ ...form, [name]: val });
   };
 
-  // ✅ IA DE 1 SOLA FOTO, la que te funcionaba perfecto
+  // ✅ IA DE 1 SOLA FOTO, realista y basada en el título
   const generateAIImage = () => {
     if (!form.title) return alert("Escribe un título primero");
     setIsGenerating(true);
@@ -247,7 +217,7 @@ export default function App() {
         `https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=${encodeURIComponent(city + ', España')}`
       );
       const data = await response.json();
-      if (data && data[0]) {
+      if (data[0]) {
         setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
       }
     } catch (err) {
@@ -291,11 +261,10 @@ export default function App() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            padding: '0 12px',
+            padding: '0 16px',
             zIndex: 2000,
             borderBottom: '1px solid rgba(128,128,128,0.2)',
-            background: isDark ? '#0f172a' : '#fff',
-            overflow: 'hidden'
+            background: isDark ? '#0f172a' : '#fff'
           }}
         >
           <div
@@ -308,7 +277,7 @@ export default function App() {
             <LogoSVG />
           </div>
 
-          {/* ✅ FIX ADMIN EN MÓVIL: Grupo con gap aumentado y sin encogerse */}
+          {/* ✅ FIX ADMIN EN MÓVIL: gap aumentado y flex-shrink */}
           <div
             style={{
               display: 'flex',
@@ -358,9 +327,7 @@ export default function App() {
                 position: 'absolute',
                 inset: 0,
                 zIndex: 1,
-                background: '#aad3df',
-                margin: 0,
-                padding: 0
+                background: '#aad3df'
               }}
             >
               <div
@@ -411,21 +378,12 @@ export default function App() {
                 zoomSnap={1}
                 zoomControl={true}
                 scrollWheelZoom={true}
-                whenReady={(map) => {
-                  setTimeout(() => {
-                    try {
-                      map.target.invalidateSize();
-                    } catch {}
-                  }, 250);
-                }}
               >
                 <MapResizer center={mapCenter} />
                 <TileLayer
                   url="https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}"
                   attribution='&copy; Google Maps'
                   maxZoom={20}
-                  tileSize={256}
-                  detectRetina={false}
                   subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
                 />
                 {publicEvents.map(ev => ev.lat && ev.lng && (
