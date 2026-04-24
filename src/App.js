@@ -86,6 +86,11 @@ export default function App() {
   var userEmail = _email[0];
   var setUserEmail = _email[1];
 
+  // NUEVO: evento seleccionado para ver detalles en admin
+  var _adminSel = useState(null);
+  var selectedPendingEvent = _adminSel[0];
+  var setSelectedPendingEvent = _adminSel[1];
+
   useEffect(function () { fetchEvents(); }, []);
 
   useEffect(function () {
@@ -197,13 +202,22 @@ export default function App() {
   }
 
   function handleApproveEvent(id) {
-    supabase.from('events').update({ status: 'approved' }).eq('id', id).then(function () { fetchEvents(); });
+    supabase.from('events').update({ status: 'approved' }).eq('id', id).then(function () {
+      setSelectedPendingEvent(null);
+      fetchEvents();
+    });
   }
   function handleRejectEvent(id) {
-    supabase.from('events').update({ status: 'rejected' }).eq('id', id).then(function () { fetchEvents(); });
+    supabase.from('events').update({ status: 'rejected' }).eq('id', id).then(function () {
+      setSelectedPendingEvent(null);
+      fetchEvents();
+    });
   }
   function handleDeleteEvent(id) {
-    supabase.from('events').delete().eq('id', id).then(function () { fetchEvents(); });
+    supabase.from('events').delete().eq('id', id).then(function () {
+      setSelectedPendingEvent(null);
+      fetchEvents();
+    });
   }
 
   function handleLogin() {
@@ -247,11 +261,11 @@ export default function App() {
       `}</style>
 
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,0.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
-        <div style={{ cursor: 'pointer' }} onClick={function () { setView('home'); setSelectedEvent(null); }}>
+        <div style={{ cursor: 'pointer' }} onClick={function () { setView('home'); setSelectedEvent(null); setSelectedPendingEvent(null); }}>
           <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png" alt="Eventora" style={{ height: 18, width: 'auto' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {hasAdmin && <ShieldCheck size={20} className={pendingEvents.length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1', cursor: 'pointer' }} onClick={function () { setView('admin'); }} />}
+          {hasAdmin && <ShieldCheck size={20} className={pendingEvents.length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1', cursor: 'pointer' }} onClick={function () { setView('admin'); setSelectedPendingEvent(null); }} />}
           {!hasAdmin && <button onClick={handleLogin} style={{ background: '#4f46e5', color: 'white', border: 'none', borderRadius: 8, padding: '4px 8px', fontSize: 8, fontWeight: 900, cursor: 'pointer' }}>LOGIN</button>}
           <button onClick={function () { setIsDark(!isDark); }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
             {isDark ? <Sun size={18} color="#facc15" /> : <Moon size={18} color="#4f46e5" />}
@@ -261,6 +275,8 @@ export default function App() {
       </nav>
 
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
+
+        {/* MAPA */}
         {view === 'map' && (
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}>
             <div style={{ position: 'absolute', top: 15, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 300 }}>
@@ -287,6 +303,7 @@ export default function App() {
           </div>
         )}
 
+        {/* HOME */}
         {view === 'home' && !selectedEvent && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, padding: '10px 12px', overflowX: 'auto', background: isDark ? '#020617' : '#f8fafc', borderBottom: '1px solid rgba(128,128,128,0.1)', flexShrink: 0 }}>
@@ -316,7 +333,8 @@ export default function App() {
           </div>
         )}
 
-        {selectedEvent && (
+        {/* DETALLES EVENTO NORMAL */}
+        {selectedEvent && !selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 100 }}>
             <button onClick={function () { setSelectedEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER</button>
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 20, overflow: 'hidden', padding: 0 }}>
@@ -337,6 +355,7 @@ export default function App() {
           </div>
         )}
 
+        {/* CREAR */}
         {view === 'create' && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 15, borderRadius: 20, gap: 8, display: 'flex', flexDirection: 'column' }}>
@@ -370,24 +389,23 @@ export default function App() {
           </div>
         )}
 
-        {view === 'admin' && (
+        {/* ===== ADMIN: LISTA DE PENDIENTES ===== */}
+        {view === 'admin' && !selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={function () { setView('home'); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER</button>
             <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16 }}>PENDIENTES ({pendingEvents.length})</h2>
-            {pendingEvents.length === 0 ? <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS PENDIENTES</p> : pendingEvents.map(function (ev) {
+            {pendingEvents.length === 0 ? (
+              <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS PENDIENTES</p>
+            ) : pendingEvents.map(function (ev) {
               return (
-                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 15, padding: 10, marginBottom: 10 }}>
+                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 15, padding: 10, marginBottom: 10, cursor: 'pointer' }} onClick={function () { setSelectedPendingEvent(ev); }}>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    {ev.image_url && <img src={ev.image_url} style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }} alt="" />}
+                    {ev.image_url && <img src={ev.image_url} style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover' }} alt="" />}
                     <div style={{ flex: 1 }}>
                       <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
                       <p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city} | {ev.date}</p>
                     </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 5, marginTop: 8 }}>
-                    <button onClick={function () { handleApproveEvent(ev.id); }} style={{ padding: 7, background: '#22c55e', color: 'white', border: 'none', borderRadius: 7, fontWeight: 900, fontSize: 8, cursor: 'pointer' }}>APROBAR</button>
-                    <button onClick={function () { handleRejectEvent(ev.id); }} style={{ padding: 7, background: '#ef4444', color: 'white', border: 'none', borderRadius: 7, fontWeight: 900, fontSize: 8, cursor: 'pointer' }}>RECHAZAR</button>
-                    <button onClick={function () { handleDeleteEvent(ev.id); }} style={{ padding: 7, background: '#64748b', color: 'white', border: 'none', borderRadius: 7, fontWeight: 900, fontSize: 8, cursor: 'pointer' }}>BORRAR</button>
+                    <span style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700 }}>VER DETALLES &gt;</span>
                   </div>
                 </div>
               );
@@ -395,6 +413,50 @@ export default function App() {
           </div>
         )}
 
+        {/* ===== ADMIN: DETALLES DE EVENTO PENDIENTE ===== */}
+        {view === 'admin' && selectedPendingEvent && (
+          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
+            <button onClick={function () { setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER A LISTA</button>
+
+            <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 20, overflow: 'hidden', padding: 0 }}>
+              {selectedPendingEvent.image_url && (
+                <img src={selectedPendingEvent.image_url} style={{ width: '100%', height: 220, objectFit: 'cover' }} alt="" />
+              )}
+
+              <div style={{ padding: 18 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 15 }}>{selectedPendingEvent.title}</h2>
+
+                <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                    <Calendar color="#6366f1" size={16} />
+                    <b>{selectedPendingEvent.date}</b>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                    <Clock color="#6366f1" size={16} />
+                    <b>{selectedPendingEvent.time}H</b>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                    <MapPin color="#6366f1" size={16} />
+                    <b>{selectedPendingEvent.address}, {selectedPendingEvent.localidad} - {selectedPendingEvent.city}</b>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                    <span style={{ fontWeight: 900, color: '#6366f1' }}>CAT:</span>
+                    <b>{selectedPendingEvent.category}</b>
+                  </div>
+                </div>
+
+                {/* BOTONES DE ACCION */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  <button onClick={function () { handleApproveEvent(selectedPendingEvent.id); }} style={{ padding: 12, background: '#22c55e', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>APROBAR</button>
+                  <button onClick={function () { handleRejectEvent(selectedPendingEvent.id); }} style={{ padding: 12, background: '#ef4444', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>RECHAZAR</button>
+                  <button onClick={function () { handleDeleteEvent(selectedPendingEvent.id); }} style={{ padding: 12, background: '#64748b', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>BORRAR</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* GUARDADOS */}
         {view === 'favorites' && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16 }}>MIS GUARDADOS</h2>
@@ -410,6 +472,7 @@ export default function App() {
           </div>
         )}
 
+        {/* SOPORTE */}
         {view === 'profile' && (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 22, borderRadius: 35, width: '100%', maxWidth: 300, textAlign: 'center' }}>
@@ -426,10 +489,10 @@ export default function App() {
       </main>
 
       <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,0.4)', zIndex: 3000, background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)' }}>
-        <button onClick={function () { setView('home'); setSelectedEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><LayoutList size={22} /></button>
-        <button onClick={function () { setView('favorites'); setSelectedEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer' }}><Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} /></button>
-        <button onClick={function () { setView('create'); setSelectedEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><PlusCircle size={22} /></button>
-        <button onClick={function () { setView('map'); setSelectedEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><MapIcon size={22} /></button>
+        <button onClick={function () { setView('home'); setSelectedEvent(null); setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><LayoutList size={22} /></button>
+        <button onClick={function () { setView('favorites'); setSelectedEvent(null); setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer' }}><Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} /></button>
+        <button onClick={function () { setView('create'); setSelectedEvent(null); setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><PlusCircle size={22} /></button>
+        <button onClick={function () { setView('map'); setSelectedEvent(null); setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><MapIcon size={22} /></button>
       </nav>
     </div>
   );
