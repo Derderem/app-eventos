@@ -103,11 +103,6 @@ export default function App() {
   var selectedPendingEvent = _adminSel[0];
   var setSelectedPendingEvent = _adminSel[1];
 
-  // ✅ NUEVO: nombre de la ciudad seleccionada en el mapa
-  var _searchCity = useState('');
-  var searchedCity = _searchCity[0];
-  var setSearchedCity = _searchCity[1];
-
   useEffect(function () { fetchEvents(); }, []);
 
   useEffect(function () {
@@ -126,24 +121,14 @@ export default function App() {
       setUserEmail(u ? u.email : '');
       setProfile(checkAdmin(u) ? { role: 'admin' } : null);
     }
-    supabase.auth.getSession().then(function (r) {
-      handleSession(r.data && r.data.session);
-    });
-    var sub = supabase.auth.onAuthStateChange(function (event, session) {
-      handleSession(session);
-    });
-    return function () {
-      if (sub && sub.data && sub.data.subscription) {
-        sub.data.subscription.unsubscribe();
-      }
-    };
+    supabase.auth.getSession().then(function (r) { handleSession(r.data && r.data.session); });
+    var sub = supabase.auth.onAuthStateChange(function (event, session) { handleSession(session); });
+    return function () { if (sub && sub.data && sub.data.subscription) { sub.data.subscription.unsubscribe(); } };
   }, []);
 
   function fetchEvents() {
     supabase.from('events').select('*').then(function (r) {
-      if (r.data) {
-        setEvents(r.data.sort(function (a, b) { return new Date(a.date) - new Date(b.date); }));
-      }
+      if (r.data) { setEvents(r.data.sort(function (a, b) { return new Date(a.date) - new Date(b.date); })); }
     });
   }
 
@@ -179,30 +164,16 @@ export default function App() {
     var file = e.target.files[0];
     if (file) {
       var reader = new FileReader();
-      reader.onload = function (ev) {
-        var nf = Object.assign({}, form);
-        nf.image_url = ev.target.result;
-        setForm(nf);
-      };
+      reader.onload = function (ev) { var nf = Object.assign({}, form); nf.image_url = ev.target.result; setForm(nf); };
       reader.readAsDataURL(file);
     }
   }
 
-  // ✅ BUSQUEDA: situa en la ciudad y guarda el nombre
   function handleCitySearch(city) {
-    if (city === 'ESPAÑA') {
-      setMapCenter(null);
-      setSearchedCity('');
-      return;
-    }
-    setSearchedCity(city);
+    if (city === 'ESPAÑA') { setMapCenter(null); return; }
     fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(city + ', Espana'))
       .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data && data[0]) {
-          setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
-        }
-      })
+      .then(function (data) { if (data && data[0]) { setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]); } })
       .catch(function (err) { console.error(err); });
   }
 
@@ -210,34 +181,18 @@ export default function App() {
     if (!form.title || !form.date || !form.city || !form.address) return alert('Rellena: titulo, ciudad, fecha y direccion.');
     setIsSubmitting(true);
     supabase.from('events').insert([Object.assign({}, form, { status: 'pending' })])
-      .then(function (r) {
-        if (r.error) throw r.error;
-        alert('Evento enviado a revision!');
-        setForm(INITIAL_FORM);
-        setView('home');
-        fetchEvents();
-      })
+      .then(function (r) { if (r.error) throw r.error; alert('Evento enviado a revision!'); setForm(INITIAL_FORM); setView('home'); fetchEvents(); })
       .catch(function (err) { alert('Error al enviar.'); console.error(err); })
       .finally(function () { setIsSubmitting(false); });
   }
 
-  function handleApproveEvent(id) {
-    supabase.from('events').update({ status: 'approved' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); });
-  }
-  function handleRejectEvent(id) {
-    supabase.from('events').update({ status: 'rejected' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); });
-  }
-  function handleDeleteEvent(id) {
-    supabase.from('events').delete().eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); });
-  }
+  function handleApproveEvent(id) { supabase.from('events').update({ status: 'approved' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); }); }
+  function handleRejectEvent(id) { supabase.from('events').update({ status: 'rejected' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); }); }
+  function handleDeleteEvent(id) { supabase.from('events').delete().eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); }); }
 
   function handleLogin() {
     var email = prompt('Escribe tu email:');
-    if (email) {
-      supabase.auth.signInWithOtp({ email: email }).then(function () {
-        alert('Revisa tu email y pulsa el enlace de verificacion.');
-      });
-    }
+    if (email) { supabase.auth.signInWithOtp({ email: email }).then(function () { alert('Revisa tu email y pulsa el enlace.'); }); }
   }
 
   var today = new Date().toISOString().split('T')[0];
@@ -250,24 +205,6 @@ export default function App() {
 
   var INPUT_STYLE = { width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 };
   var hasAdmin = profile && profile.role === 'admin';
-
-  // ✅ ICONO PERSONALIZADO ROJO PARA LA CIUDAD BUSCADA
-  var cityIcon = L.divIcon({
-    html: '<div style="width:24px;height:24px;background:#ef4444;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;"><div style="width:8px;height:8px;background:white;border-radius:50%;"></div></div>',
-    iconSize: [24, 24],
-    iconAnchor: [12, 24],
-    popupAnchor: [0, -24],
-    className: ''
-  });
-
-  // ✅ ICONO VERDE PARA EVENTOS
-  var eventIcon = L.divIcon({
-    html: '<div style="width:20px;height:20px;background:#22c55e;border:2px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;"><div style="width:6px;height:6px;background:white;border-radius:50%;"></div></div>',
-    iconSize: [20, 20],
-    iconAnchor: [10, 20],
-    popupAnchor: [0, -20],
-    className: ''
-  });
 
   return (
     <div className={isDark ? 'dark-theme' : 'light-theme'} style={{ width: '100vw', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -321,25 +258,12 @@ export default function App() {
               <MapContainer center={[40.41, -3.70]} zoom={6} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
                 <MapResizer center={mapCenter} />
                 <TileLayer url="https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}" attribution="Google Maps" maxZoom={20} subdomains={['mt0', 'mt1', 'mt2', 'mt3']} />
-
-                {/* ✅ MARCADOR VERDE PARA CADA EVENTO */}
                 {publicEvents.map(function (ev) {
                   if (ev.lat && ev.lng) {
-                    return (
-                      <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={eventIcon}>
-                        <Popup><b>{ev.title}</b><br />{ev.city} | {formatDate(ev.date)}</Popup>
-                      </Marker>
-                    );
+                    return <Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><b>{ev.title}</b><br />{ev.city} | {formatDate(ev.date)}</Popup></Marker>;
                   }
                   return null;
                 })}
-
-                {/* ✅ MARCADOR ROJO GRANDE EN LA CIUDAD BUSCADA */}
-                {mapCenter && searchedCity && (
-                  <Marker position={mapCenter} icon={cityIcon}>
-                    <Popup><b style={{ color: '#ef4444' }}>{searchedCity}</b><br />Ciudad buscada</Popup>
-                  </Marker>
-                )}
               </MapContainer>
             </div>
           </div>
