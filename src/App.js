@@ -20,7 +20,6 @@ var supabase = createClient(process.env.REACT_APP_SUPABASE_URL || '', process.en
 var ADMIN_EMAILS = ['garverjacobo@gmail.com', 'jacobogarver@gmail.com'];
 var INITIAL_FORM = { title: '', city: '', localidad: '', address: '', time: '21:00', date: '', category: 'MUSICA', image_url: '' };
 
-// ✅ FUNCION PARA CAMBIAR FECHA DE YYYY-MM-DD A DD/MM/YYYY
 function formatDate(dateStr) {
   if (!dateStr) return '';
   var parts = dateStr.split('-');
@@ -28,30 +27,22 @@ function formatDate(dateStr) {
   return dateStr;
 }
 
-// ✅ MAPA: SITUA EN LA CIUDAD CUANDO SE SELECCIONA
 function MapResizer({ center }) {
   var map = useMap();
   var prevCenter = React.useRef(null);
-
   useEffect(function () {
     map.invalidateSize();
-
     if (center) {
-      // Si es una ciudad nueva, volamos hacia ella
-      var isNew = !prevCenter.current ||
-        prevCenter.current[0] !== center[0] ||
-        prevCenter.current[1] !== center[1];
+      var isNew = !prevCenter.current || prevCenter.current[0] !== center[0] || prevCenter.current[1] !== center[1];
       if (isNew) {
         map.flyTo(center, 13, { animate: true, duration: 1.5 });
         prevCenter.current = center;
       }
     } else {
-      // Volvemos a ver toda España
       map.setView([40.4167, -3.7037], 6);
       prevCenter.current = null;
     }
   }, [center]);
-
   return null;
 }
 
@@ -111,6 +102,11 @@ export default function App() {
   var _adminSel = useState(null);
   var selectedPendingEvent = _adminSel[0];
   var setSelectedPendingEvent = _adminSel[1];
+
+  // ✅ NUEVO: nombre de la ciudad seleccionada en el mapa
+  var _searchCity = useState('');
+  var searchedCity = _searchCity[0];
+  var setSearchedCity = _searchCity[1];
 
   useEffect(function () { fetchEvents(); }, []);
 
@@ -192,9 +188,14 @@ export default function App() {
     }
   }
 
-  // ✅ BUSQUEDA DE CIUDAD: GEOCODIFICA Y SITUA EN EL MAPA
+  // ✅ BUSQUEDA: situa en la ciudad y guarda el nombre
   function handleCitySearch(city) {
-    if (city === 'ESPAÑA') { setMapCenter(null); return; }
+    if (city === 'ESPAÑA') {
+      setMapCenter(null);
+      setSearchedCity('');
+      return;
+    }
+    setSearchedCity(city);
     fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(city + ', Espana'))
       .then(function (r) { return r.json(); })
       .then(function (data) {
@@ -221,22 +222,13 @@ export default function App() {
   }
 
   function handleApproveEvent(id) {
-    supabase.from('events').update({ status: 'approved' }).eq('id', id).then(function () {
-      setSelectedPendingEvent(null);
-      fetchEvents();
-    });
+    supabase.from('events').update({ status: 'approved' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); });
   }
   function handleRejectEvent(id) {
-    supabase.from('events').update({ status: 'rejected' }).eq('id', id).then(function () {
-      setSelectedPendingEvent(null);
-      fetchEvents();
-    });
+    supabase.from('events').update({ status: 'rejected' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); });
   }
   function handleDeleteEvent(id) {
-    supabase.from('events').delete().eq('id', id).then(function () {
-      setSelectedPendingEvent(null);
-      fetchEvents();
-    });
+    supabase.from('events').delete().eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); });
   }
 
   function handleLogin() {
@@ -259,6 +251,24 @@ export default function App() {
   var INPUT_STYLE = { width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 };
   var hasAdmin = profile && profile.role === 'admin';
 
+  // ✅ ICONO PERSONALIZADO ROJO PARA LA CIUDAD BUSCADA
+  var cityIcon = L.divIcon({
+    html: '<div style="width:24px;height:24px;background:#ef4444;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;"><div style="width:8px;height:8px;background:white;border-radius:50%;"></div></div>',
+    iconSize: [24, 24],
+    iconAnchor: [12, 24],
+    popupAnchor: [0, -24],
+    className: ''
+  });
+
+  // ✅ ICONO VERDE PARA EVENTOS
+  var eventIcon = L.divIcon({
+    html: '<div style="width:20px;height:20px;background:#22c55e;border:2px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;"><div style="width:6px;height:6px;background:white;border-radius:50%;"></div></div>',
+    iconSize: [20, 20],
+    iconAnchor: [10, 20],
+    popupAnchor: [0, -20],
+    className: ''
+  });
+
   return (
     <div className={isDark ? 'dark-theme' : 'light-theme'} style={{ width: '100vw', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <style>{`
@@ -279,7 +289,6 @@ export default function App() {
         .animate-spin { animation: spin 1s linear infinite; }
       `}</style>
 
-      {/* NAV */}
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,0.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
         <div style={{ cursor: 'pointer' }} onClick={function () { setView('home'); setSelectedEvent(null); setSelectedPendingEvent(null); }}>
           <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png" alt="Eventora" style={{ height: 18, width: 'auto' }} />
@@ -312,12 +321,25 @@ export default function App() {
               <MapContainer center={[40.41, -3.70]} zoom={6} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
                 <MapResizer center={mapCenter} />
                 <TileLayer url="https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}" attribution="Google Maps" maxZoom={20} subdomains={['mt0', 'mt1', 'mt2', 'mt3']} />
+
+                {/* ✅ MARCADOR VERDE PARA CADA EVENTO */}
                 {publicEvents.map(function (ev) {
                   if (ev.lat && ev.lng) {
-                    return <Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><b>{ev.title}</b><br />{ev.city}</Popup></Marker>;
+                    return (
+                      <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={eventIcon}>
+                        <Popup><b>{ev.title}</b><br />{ev.city} | {formatDate(ev.date)}</Popup>
+                      </Marker>
+                    );
                   }
                   return null;
                 })}
+
+                {/* ✅ MARCADOR ROJO GRANDE EN LA CIUDAD BUSCADA */}
+                {mapCenter && searchedCity && (
+                  <Marker position={mapCenter} icon={cityIcon}>
+                    <Popup><b style={{ color: '#ef4444' }}>{searchedCity}</b><br />Ciudad buscada</Popup>
+                  </Marker>
+                )}
               </MapContainer>
             </div>
           </div>
@@ -353,7 +375,7 @@ export default function App() {
           </div>
         )}
 
-        {/* DETALLES EVENTO */}
+        {/* DETALLES */}
         {selectedEvent && !selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 100 }}>
             <button onClick={function () { setSelectedEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER</button>
@@ -487,7 +509,6 @@ export default function App() {
         )}
       </main>
 
-      {/* BOTONERA */}
       <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,0.4)', zIndex: 3000, background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)' }}>
         <button onClick={function () { setView('home'); setSelectedEvent(null); setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><LayoutList size={22} /></button>
         <button onClick={function () { setView('favorites'); setSelectedEvent(null); setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer' }}><Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} /></button>
