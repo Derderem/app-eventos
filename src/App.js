@@ -20,16 +20,38 @@ var supabase = createClient(process.env.REACT_APP_SUPABASE_URL || '', process.en
 var ADMIN_EMAILS = ['garverjacobo@gmail.com', 'jacobogarver@gmail.com'];
 var INITIAL_FORM = { title: '', city: '', localidad: '', address: '', time: '21:00', date: '', category: 'MUSICA', image_url: '' };
 
-function MapResizer(props) {
+// ✅ FUNCION PARA CAMBIAR FECHA DE YYYY-MM-DD A DD/MM/YYYY
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  var parts = dateStr.split('-');
+  if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
+  return dateStr;
+}
+
+// ✅ MAPA: SITUA EN LA CIUDAD CUANDO SE SELECCIONA
+function MapResizer({ center }) {
   var map = useMap();
+  var prevCenter = React.useRef(null);
+
   useEffect(function () {
-    var timer = setTimeout(function () {
-      map.invalidateSize();
-      if (props.center) { map.setView(props.center, 13, { animate: true }); }
-      else { map.setView([40.4167, -3.7037], 6); }
-    }, 600);
-    return function () { clearTimeout(timer); };
-  }, [map, props.center]);
+    map.invalidateSize();
+
+    if (center) {
+      // Si es una ciudad nueva, volamos hacia ella
+      var isNew = !prevCenter.current ||
+        prevCenter.current[0] !== center[0] ||
+        prevCenter.current[1] !== center[1];
+      if (isNew) {
+        map.flyTo(center, 13, { animate: true, duration: 1.5 });
+        prevCenter.current = center;
+      }
+    } else {
+      // Volvemos a ver toda España
+      map.setView([40.4167, -3.7037], 6);
+      prevCenter.current = null;
+    }
+  }, [center]);
+
   return null;
 }
 
@@ -86,7 +108,6 @@ export default function App() {
   var userEmail = _email[0];
   var setUserEmail = _email[1];
 
-  // NUEVO: evento seleccionado para ver detalles en admin
   var _adminSel = useState(null);
   var selectedPendingEvent = _adminSel[0];
   var setSelectedPendingEvent = _adminSel[1];
@@ -109,15 +130,12 @@ export default function App() {
       setUserEmail(u ? u.email : '');
       setProfile(checkAdmin(u) ? { role: 'admin' } : null);
     }
-
     supabase.auth.getSession().then(function (r) {
       handleSession(r.data && r.data.session);
     });
-
     var sub = supabase.auth.onAuthStateChange(function (event, session) {
       handleSession(session);
     });
-
     return function () {
       if (sub && sub.data && sub.data.subscription) {
         sub.data.subscription.unsubscribe();
@@ -174,6 +192,7 @@ export default function App() {
     }
   }
 
+  // ✅ BUSQUEDA DE CIUDAD: GEOCODIFICA Y SITUA EN EL MAPA
   function handleCitySearch(city) {
     if (city === 'ESPAÑA') { setMapCenter(null); return; }
     fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(city + ', Espana'))
@@ -260,6 +279,7 @@ export default function App() {
         .animate-spin { animation: spin 1s linear infinite; }
       `}</style>
 
+      {/* NAV */}
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,0.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
         <div style={{ cursor: 'pointer' }} onClick={function () { setView('home'); setSelectedEvent(null); setSelectedPendingEvent(null); }}>
           <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png" alt="Eventora" style={{ height: 18, width: 'auto' }} />
@@ -323,7 +343,7 @@ export default function App() {
                     </div>
                     <div style={{ padding: 15, textAlign: 'center' }}>
                       <h3 style={{ fontWeight: 900, fontSize: 15 }}>{ev.title}</h3>
-                      <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 10 }}>{ev.city} | {ev.date}</p>
+                      <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 10 }}>{ev.city} | {formatDate(ev.date)}</p>
                       <button onClick={function () { setSelectedEvent(ev); }} style={{ width: '100%', padding: 11, borderRadius: 14, background: '#4f46e5', color: 'white', border: 'none', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>DETALLES</button>
                     </div>
                   </div>
@@ -333,7 +353,7 @@ export default function App() {
           </div>
         )}
 
-        {/* DETALLES EVENTO NORMAL */}
+        {/* DETALLES EVENTO */}
         {selectedEvent && !selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 100 }}>
             <button onClick={function () { setSelectedEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER</button>
@@ -342,7 +362,7 @@ export default function App() {
               <div style={{ padding: 18 }}>
                 <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>{selectedEvent.title}</h2>
                 <div style={{ display: 'grid', gap: 10 }}>
-                  <div style={{ display: 'flex', gap: 6, fontSize: 13 }}><Calendar color="#6366f1" size={16} /> <b>{selectedEvent.date}</b></div>
+                  <div style={{ display: 'flex', gap: 6, fontSize: 13 }}><Calendar color="#6366f1" size={16} /> <b>{formatDate(selectedEvent.date)}</b></div>
                   <div style={{ display: 'flex', gap: 6, fontSize: 13 }}><Clock color="#6366f1" size={16} /> <b>{selectedEvent.time}H</b></div>
                   <div onClick={function () { window.open('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.localidad + ' ' + selectedEvent.city)); }} style={{ background: 'rgba(99,102,241,0.1)', padding: 15, borderRadius: 10, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1' }}>
                     <MapPin color="#6366f1" size={16} style={{ margin: '0 auto 4px' }} /><br />
@@ -389,23 +409,21 @@ export default function App() {
           </div>
         )}
 
-        {/* ===== ADMIN: LISTA DE PENDIENTES ===== */}
+        {/* ADMIN: LISTA */}
         {view === 'admin' && !selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={function () { setView('home'); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER</button>
             <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16 }}>PENDIENTES ({pendingEvents.length})</h2>
-            {pendingEvents.length === 0 ? (
-              <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS PENDIENTES</p>
-            ) : pendingEvents.map(function (ev) {
+            {pendingEvents.length === 0 ? <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS PENDIENTES</p> : pendingEvents.map(function (ev) {
               return (
                 <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 15, padding: 10, marginBottom: 10, cursor: 'pointer' }} onClick={function () { setSelectedPendingEvent(ev); }}>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                     {ev.image_url && <img src={ev.image_url} style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover' }} alt="" />}
                     <div style={{ flex: 1 }}>
                       <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
-                      <p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city} | {ev.date}</p>
+                      <p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city} | {formatDate(ev.date)}</p>
                     </div>
-                    <span style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700 }}>VER DETALLES &gt;</span>
+                    <span style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700 }}>VER &gt;</span>
                   </div>
                 </div>
               );
@@ -413,39 +431,20 @@ export default function App() {
           </div>
         )}
 
-        {/* ===== ADMIN: DETALLES DE EVENTO PENDIENTE ===== */}
+        {/* ADMIN: DETALLES */}
         {view === 'admin' && selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={function () { setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER A LISTA</button>
-
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 20, overflow: 'hidden', padding: 0 }}>
-              {selectedPendingEvent.image_url && (
-                <img src={selectedPendingEvent.image_url} style={{ width: '100%', height: 220, objectFit: 'cover' }} alt="" />
-              )}
-
+              {selectedPendingEvent.image_url && <img src={selectedPendingEvent.image_url} style={{ width: '100%', height: 220, objectFit: 'cover' }} alt="" />}
               <div style={{ padding: 18 }}>
                 <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 15 }}>{selectedPendingEvent.title}</h2>
-
                 <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                    <Calendar color="#6366f1" size={16} />
-                    <b>{selectedPendingEvent.date}</b>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                    <Clock color="#6366f1" size={16} />
-                    <b>{selectedPendingEvent.time}H</b>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                    <MapPin color="#6366f1" size={16} />
-                    <b>{selectedPendingEvent.address}, {selectedPendingEvent.localidad} - {selectedPendingEvent.city}</b>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                    <span style={{ fontWeight: 900, color: '#6366f1' }}>CAT:</span>
-                    <b>{selectedPendingEvent.category}</b>
-                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><Calendar color="#6366f1" size={16} /><b>{formatDate(selectedPendingEvent.date)}</b></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><Clock color="#6366f1" size={16} /><b>{selectedPendingEvent.time}H</b></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><MapPin color="#6366f1" size={16} /><b>{selectedPendingEvent.address}, {selectedPendingEvent.localidad} - {selectedPendingEvent.city}</b></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><span style={{ fontWeight: 900, color: '#6366f1' }}>CAT:</span><b>{selectedPendingEvent.category}</b></div>
                 </div>
-
-                {/* BOTONES DE ACCION */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                   <button onClick={function () { handleApproveEvent(selectedPendingEvent.id); }} style={{ padding: 12, background: '#22c55e', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>APROBAR</button>
                   <button onClick={function () { handleRejectEvent(selectedPendingEvent.id); }} style={{ padding: 12, background: '#ef4444', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>RECHAZAR</button>
@@ -488,6 +487,7 @@ export default function App() {
         )}
       </main>
 
+      {/* BOTONERA */}
       <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,0.4)', zIndex: 3000, background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)' }}>
         <button onClick={function () { setView('home'); setSelectedEvent(null); setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><LayoutList size={22} /></button>
         <button onClick={function () { setView('favorites'); setSelectedEvent(null); setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer' }}><Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} /></button>
