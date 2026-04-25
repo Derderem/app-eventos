@@ -35,7 +35,7 @@ function MapResizer(props) {
     if (props.center) {
       var isNew = !prevCenter.current || prevCenter.current[0] !== props.center[0] || prevCenter.current[1] !== props.center[1];
       if (isNew) {
-        map.flyTo(props.center, 13, { animate: true, duration: 1.5 });
+        map.flyTo(props.center, 9, { animate: true, duration: 1.5 });
         prevCenter.current = props.center;
       }
     } else {
@@ -103,7 +103,6 @@ export default function App() {
   var selectedPendingEvent = _adminSel[0];
   var setSelectedPendingEvent = _adminSel[1];
 
-  // NUEVO: pestana admin (pendientes/aprobados)
   var _adminTab = useState('pending');
   var adminTab = _adminTab[0];
   var setAdminTab = _adminTab[1];
@@ -396,12 +395,9 @@ export default function App() {
           </div>
         )}
 
-        {/* ===== ADMIN COMPLETO ===== */}
         {view === 'admin' && !selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={function () { setView('home'); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER</button>
-            
-            {/* PESTANAS PENDIENTES / APROBADOS */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 15 }}>
               <button onClick={function () { setAdminTab('pending'); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'pending' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'pending' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
                 PENDIENTES ({pendingEvents.length})
@@ -411,7 +407,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* LISTA PENDIENTES */}
             {adminTab === 'pending' && pendingEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS PENDIENTES</p>}
             {adminTab === 'pending' && pendingEvents.map(function (ev) {
               return (
@@ -428,7 +423,6 @@ export default function App() {
               );
             })}
 
-            {/* LISTA APROBADOS - SOLO ADMIN PUEDE BORRAR */}
             {adminTab === 'approved' && approvedEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS APROBADOS</p>}
             {adminTab === 'approved' && approvedEvents.map(function (ev) {
               return (
@@ -449,7 +443,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ADMIN: DETALLES PENDIENTE */}
         {view === 'admin' && selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={function () { setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER A LISTA</button>
