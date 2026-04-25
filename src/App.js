@@ -27,22 +27,22 @@ function formatDate(dateStr) {
   return dateStr;
 }
 
-function MapResizer({ center }) {
+function MapResizer(props) {
   var map = useMap();
   var prevCenter = React.useRef(null);
   useEffect(function () {
     map.invalidateSize();
-    if (center) {
-      var isNew = !prevCenter.current || prevCenter.current[0] !== center[0] || prevCenter.current[1] !== center[1];
+    if (props.center) {
+      var isNew = !prevCenter.current || prevCenter.current[0] !== props.center[0] || prevCenter.current[1] !== props.center[1];
       if (isNew) {
-        map.flyTo(center, 13, { animate: true, duration: 1.5 });
-        prevCenter.current = center;
+        map.flyTo(props.center, 13, { animate: true, duration: 1.5 });
+        prevCenter.current = props.center;
       }
     } else {
       map.setView([40.4167, -3.7037], 6);
       prevCenter.current = null;
     }
-  }, [center]);
+  }, [props.center]);
   return null;
 }
 
@@ -102,6 +102,11 @@ export default function App() {
   var _adminSel = useState(null);
   var selectedPendingEvent = _adminSel[0];
   var setSelectedPendingEvent = _adminSel[1];
+
+  // NUEVO: pestana admin (pendientes/aprobados)
+  var _adminTab = useState('pending');
+  var adminTab = _adminTab[0];
+  var setAdminTab = _adminTab[1];
 
   useEffect(function () { fetchEvents(); }, []);
 
@@ -177,7 +182,6 @@ export default function App() {
       .catch(function (err) { console.error(err); });
   }
 
-  // ✅ GEOCODIFICAR DIRECCION PARA OBTENER LAT/LNG
   function geocodeAddress(address, localidad, city) {
     var fullAddress = address + ', ' + localidad + ', ' + city + ', Espana';
     return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(fullAddress))
@@ -186,7 +190,6 @@ export default function App() {
         if (data && data[0]) {
           return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
         }
-        // Si no encuentra la direccion exacta, busca solo la ciudad
         return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(city + ', Espana'))
           .then(function (r2) { return r2.json(); })
           .then(function (data2) {
@@ -199,11 +202,9 @@ export default function App() {
       .catch(function () { return { lat: null, lng: null }; });
   }
 
-  // ✅ ENVIAR EVENTO: GEOCODIFICA Y GUARDA LAT/LNG
   function handleSubmitEvent() {
     if (!form.title || !form.date || !form.city || !form.address) return alert('Rellena: titulo, ciudad, fecha y direccion.');
     setIsSubmitting(true);
-
     geocodeAddress(form.address, form.localidad, form.city).then(function (coords) {
       var eventData = Object.assign({}, form, { status: 'pending', lat: coords.lat, lng: coords.lng });
       return supabase.from('events').insert([eventData]);
@@ -228,7 +229,9 @@ export default function App() {
     supabase.from('events').update({ status: 'rejected' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); });
   }
   function handleDeleteEvent(id) {
-    supabase.from('events').delete().eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); });
+    if (confirm('Seguro que quieres borrar este evento?')) {
+      supabase.from('events').delete().eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); });
+    }
   }
 
   function handleLogin() {
@@ -241,6 +244,7 @@ export default function App() {
   var filteredEvents = publicEvents.filter(function (e) { return selectedCategory === 'TODOS' || e.category === selectedCategory; });
   var favoriteEvents = publicEvents.filter(function (e) { return favorites.indexOf(e.id) !== -1; });
   var pendingEvents = events.filter(function (e) { return e.status === 'pending'; });
+  var approvedEvents = events.filter(function (e) { return e.status === 'approved'; });
   var citiesList = [];
   publicEvents.forEach(function (e) { if (citiesList.indexOf(e.city) === -1) citiesList.push(e.city); });
 
@@ -272,7 +276,7 @@ export default function App() {
           <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png" alt="Eventora" style={{ height: 18, width: 'auto' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {hasAdmin && <ShieldCheck size={20} className={pendingEvents.length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1', cursor: 'pointer' }} onClick={function () { setView('admin'); setSelectedPendingEvent(null); }} />}
+          {hasAdmin && <ShieldCheck size={20} className={pendingEvents.length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1', cursor: 'pointer' }} onClick={function () { setView('admin'); setSelectedPendingEvent(null); setAdminTab('pending'); }} />}
           {!hasAdmin && <button onClick={handleLogin} style={{ background: '#4f46e5', color: 'white', border: 'none', borderRadius: 8, padding: '4px 8px', fontSize: 8, fontWeight: 900, cursor: 'pointer' }}>LOGIN</button>}
           <button onClick={function () { setIsDark(!isDark); }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
             {isDark ? <Sun size={18} color="#facc15" /> : <Moon size={18} color="#4f46e5" />}
@@ -392,11 +396,24 @@ export default function App() {
           </div>
         )}
 
+        {/* ===== ADMIN COMPLETO ===== */}
         {view === 'admin' && !selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={function () { setView('home'); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER</button>
-            <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16 }}>PENDIENTES ({pendingEvents.length})</h2>
-            {pendingEvents.length === 0 ? <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS PENDIENTES</p> : pendingEvents.map(function (ev) {
+            
+            {/* PESTANAS PENDIENTES / APROBADOS */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 15 }}>
+              <button onClick={function () { setAdminTab('pending'); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'pending' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'pending' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+                PENDIENTES ({pendingEvents.length})
+              </button>
+              <button onClick={function () { setAdminTab('approved'); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'approved' ? '#22c55e' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'approved' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+                APROBADOS ({approvedEvents.length})
+              </button>
+            </div>
+
+            {/* LISTA PENDIENTES */}
+            {adminTab === 'pending' && pendingEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS PENDIENTES</p>}
+            {adminTab === 'pending' && pendingEvents.map(function (ev) {
               return (
                 <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 15, padding: 10, marginBottom: 10, cursor: 'pointer' }} onClick={function () { setSelectedPendingEvent(ev); }}>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -410,9 +427,29 @@ export default function App() {
                 </div>
               );
             })}
+
+            {/* LISTA APROBADOS - SOLO ADMIN PUEDE BORRAR */}
+            {adminTab === 'approved' && approvedEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS APROBADOS</p>}
+            {adminTab === 'approved' && approvedEvents.map(function (ev) {
+              return (
+                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 15, padding: 10, marginBottom: 10 }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    {ev.image_url && <img src={ev.image_url} style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover' }} alt="" />}
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
+                      <p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city} | {formatDate(ev.date)}</p>
+                    </div>
+                    <button onClick={function (e) { e.stopPropagation(); handleDeleteEvent(ev.id); }} style={{ padding: 8, background: '#ef4444', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, fontWeight: 900 }}>
+                      <Trash2 size={14} /> BORRAR
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
+        {/* ADMIN: DETALLES PENDIENTE */}
         {view === 'admin' && selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={function () { setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER A LISTA</button>
