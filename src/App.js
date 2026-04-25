@@ -11,13 +11,9 @@ import 'leaflet/dist/leaflet.css';
 
 delete L.Icon.Default.prototype._getIconUrl;
 
-// ✅ MARCADOR VERDE PERSONALIZADO
 var greenIcon = L.divIcon({
   html: '<div style="width:28px;height:28px;background:#22c55e;border:3px solid white;border-radius:50%;box-shadow:0 3px 10px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="6"/></svg></div>',
-  iconSize: [28, 28],
-  iconAnchor: [14, 28],
-  popupAnchor: [0, -28],
-  className: ''
+  iconSize: [28, 28], iconAnchor: [14, 28], popupAnchor: [0, -28], className: ''
 });
 
 var supabase = createClient(process.env.REACT_APP_SUPABASE_URL || '', process.env.REACT_APP_SUPABASE_ANON_KEY || '');
@@ -38,211 +34,81 @@ function MapResizer(props) {
     map.invalidateSize();
     if (props.center) {
       var isNew = !prevCenter.current || prevCenter.current[0] !== props.center[0] || prevCenter.current[1] !== props.center[1];
-      if (isNew) {
-        map.flyTo(props.center, 9, { animate: true, duration: 1.5 });
-        prevCenter.current = props.center;
-      }
-    } else {
-      map.setView([40.4167, -3.7037], 6);
-      prevCenter.current = null;
-    }
+      if (isNew) { map.flyTo(props.center, 9, { animate: true, duration: 1.5 }); prevCenter.current = props.center; }
+    } else { map.setView([40.4167, -3.7037], 6); prevCenter.current = null; }
   }, [props.center]);
   return null;
 }
 
 export default function App() {
   var _ev = useState([]);
-  var events = _ev[0];
-  var setEvents = _ev[1];
-
-  var _fav = useState(function () {
-    if (typeof window === 'undefined') return [];
-    var s = localStorage.getItem('eventora_favs_v4');
-    return s ? JSON.parse(s) : [];
-  });
-  var favorites = _fav[0];
-  var setFavorites = _fav[1];
-
-  var _prof = useState(null);
-  var profile = _prof[0];
-  var setProfile = _prof[1];
-
-  var _vw = useState('home');
-  var view = _vw[0];
-  var setView = _vw[1];
-
-  var _dark = useState(true);
-  var isDark = _dark[0];
-  var setIsDark = _dark[1];
-
-  var _cat = useState('TODOS');
-  var selectedCategory = _cat[0];
-  var setSelectedCategory = _cat[1];
-
-  var _sel = useState(null);
-  var selectedEvent = _sel[0];
-  var setSelectedEvent = _sel[1];
-
-  var _mc = useState(null);
-  var mapCenter = _mc[0];
-  var setMapCenter = _mc[1];
-
-  var _gen = useState(false);
-  var isGenerating = _gen[0];
-  var setIsGenerating = _gen[1];
-
-  var _sub = useState(false);
-  var isSubmitting = _sub[0];
-  var setIsSubmitting = _sub[1];
-
-  var _form = useState(INITIAL_FORM);
-  var form = _form[0];
-  var setForm = _form[1];
-
-  var _email = useState('');
-  var userEmail = _email[0];
-  var setUserEmail = _email[1];
-
-  var _adminSel = useState(null);
-  var selectedPendingEvent = _adminSel[0];
-  var setSelectedPendingEvent = _adminSel[1];
-
-  var _adminTab = useState('pending');
-  var adminTab = _adminTab[0];
-  var setAdminTab = _adminTab[1];
-
-  // ✅ NUEVO: BUSCADOR DE EVENTOS
-  var _search = useState('');
-  var searchQuery = _search[0];
-  var setSearchQuery = _search[1];
+  var events = _ev[0]; var setEvents = _ev[1];
+  var _fav = useState(function () { if (typeof window === 'undefined') return []; var s = localStorage.getItem('eventora_favs_v4'); return s ? JSON.parse(s) : []; });
+  var favorites = _fav[0]; var setFavorites = _fav[1];
+  var _prof = useState(null); var profile = _prof[0]; var setProfile = _prof[1];
+  var _vw = useState('home'); var view = _vw[0]; var setView = _vw[1];
+  var _dark = useState(true); var isDark = _dark[0]; var setIsDark = _dark[1];
+  var _cat = useState('TODOS'); var selectedCategory = _cat[0]; var setSelectedCategory = _cat[1];
+  var _sel = useState(null); var selectedEvent = _sel[0]; var setSelectedEvent = _sel[1];
+  var _mc = useState(null); var mapCenter = _mc[0]; var setMapCenter = _mc[1];
+  var _gen = useState(false); var isGenerating = _gen[0]; var setIsGenerating = _gen[1];
+  var _sub = useState(false); var isSubmitting = _sub[0]; var setIsSubmitting = _sub[1];
+  var _form = useState(INITIAL_FORM); var form = _form[0]; var setForm = _form[1];
+  var _email = useState(''); var userEmail = _email[0]; var setUserEmail = _email[1];
+  var _adminSel = useState(null); var selectedPendingEvent = _adminSel[0]; var setSelectedPendingEvent = _adminSel[1];
+  var _adminTab = useState('pending'); var adminTab = _adminTab[0]; var setAdminTab = _adminTab[1];
+  var _search = useState(''); var searchQuery = _search[0]; var setSearchQuery = _search[1];
 
   useEffect(function () { fetchEvents(); }, []);
-
+  useEffect(function () { if (typeof window !== 'undefined') { localStorage.setItem('eventora_favs_v4', JSON.stringify(favorites)); } }, [favorites]);
   useEffect(function () {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('eventora_favs_v4', JSON.stringify(favorites));
-    }
-  }, [favorites]);
-
-  useEffect(function () {
-    function checkAdmin(user) {
-      if (!user) return false;
-      return user.email && ADMIN_EMAILS.indexOf(user.email) !== -1;
-    }
-    function handleSession(session) {
-      var u = session && session.user;
-      setUserEmail(u ? u.email : '');
-      setProfile(checkAdmin(u) ? { role: 'admin' } : null);
-    }
+    function checkAdmin(user) { if (!user) return false; return user.email && ADMIN_EMAILS.indexOf(user.email) !== -1; }
+    function handleSession(session) { var u = session && session.user; setUserEmail(u ? u.email : ''); setProfile(checkAdmin(u) ? { role: 'admin' } : null); }
     supabase.auth.getSession().then(function (r) { handleSession(r.data && r.data.session); });
     var sub = supabase.auth.onAuthStateChange(function (event, session) { handleSession(session); });
     return function () { if (sub && sub.data && sub.data.subscription) { sub.data.subscription.unsubscribe(); } };
   }, []);
 
-  function fetchEvents() {
-    supabase.from('events').select('*').then(function (r) {
-      if (r.data) { setEvents(r.data.sort(function (a, b) { return new Date(a.date) - new Date(b.date); })); }
-    });
-  }
-
-  function toggleFavorite(id) {
-    setFavorites(function (prev) {
-      if (prev.indexOf(id) !== -1) return prev.filter(function (f) { return f !== id; });
-      return prev.concat([id]);
-    });
-  }
-
-  function handleInputChange(e) {
-    var n = e.target.name;
-    var v = e.target.value;
-    var up = ['title', 'city', 'localidad'];
-    var val = up.indexOf(n) !== -1 ? v.toUpperCase() : v;
-    var nf = Object.assign({}, form);
-    nf[n] = val;
-    setForm(nf);
-  }
+  function fetchEvents() { supabase.from('events').select('*').then(function (r) { if (r.data) { setEvents(r.data.sort(function (a, b) { return new Date(a.date) - new Date(b.date); })); } }); }
+  function toggleFavorite(id) { setFavorites(function (prev) { if (prev.indexOf(id) !== -1) return prev.filter(function (f) { return f !== id; }); return prev.concat([id]); }); }
+  function handleInputChange(e) { var n = e.target.name; var v = e.target.value; var up = ['title', 'city', 'localidad']; var val = up.indexOf(n) !== -1 ? v.toUpperCase() : v; var nf = Object.assign({}, form); nf[n] = val; setForm(nf); }
 
   function generateAIImage() {
     if (!form.title) return alert('Escribe un titulo primero');
     setIsGenerating(true);
     var seed = Math.floor(Math.random() * 999999);
     var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional_event_photography_' + form.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
-    var nf = Object.assign({}, form);
-    nf.image_url = url;
-    setForm(nf);
+    var nf = Object.assign({}, form); nf.image_url = url; setForm(nf);
     setTimeout(function () { setIsGenerating(false); }, 2000);
   }
 
-  function handleGalleryUpload(e) {
-    var file = e.target.files[0];
-    if (file) {
-      var reader = new FileReader();
-      reader.onload = function (ev) { var nf = Object.assign({}, form); nf.image_url = ev.target.result; setForm(nf); };
-      reader.readAsDataURL(file);
-    }
-  }
-
-  function handleCitySearch(city) {
-    if (city === 'ESPAÑA') { setMapCenter(null); return; }
-    fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(city + ', Espana'))
-      .then(function (r) { return r.json(); })
-      .then(function (data) { if (data && data[0]) { setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]); } })
-      .catch(function (err) { console.error(err); });
-  }
+  function handleGalleryUpload(e) { var file = e.target.files[0]; if (file) { var reader = new FileReader(); reader.onload = function (ev) { var nf = Object.assign({}, form); nf.image_url = ev.target.result; setForm(nf); }; reader.readAsDataURL(file); } }
+  function handleCitySearch(city) { if (city === 'ESPAÑA') { setMapCenter(null); return; } fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(city + ', Espana')).then(function (r) { return r.json(); }).then(function (data) { if (data && data[0]) { setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]); } }).catch(function (err) { console.error(err); }); }
 
   function geocodeAddress(address, localidad, city) {
     var fullAddress = address + ', ' + localidad + ', ' + city + ', Espana';
-    return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(fullAddress))
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data && data[0]) { return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }; }
-        return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(city + ', Espana'))
-          .then(function (r2) { return r2.json(); })
-          .then(function (data2) {
-            if (data2 && data2[0]) { return { lat: parseFloat(data2[0].lat), lng: parseFloat(data2[0].lon) }; }
-            return { lat: null, lng: null };
-          });
-      })
-      .catch(function () { return { lat: null, lng: null }; });
+    return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(fullAddress)).then(function (r) { return r.json(); }).then(function (data) {
+      if (data && data[0]) { return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }; }
+      return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(city + ', Espana')).then(function (r2) { return r2.json(); }).then(function (data2) { if (data2 && data2[0]) { return { lat: parseFloat(data2[0].lat), lng: parseFloat(data2[0].lon) }; } return { lat: null, lng: null }; });
+    }).catch(function () { return { lat: null, lng: null }; });
   }
 
   function handleSubmitEvent() {
     if (!form.title || !form.date || !form.city || !form.address) return alert('Rellena: titulo, ciudad, fecha y direccion.');
     setIsSubmitting(true);
     geocodeAddress(form.address, form.localidad, form.city).then(function (coords) {
-      var eventData = Object.assign({}, form, { status: 'pending', lat: coords.lat, lng: coords.lng });
-      return supabase.from('events').insert([eventData]);
-    }).then(function (r) {
-      if (r.error) throw r.error;
-      alert('Evento enviado a revision!');
-      setForm(INITIAL_FORM);
-      setView('home');
-      fetchEvents();
-    }).catch(function (err) { alert('Error al enviar.'); console.error(err); }).finally(function () { setIsSubmitting(false); });
+      return supabase.from('events').insert([Object.assign({}, form, { status: 'pending', lat: coords.lat, lng: coords.lng })]);
+    }).then(function (r) { if (r.error) throw r.error; alert('Evento enviado a revision!'); setForm(INITIAL_FORM); setView('home'); fetchEvents(); }).catch(function (err) { alert('Error al enviar.'); console.error(err); }).finally(function () { setIsSubmitting(false); });
   }
 
   function handleApproveEvent(id) { supabase.from('events').update({ status: 'approved' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); }); }
   function handleRejectEvent(id) { supabase.from('events').update({ status: 'rejected' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); }); }
   function handleDeleteEvent(id) { if (confirm('Seguro que quieres borrar este evento?')) { supabase.from('events').delete().eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); }); } }
-
-  // ✅ NUEVO: COMPARTIR EVENTO
-  function shareEvent(ev) {
-    var text = 'EVENTO: ' + ev.title + ' | ' + ev.city + ' | ' + formatDate(ev.date) + ' | ' + ev.address + ', ' + ev.localidad;
-    if (navigator.share) {
-      navigator.share({ title: ev.title, text: text });
-    } else {
-      navigator.clipboard.writeText(text).then(function () { alert('Texto copiado al portapapeles'); });
-    }
-  }
-
-  function handleLogin() {
-    var email = prompt('Escribe tu email:');
-    if (email) { supabase.auth.signInWithOtp({ email: email }).then(function () { alert('Revisa tu email y pulsa el enlace.'); }); }
-  }
+  function shareEvent(ev) { var text = 'EVENTO: ' + ev.title + ' | ' + ev.city + ' | ' + formatDate(ev.date) + ' | ' + ev.address + ', ' + ev.localidad; if (navigator.share) { navigator.share({ title: ev.title, text: text }); } else { navigator.clipboard.writeText(text).then(function () { alert('Texto copiado al portapapeles'); }); } }
+  function handleLogin() { var email = prompt('Escribe tu email:'); if (email) { supabase.auth.signInWithOtp({ email: email }).then(function () { alert('Revisa tu email y pulsa el enlace.'); }); } }
 
   var today = new Date().toISOString().split('T')[0];
   var publicEvents = events.filter(function (e) { return e.status === 'approved' && e.date >= today; });
-  // ✅ BUSQUEDA POR NOMBRE
   var searchedEvents = searchQuery ? publicEvents.filter(function (e) { return e.title.toLowerCase().indexOf(searchQuery.toLowerCase()) !== -1 || e.city.toLowerCase().indexOf(searchQuery.toLowerCase()) !== -1; }) : publicEvents;
   var filteredEvents = searchedEvents.filter(function (e) { return selectedCategory === 'TODOS' || e.category === selectedCategory; });
   var favoriteEvents = publicEvents.filter(function (e) { return favorites.indexOf(e.id) !== -1; });
@@ -290,7 +156,6 @@ export default function App() {
 
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
 
-        {/* MAPA */}
         {view === 'map' && (
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}>
             <div style={{ position: 'absolute', top: 15, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 300 }}>
@@ -306,21 +171,14 @@ export default function App() {
               <MapContainer center={[40.41, -3.70]} zoom={6} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
                 <MapResizer center={mapCenter} />
                 <TileLayer url="https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}" attribution="Google Maps" maxZoom={20} subdomains={['mt0', 'mt1', 'mt2', 'mt3']} />
-                {publicEvents.map(function (ev) {
-                  if (ev.lat && ev.lng) {
-                    return <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={greenIcon}><Popup><b>{ev.title}</b><br />{ev.address}, {ev.localidad} - {ev.city}<br />{formatDate(ev.date)}</Popup></Marker>;
-                  }
-                  return null;
-                })}
+                {publicEvents.map(function (ev) { if (ev.lat && ev.lng) { return <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={greenIcon}><Popup><b>{ev.title}</b><br />{ev.address}, {ev.localidad} - {ev.city}<br />{formatDate(ev.date)}</Popup></Marker>; } return null; })}
               </MapContainer>
             </div>
           </div>
         )}
 
-        {/* HOME */}
         {view === 'home' && !selectedEvent && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* ✅ BUSCADOR */}
             <div style={{ padding: '8px 12px', flexShrink: 0, background: isDark ? '#020617' : '#f8fafc', borderBottom: '1px solid rgba(128,128,128,0.1)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 12, padding: '6px 12px' }}>
                 <Search size={16} color="#6366f1" />
@@ -328,26 +186,12 @@ export default function App() {
                 {searchQuery && <button onClick={function () { setSearchQuery(''); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontSize: 16, padding: 0 }}>X</button>}
               </div>
             </div>
-
             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, padding: '8px 12px', overflowX: 'auto', background: isDark ? '#020617' : '#f8fafc', borderBottom: '1px solid rgba(128,128,128,0.1)', flexShrink: 0 }}>
-              {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINO', 'FIESTAS PATRONALES', 'OTROS'].map(function (cat) {
-                return <button key={cat} onClick={function () { setSelectedCategory(cat); }} style={{ padding: '7px 15px', borderRadius: 25, border: 'none', background: selectedCategory === cat ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory === cat ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>{cat}</button>;
-              })}
+              {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINO', 'FIESTAS PATRONALES', 'OTROS'].map(function (cat) { return <button key={cat} onClick={function () { setSelectedCategory(cat); }} style={{ padding: '7px 15px', borderRadius: 25, border: 'none', background: selectedCategory === cat ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory === cat ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>{cat}</button>; })}
             </div>
-
-            {/* ✅ CONTADOR */}
-            <div style={{ padding: '4px 12px', fontSize: 9, color: '#6366f1', fontWeight: 800, flexShrink: 0 }}>
-              {filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''} encontrado{filteredEvents.length !== 1 ? 's' : ''}
-            </div>
-
+            <div style={{ padding: '4px 12px', fontSize: 9, color: '#6366f1', fontWeight: 800, flexShrink: 0 }}>{filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''} encontrado{filteredEvents.length !== 1 ? 's' : ''}</div>
             <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: 15, paddingBottom: 120 }}>
-              {filteredEvents.length === 0 && (
-                <div style={{ textAlign: 'center', marginTop: 60, opacity: 0.5 }}>
-                  <Search size={40} style={{ margin: '0 auto 15px' }} />
-                  <p style={{ fontWeight: 900, fontSize: 14 }}>NO SE ENCONTRARON EVENTOS</p>
-                  <p style={{ fontSize: 10, marginTop: 8 }}>Prueba con otra busqueda o categoria</p>
-                </div>
-              )}
+              {filteredEvents.length === 0 && <div style={{ textAlign: 'center', marginTop: 60, opacity: 0.5 }}><Search size={40} style={{ margin: '0 auto 15px' }} /><p style={{ fontWeight: 900, fontSize: 14 }}>NO SE ENCONTRARON EVENTOS</p><p style={{ fontSize: 10, marginTop: 8 }}>Prueba con otra busqueda o categoria</p></div>}
               {filteredEvents.map(function (ev) {
                 return (
                   <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 25, overflow: 'hidden', marginBottom: 15 }}>
@@ -369,33 +213,33 @@ export default function App() {
           </div>
         )}
 
-        {/* DETALLES */}
+        {/* ✅ DETALLES - VERSION COMPACTA PARA QUE QUEPA EN PANTALLA */}
         {selectedEvent && !selectedPendingEvent && (
-          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 100 }}>
-            <button onClick={function () { setSelectedEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER</button>
-            <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 20, overflow: 'hidden', padding: 0 }}>
-              <img src={selectedEvent.image_url} style={{ width: '100%', height: 200, objectFit: 'cover' }} alt="" />
-              <div style={{ padding: 18 }}>
-                <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>{selectedEvent.title}</h2>
-                <div style={{ display: 'grid', gap: 10 }}>
-                  <div style={{ display: 'flex', gap: 6, fontSize: 13 }}><Calendar color="#6366f1" size={16} /> <b>{formatDate(selectedEvent.date)}</b></div>
-                  <div style={{ display: 'flex', gap: 6, fontSize: 13 }}><Clock color="#6366f1" size={16} /> <b>{selectedEvent.time}H</b></div>
-                  <div onClick={function () { window.open('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.localidad + ' ' + selectedEvent.city)); }} style={{ background: 'rgba(99,102,241,0.1)', padding: 15, borderRadius: 10, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1' }}>
-                    <MapPin color="#6366f1" size={16} style={{ margin: '0 auto 4px' }} /><br />
-                    <b style={{ fontSize: 12 }}>{selectedEvent.address}, {selectedEvent.localidad} - {selectedEvent.city}</b><br />
-                    <span style={{ fontSize: 9, color: '#2563eb', fontWeight: 900 }}>GPS (GOOGLE MAPS)</span>
-                  </div>
-                  {/* ✅ BOTON COMPARTIR */}
-                  <button onClick={function () { shareEvent(selectedEvent); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 12, background: 'rgba(34,197,94,0.1)', border: '1px dashed #22c55e', borderRadius: 10, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer', width: '100%' }}>
-                    <Share2 size={14} /> COMPARTIR EVENTO
-                  </button>
+          <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
+              <button onClick={function () { setSelectedEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}><ArrowLeft size={14} /> VOLVER</button>
+            </div>
+            <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
+              <img src={selectedEvent.image_url} style={{ width: '100%', height: 140, objectFit: 'cover', flexShrink: 0 }} alt="" />
+              <div style={{ padding: '10px 12px 8px', flex: 1 }}>
+                <h2 style={{ fontSize: 17, fontWeight: 900, marginBottom: 6 }}>{selectedEvent.title}</h2>
+                <div style={{ display: 'flex', gap: 15, marginBottom: 6 }}>
+                  <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}><Calendar color="#6366f1" size={13} /> <b>{formatDate(selectedEvent.date)}</b></div>
+                  <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}><Clock color="#6366f1" size={13} /> <b>{selectedEvent.time}H</b></div>
                 </div>
+                <div onClick={function () { window.open('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.localidad + ' ' + selectedEvent.city)); }} style={{ background: 'rgba(99,102,241,0.1)', padding: '10px', borderRadius: 8, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1', marginBottom: 6 }}>
+                  <MapPin color="#6366f1" size={14} style={{ margin: '0 auto 2px' }} />
+                  <b style={{ fontSize: 10 }}>{selectedEvent.address}, {selectedEvent.localidad} - {selectedEvent.city}</b><br />
+                  <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS (GOOGLE MAPS)</span>
+                </div>
+                <button onClick={function () { shareEvent(selectedEvent); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 10, background: 'rgba(34,197,94,0.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 10, cursor: 'pointer', width: '100%' }}>
+                  <Share2 size={12} /> COMPARTIR
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* CREAR */}
         {view === 'create' && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 15, borderRadius: 20, gap: 8, display: 'flex', flexDirection: 'column' }}>
@@ -403,9 +247,7 @@ export default function App() {
               <input name="title" placeholder="TITULO" style={INPUT_STYLE} value={form.title} onChange={handleInputChange} />
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 6 }}>
                 <input name="city" placeholder="CIUDAD" style={INPUT_STYLE} value={form.city} onChange={handleInputChange} />
-                <select name="category" style={INPUT_STYLE} value={form.category} onChange={handleInputChange}>
-                  <option value="MUSICA">MUSICA</option><option value="GASTRONOMIA">GASTRONOMIA</option><option value="TAURINO">TAURINO</option><option value="FIESTAS PATRONALES">FIESTAS</option><option value="OTROS">OTROS</option>
-                </select>
+                <select name="category" style={INPUT_STYLE} value={form.category} onChange={handleInputChange}><option value="MUSICA">MUSICA</option><option value="GASTRONOMIA">GASTRONOMIA</option><option value="TAURINO">TAURINO</option><option value="FIESTAS PATRONALES">FIESTAS</option><option value="OTROS">OTROS</option></select>
               </div>
               <input name="localidad" placeholder="LOCALIDAD" style={INPUT_STYLE} value={form.localidad} onChange={handleInputChange} />
               <input name="address" placeholder="DIRECCION" style={INPUT_STYLE} value={form.address} onChange={handleInputChange} />
@@ -414,22 +256,15 @@ export default function App() {
                 <input name="time" type="time" style={Object.assign({}, INPUT_STYLE, { padding: 8 })} value={form.time} onChange={handleInputChange} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                <button onClick={generateAIImage} style={{ padding: 10, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}>
-                  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />} IA FOTO
-                </button>
-                <label style={{ padding: 10, background: '#1e293b', color: 'white', textAlign: 'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>
-                  GALERIA <input type="file" style={{ display: 'none' }} onChange={handleGalleryUpload} />
-                </label>
+                <button onClick={generateAIImage} style={{ padding: 10, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}>{isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />} IA FOTO</button>
+                <label style={{ padding: 10, background: '#1e293b', color: 'white', textAlign: 'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>GALERIA <input type="file" style={{ display: 'none' }} onChange={handleGalleryUpload} /></label>
               </div>
               {form.image_url && <img src={form.image_url} style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 10 }} alt="" />}
-              <button onClick={handleSubmitEvent} disabled={isSubmitting} style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
-                {isSubmitting ? 'Enviando...' : 'ENVIAR REVISION'}
-              </button>
+              <button onClick={handleSubmitEvent} disabled={isSubmitting} style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>{isSubmitting ? 'Enviando...' : 'ENVIAR REVISION'}</button>
             </div>
           </div>
         )}
 
-        {/* ADMIN */}
         {view === 'admin' && !selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={function () { setView('home'); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER</button>
@@ -439,27 +274,11 @@ export default function App() {
             </div>
             {adminTab === 'pending' && pendingEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS PENDIENTES</p>}
             {adminTab === 'pending' && pendingEvents.map(function (ev) {
-              return (
-                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 15, padding: 10, marginBottom: 10, cursor: 'pointer' }} onClick={function () { setSelectedPendingEvent(ev); }}>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    {ev.image_url && <img src={ev.image_url} style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover' }} alt="" />}
-                    <div style={{ flex: 1 }}><p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p><p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city} | {formatDate(ev.date)}</p></div>
-                    <span style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700 }}>VER &gt;</span>
-                  </div>
-                </div>
-              );
+              return <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 15, padding: 10, marginBottom: 10, cursor: 'pointer' }} onClick={function () { setSelectedPendingEvent(ev); }}><div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>{ev.image_url && <img src={ev.image_url} style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover' }} alt="" />}<div style={{ flex: 1 }}><p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p><p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city} | {formatDate(ev.date)}</p></div><span style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700 }}>VER &gt;</span></div></div>;
             })}
             {adminTab === 'approved' && approvedEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS APROBADOS</p>}
             {adminTab === 'approved' && approvedEvents.map(function (ev) {
-              return (
-                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 15, padding: 10, marginBottom: 10 }}>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    {ev.image_url && <img src={ev.image_url} style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover' }} alt="" />}
-                    <div style={{ flex: 1 }}><p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p><p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city} | {formatDate(ev.date)}</p></div>
-                    <button onClick={function (e) { e.stopPropagation(); handleDeleteEvent(ev.id); }} style={{ padding: 8, background: '#ef4444', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, fontWeight: 900 }}><Trash2 size={14} /> BORRAR</button>
-                  </div>
-                </div>
-              );
+              return <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 15, padding: 10, marginBottom: 10 }}><div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>{ev.image_url && <img src={ev.image_url} style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover' }} alt="" />}<div style={{ flex: 1 }}><p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p><p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city} | {formatDate(ev.date)}</p></div><button onClick={function (e) { e.stopPropagation(); handleDeleteEvent(ev.id); }} style={{ padding: 8, background: '#ef4444', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, fontWeight: 900 }}><Trash2 size={14} /> BORRAR</button></div></div>;
             })}
           </div>
         )}
@@ -491,13 +310,7 @@ export default function App() {
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16 }}>MIS GUARDADOS</h2>
             {favoriteEvents.length === 0 ? <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS GUARDADOS</p> : favoriteEvents.map(function (ev) {
-              return (
-                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center' }}>
-                  <img src={ev.image_url} style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }} alt="" />
-                  <div style={{ flex: 1 }}><p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p><p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city}</p></div>
-                  <button onClick={function () { toggleFavorite(ev.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={18} /></button>
-                </div>
-              );
+              return <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center' }}><img src={ev.image_url} style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }} alt="" /><div style={{ flex: 1 }}><p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p><p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city}</p></div><button onClick={function () { toggleFavorite(ev.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={18} /></button></div>;
             })}
           </div>
         )}
