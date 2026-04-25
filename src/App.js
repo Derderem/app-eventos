@@ -177,18 +177,59 @@ export default function App() {
       .catch(function (err) { console.error(err); });
   }
 
+  // ✅ GEOCODIFICAR DIRECCION PARA OBTENER LAT/LNG
+  function geocodeAddress(address, localidad, city) {
+    var fullAddress = address + ', ' + localidad + ', ' + city + ', Espana';
+    return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(fullAddress))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data[0]) {
+          return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        }
+        // Si no encuentra la direccion exacta, busca solo la ciudad
+        return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(city + ', Espana'))
+          .then(function (r2) { return r2.json(); })
+          .then(function (data2) {
+            if (data2 && data2[0]) {
+              return { lat: parseFloat(data2[0].lat), lng: parseFloat(data2[0].lon) };
+            }
+            return { lat: null, lng: null };
+          });
+      })
+      .catch(function () { return { lat: null, lng: null }; });
+  }
+
+  // ✅ ENVIAR EVENTO: GEOCODIFICA Y GUARDA LAT/LNG
   function handleSubmitEvent() {
     if (!form.title || !form.date || !form.city || !form.address) return alert('Rellena: titulo, ciudad, fecha y direccion.');
     setIsSubmitting(true);
-    supabase.from('events').insert([Object.assign({}, form, { status: 'pending' })])
-      .then(function (r) { if (r.error) throw r.error; alert('Evento enviado a revision!'); setForm(INITIAL_FORM); setView('home'); fetchEvents(); })
-      .catch(function (err) { alert('Error al enviar.'); console.error(err); })
-      .finally(function () { setIsSubmitting(false); });
+
+    geocodeAddress(form.address, form.localidad, form.city).then(function (coords) {
+      var eventData = Object.assign({}, form, { status: 'pending', lat: coords.lat, lng: coords.lng });
+      return supabase.from('events').insert([eventData]);
+    }).then(function (r) {
+      if (r.error) throw r.error;
+      alert('Evento enviado a revision!');
+      setForm(INITIAL_FORM);
+      setView('home');
+      fetchEvents();
+    }).catch(function (err) {
+      alert('Error al enviar.');
+      console.error(err);
+    }).finally(function () {
+      setIsSubmitting(false);
+    });
   }
 
-  function handleApproveEvent(id) { supabase.from('events').update({ status: 'approved' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); }); }
-  function handleRejectEvent(id) { supabase.from('events').update({ status: 'rejected' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); }); }
-  function handleDeleteEvent(id) { supabase.from('events').delete().eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); }); }
+  function handleApproveEvent(id) {
+    supabase.from('events').update({ status: 'approved' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); });
+  }
+  function handleRejectEvent(id) {
+    supabase.from('events').update({ status: 'rejected' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); });
+  }
+  function handleDeleteEvent(id) {
+    supabase.from('events').delete().eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); });
+  }
 
   function handleLogin() {
     var email = prompt('Escribe tu email:');
@@ -242,7 +283,6 @@ export default function App() {
 
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
 
-        {/* MAPA */}
         {view === 'map' && (
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}>
             <div style={{ position: 'absolute', top: 15, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 300 }}>
@@ -260,7 +300,7 @@ export default function App() {
                 <TileLayer url="https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}" attribution="Google Maps" maxZoom={20} subdomains={['mt0', 'mt1', 'mt2', 'mt3']} />
                 {publicEvents.map(function (ev) {
                   if (ev.lat && ev.lng) {
-                    return <Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><b>{ev.title}</b><br />{ev.city} | {formatDate(ev.date)}</Popup></Marker>;
+                    return <Marker key={ev.id} position={[ev.lat, ev.lng]}><Popup><b>{ev.title}</b><br />{ev.address}, {ev.localidad} - {ev.city}<br />{formatDate(ev.date)}</Popup></Marker>;
                   }
                   return null;
                 })}
@@ -269,7 +309,6 @@ export default function App() {
           </div>
         )}
 
-        {/* HOME */}
         {view === 'home' && !selectedEvent && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, padding: '10px 12px', overflowX: 'auto', background: isDark ? '#020617' : '#f8fafc', borderBottom: '1px solid rgba(128,128,128,0.1)', flexShrink: 0 }}>
@@ -299,7 +338,6 @@ export default function App() {
           </div>
         )}
 
-        {/* DETALLES */}
         {selectedEvent && !selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 100 }}>
             <button onClick={function () { setSelectedEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER</button>
@@ -321,7 +359,6 @@ export default function App() {
           </div>
         )}
 
-        {/* CREAR */}
         {view === 'create' && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 15, borderRadius: 20, gap: 8, display: 'flex', flexDirection: 'column' }}>
@@ -355,7 +392,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ADMIN: LISTA */}
         {view === 'admin' && !selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={function () { setView('home'); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER</button>
@@ -377,7 +413,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ADMIN: DETALLES */}
         {view === 'admin' && selectedPendingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={function () { setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}><ArrowLeft size={16} /> VOLVER A LISTA</button>
@@ -401,7 +436,6 @@ export default function App() {
           </div>
         )}
 
-        {/* GUARDADOS */}
         {view === 'favorites' && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16 }}>MIS GUARDADOS</h2>
@@ -417,7 +451,6 @@ export default function App() {
           </div>
         )}
 
-        {/* SOPORTE */}
         {view === 'profile' && (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 22, borderRadius: 35, width: '100%', maxWidth: 300, textAlign: 'center' }}>
