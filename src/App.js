@@ -11,25 +11,16 @@ import 'leaflet/dist/leaflet.css';
 
 delete L.Icon.Default.prototype._getIconUrl;
 
-// ✅ MARCADOR: PINZA ESTILO GOOGLE MAPS VERDE
-var greenPinIcon = L.divIcon({
-  html: '<div style="width:30px;height:40px;position:relative;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));"><svg viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg"><path d="M15 0C6.7 0 0 6.7 0 15c0 11.2 13.3 23.5 14 24.4.3.4.7.4 1 0C16.7 38.5 30 26.2 30 15 30 6.7 23.3 0 15 0z" fill="#22c55e"/><circle cx="15" cy="14" r="6" fill="white"/></svg></div>',
-  iconSize: [30, 40],
-  iconAnchor: [15, 40],
-  popupAnchor: [0, -40],
+// ✅ PINZA ROJA MÁS PEQUEÑA
+var redPinIcon = L.divIcon({
+  html: '<div style="width:22px;height:30px;position:relative;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));"><svg viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg"><path d="M15 0C6.7 0 0 6.7 0 15c0 11.2 13.3 23.5 14 24.4.3.4.7.4 1 0C16.7 38.5 30 26.2 30 15 30 6.7 23.3 0 15 0z" fill="#ef4444"/><circle cx="15" cy="14" r="5" fill="white"/></svg></div>',
+  iconSize: [22, 30],
+  iconAnchor: [11, 30],
+  popupAnchor: [0, -30],
   className: ''
 });
 
-// ✅ EMOJIS POR CATEGORIA
-var categoryEmojis = {
-  'MUSICA': '🎵',
-  'GASTRONOMIA': '🍽️',
-  'TAURINO': '🐂',
-  'FIESTAS PATRONALES': '🎉',
-  'OTROS': '📌'
-};
-
-// ✅ MAPA OSCURO
+var categoryEmojis = { 'MUSICA': '🎵', 'GASTRONOMIA': '🍽️', 'TAURINO': '🐂', 'FIESTAS PATRONALES': '🎉', 'OTROS': '📌' };
 var darkTileUrl = 'https://mt1.google.com/vt/lyrs=r&hl=es&x={x}&y={y}&z={z}';
 var lightTileUrl = 'https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}';
 
@@ -37,12 +28,7 @@ var supabase = createClient(process.env.REACT_APP_SUPABASE_URL || '', process.en
 var ADMIN_EMAILS = ['garverjacobo@gmail.com', 'jacobogarver@gmail.com'];
 var INITIAL_FORM = { title: '', city: '', localidad: '', address: '', time: '21:00', date: '', category: 'MUSICA', image_url: '' };
 
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  var parts = dateStr.split('-');
-  if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
-  return dateStr;
-}
+function formatDate(dateStr) { if (!dateStr) return ''; var parts = dateStr.split('-'); if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0]; return dateStr; }
 
 function MapResizer(props) {
   var map = useMap();
@@ -75,9 +61,7 @@ export default function App() {
   var _adminSel = useState(null); var selectedPendingEvent = _adminSel[0]; var setSelectedPendingEvent = _adminSel[1];
   var _adminTab = useState('pending'); var adminTab = _adminTab[0]; var setAdminTab = _adminTab[1];
   var _search = useState(''); var searchQuery = _search[0]; var setSearchQuery = _search[1];
-  // ✅ NUEVO: filtro por fecha
   var _dateFilter = useState('all'); var dateFilter = _dateFilter[0]; var setDateFilter = _dateFilter[1];
-  // ✅ NUEVO: ref para auto-scroll
   var listRef = useRef(null);
 
   useEffect(function () { fetchEvents(); }, []);
@@ -90,7 +74,24 @@ export default function App() {
     return function () { if (sub && sub.data && sub.data.subscription) { sub.data.subscription.unsubscribe(); } };
   }, []);
 
-  function fetchEvents() { supabase.from('events').select('*').then(function (r) { if (r.data) { setEvents(r.data.sort(function (a, b) { return new Date(a.date) - new Date(b.date); })); } }); }
+  function fetchEvents() {
+    supabase.from('events').select('*').then(function (r) {
+      if (r.data) {
+        var sorted = r.data.sort(function (a, b) { return new Date(a.date) - new Date(b.date); });
+        setEvents(sorted);
+        // ✅ LIMPIAR FAVORITOS CON IDs DE EVENTOS QUE YA NO EXISTEN
+        var validIds = sorted.map(function (e) { return e.id; });
+        setFavorites(function (prev) {
+          var cleaned = prev.filter(function (id) { return validIds.indexOf(id) !== -1; });
+          if (cleaned.length !== prev.length) {
+            localStorage.setItem('eventora_favs_v4', JSON.stringify(cleaned));
+          }
+          return cleaned;
+        });
+      }
+    });
+  }
+
   function toggleFavorite(id) { setFavorites(function (prev) { if (prev.indexOf(id) !== -1) return prev.filter(function (f) { return f !== id; }); return prev.concat([id]); }); }
   function handleInputChange(e) { var n = e.target.name; var v = e.target.value; var up = ['title', 'city', 'localidad']; var val = up.indexOf(n) !== -1 ? v.toUpperCase() : v; var nf = Object.assign({}, form); nf[n] = val; setForm(nf); }
   function generateAIImage() { if (!form.title) return alert('Escribe un titulo primero'); setIsGenerating(true); var seed = Math.floor(Math.random() * 999999); var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional_event_photography_' + form.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now(); var nf = Object.assign({}, form); nf.image_url = url; setForm(nf); setTimeout(function () { setIsGenerating(false); }, 2000); }
@@ -103,31 +104,23 @@ export default function App() {
   function handleDeleteEvent(id) { if (confirm('Seguro que quieres borrar este evento?')) { supabase.from('events').delete().eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); }); } }
   function shareEvent(ev) { var text = 'EVENTO: ' + ev.title + ' | ' + ev.city + ' | ' + formatDate(ev.date) + ' | ' + ev.address + ', ' + ev.localidad; if (navigator.share) { navigator.share({ title: ev.title, text: text }); } else { navigator.clipboard.writeText(text).then(function () { alert('Texto copiado al portapapeles'); }); } }
   function handleLogin() { var email = prompt('Escribe tu email:'); if (email) { supabase.auth.signInWithOtp({ email: email }).then(function () { alert('Revisa tu email y pulsa el enlace.'); }); } }
-  // ✅ CAMBIO CATEGORIA CON AUTO-SCROLL
   function handleCategoryChange(cat) { setSelectedCategory(cat); if (listRef.current) { listRef.current.scrollTop = 0; } }
 
   var today = new Date().toISOString().split('T')[0];
   var publicEvents = events.filter(function (e) { return e.status === 'approved' && e.date >= today; });
   var searchedEvents = searchQuery ? publicEvents.filter(function (e) { return e.title.toLowerCase().indexOf(searchQuery.toLowerCase()) !== -1 || e.city.toLowerCase().indexOf(searchQuery.toLowerCase()) !== -1; }) : publicEvents;
   var categoryEvents = searchedEvents.filter(function (e) { return selectedCategory === 'TODOS' || e.category === selectedCategory; });
-  // ✅ FILTRO POR FECHA
   var filteredEvents = categoryEvents.filter(function (e) {
     if (dateFilter === 'today') return e.date === today;
-    if (dateFilter === 'week') {
-      var eventDate = new Date(e.date);
-      var now = new Date();
-      var weekEnd = new Date(now);
-      weekEnd.setDate(weekEnd.getDate() + 7);
-      return eventDate >= now && eventDate <= weekEnd;
-    }
+    if (dateFilter === 'week') { var eventDate = new Date(e.date); var now = new Date(); var weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7); return eventDate >= now && eventDate <= weekEnd; }
     return true;
   });
+  // ✅ FAVORITOS REALES (solo los que existen)
   var favoriteEvents = publicEvents.filter(function (e) { return favorites.indexOf(e.id) !== -1; });
   var pendingEvents = events.filter(function (e) { return e.status === 'pending'; });
   var approvedEvents = events.filter(function (e) { return e.status === 'approved'; });
   var citiesList = [];
   publicEvents.forEach(function (e) { if (citiesList.indexOf(e.city) === -1) citiesList.push(e.city); });
-  // ✅ EVENTO DESTACADO (el primero de la lista)
   var featuredEvent = filteredEvents.length > 0 ? filteredEvents[0] : null;
   var restEvents = filteredEvents.length > 0 ? filteredEvents.slice(1) : [];
 
@@ -170,7 +163,6 @@ export default function App() {
 
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
 
-        {/* MAPA - ✅ MODO OSCURO/CLARO */}
         {view === 'map' && (
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}>
             <div style={{ position: 'absolute', top: 15, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 300 }}>
@@ -186,13 +178,12 @@ export default function App() {
               <MapContainer center={[40.41, -3.70]} zoom={6} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
                 <MapResizer center={mapCenter} />
                 <TileLayer url={isDark ? darkTileUrl : lightTileUrl} attribution="Google Maps" maxZoom={20} subdomains={['mt0', 'mt1', 'mt2', 'mt3']} />
-                {publicEvents.map(function (ev) { if (ev.lat && ev.lng) { return <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={greenPinIcon}><Popup><b>{ev.title}</b><br />{ev.address}, {ev.localidad} - {ev.city}<br />{formatDate(ev.date)}</Popup></Marker>; } return null; })}
+                {publicEvents.map(function (ev) { if (ev.lat && ev.lng) { return <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={redPinIcon}><Popup><b>{ev.title}</b><br />{ev.address}, {ev.localidad} - {ev.city}<br />{formatDate(ev.date)}</Popup></Marker>; } return null; })}
               </MapContainer>
             </div>
           </div>
         )}
 
-        {/* HOME */}
         {view === 'home' && !selectedEvent && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '8px 12px', flexShrink: 0, background: isDark ? '#020617' : '#f8fafc', borderBottom: '1px solid rgba(128,128,128,0.1)' }}>
@@ -202,7 +193,6 @@ export default function App() {
                 {searchQuery && <button onClick={function () { setSearchQuery(''); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontSize: 16, padding: 0 }}>X</button>}
               </div>
             </div>
-            {/* ✅ FILTRO POR FECHA */}
             <div style={{ display: 'flex', gap: 6, padding: '6px 12px', flexShrink: 0, background: isDark ? '#020617' : '#f8fafc', borderBottom: '1px solid rgba(128,128,128,0.1)' }}>
               {[{ k: 'all', l: 'TODOS' }, { k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }].map(function (f) {
                 return <button key={f.k} onClick={function () { setDateFilter(f.k); }} style={{ padding: '5px 10px', borderRadius: 10, border: 'none', background: dateFilter === f.k ? '#22c55e' : 'transparent', color: dateFilter === f.k ? 'white' : '#6366f1', fontSize: 8, fontWeight: 900, cursor: 'pointer' }}>{f.l}</button>;
@@ -212,11 +202,8 @@ export default function App() {
               {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINO', 'FIESTAS PATRONALES', 'OTROS'].map(function (cat) { return <button key={cat} onClick={function () { handleCategoryChange(cat); }} style={{ padding: '7px 15px', borderRadius: 25, border: 'none', background: selectedCategory === cat ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory === cat ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>{cat}</button>; })}
             </div>
             <div style={{ padding: '4px 12px', fontSize: 9, color: '#6366f1', fontWeight: 800, flexShrink: 0 }}>{filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''}</div>
-
             <div ref={listRef} className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: 15, paddingBottom: 120 }}>
               {filteredEvents.length === 0 && <div style={{ textAlign: 'center', marginTop: 60, opacity: 0.5 }}><Search size={40} style={{ margin: '0 auto 15px' }} /><p style={{ fontWeight: 900, fontSize: 14 }}>NO SE ENCONTRARON EVENTOS</p><p style={{ fontSize: 10, marginTop: 8 }}>Prueba con otra busqueda o categoria</p></div>}
-
-              {/* ✅ EVENTO DESTACADO */}
               {featuredEvent && (
                 <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 25, overflow: 'hidden', marginBottom: 15, border: '2px solid #22c55e' }}>
                   <div style={{ position: 'relative' }}>
@@ -235,8 +222,6 @@ export default function App() {
                   </div>
                 </div>
               )}
-
-              {/* ✅ RESTO DE EVENTOS */}
               {restEvents.map(function (ev) {
                 return (
                   <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 25, overflow: 'hidden', marginBottom: 15 }}>
@@ -258,7 +243,6 @@ export default function App() {
           </div>
         )}
 
-        {/* DETALLES COMPACTOS */}
         {selectedEvent && !selectedPendingEvent && (
           <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
@@ -374,10 +358,9 @@ export default function App() {
 
       <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,0.4)', zIndex: 3000, background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)' }}>
         <button onClick={function () { setView('home'); setSelectedEvent(null); setSelectedPendingEvent(null); setSearchQuery(''); }} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><LayoutList size={22} /></button>
-        {/* ✅ CONTADOR DE FAVORITOS */}
         <button onClick={function () { setView('favorites'); setSelectedEvent(null); setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
           <Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} />
-          {favorites.length > 0 && <span style={{ position: 'absolute', top: -4, right: -8, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px', minWidth: 14, textAlign: 'center' }}>{favorites.length}</span>}
+          {favoriteEvents.length > 0 && <span style={{ position: 'absolute', top: -4, right: -8, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px', minWidth: 14, textAlign: 'center' }}>{favoriteEvents.length}</span>}
         </button>
         <button onClick={function () { setView('create'); setSelectedEvent(null); setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><PlusCircle size={22} /></button>
         <button onClick={function () { setView('map'); setSelectedEvent(null); setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}><MapIcon size={22} /></button>
