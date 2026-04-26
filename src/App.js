@@ -150,7 +150,18 @@ function MapResizer({ center }) {
 function exportToCSV(events) {
   if (!events.length) return alert('No hay eventos para exportar.');
 
-  const headers = ['Titulo', 'Ciudad', 'Localidad', 'Direccion', 'Fecha', 'Hora', 'Categoria', 'Estado', 'Lat', 'Lng'];
+  const headers = [
+    'Titulo',
+    'Ciudad',
+    'Localidad',
+    'Direccion',
+    'Fecha',
+    'Hora',
+    'Categoria',
+    'Estado',
+    'Lat',
+    'Lng'
+  ];
 
   const rows = events.map((e) => {
     return [
@@ -164,7 +175,9 @@ function exportToCSV(events) {
       e.status || '',
       e.lat || '',
       e.lng || ''
-    ].map((x) => '"' + String(x).replace(/"/g, '""') + '"').join(';');
+    ]
+      .map((x) => '"' + String(x).replace(/"/g, '""') + '"')
+      .join(';');
   });
 
   const csv = '\uFEFF' + headers.join(';') + '\n' + rows.join('\n');
@@ -713,6 +726,7 @@ export default function App() {
       setUserEmail('');
       setProfile(null);
       fetchEvents();
+      setView('home');
     });
   }
 
@@ -965,21 +979,6 @@ export default function App() {
               cursor: 'pointer'
             }}>
               LOGIN
-            </button>
-          )}
-
-          {userEmail && (
-            <button onClick={handleLogout} style={{
-              background: '#ef4444',
-              color: 'white',
-              border: 'none',
-              borderRadius: 8,
-              padding: '4px 8px',
-              fontSize: 8,
-              fontWeight: 900,
-              cursor: 'pointer'
-            }}>
-              SALIR
             </button>
           )}
 
