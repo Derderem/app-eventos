@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import {
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, Trash2,
   Map as MapIcon, Clock, LayoutList, ShieldCheck, Sparkles,
-  Loader2, ArrowLeft, Search, Share2, Star, Download
+  Loader2, ArrowLeft, Search, Share2, Star, Download, X, CheckCircle
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -167,6 +167,33 @@ function exportToCSV(events) {
   URL.revokeObjectURL(link.href);
 }
 
+// --- NUEVO: Componente Toast para notificaciones ---
+function ToastNotification(props) {
+  if (!props.show) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '20px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 9999,
+      background: props.type === 'success' ? '#22c55e' : '#ef4444',
+      color: 'white',
+      padding: '12px 20px',
+      borderRadius: '8px',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      animation: 'slideDown 0.3s ease-out'
+    }}>
+      {props.type === 'success' ? <CheckCircle size={20} /> : <X size={20} />}
+      <span style={{ fontWeight: '900' }}>{props.message}</span>
+    </div>
+  );
+}
+
 export default function App() {
   var _splash = useState(true);
   var showSplash = _splash[0];
@@ -247,9 +274,16 @@ export default function App() {
   var animHeart = _animHeart[0];
   var setAnimHeart = _animHeart[1];
 
+  // NUEVO: Estado para el Toast
+  var _toast = useState({ show: false, message: '', type: 'success' });
+  var toast = _toast[0];
+  var setToast = _toast[1];
+
   var listRef = useRef(null);
 
-  var hasAdmin = profile && profile.role === 'admin';
+  // NUEVO: Calcular contador de pendientes
+  var hasAdmin = profile && profile.? true : false;
+  var pendingEventsCount = hasAdmin ? events.filter(function (e) { return e.status === 'pending'; }).length : 0;
 
   useEffect(function () {
     fetchEvents();
@@ -494,6 +528,13 @@ export default function App() {
     return url;
   }
 
+  function showToast(message, type) {
+    setToast({ show: true, message: message, type: type });
+    setTimeout(function () {
+      setToast({ show: false, message: '', type: 'success' });
+    }, 3000);
+  }
+
   function handleSubmitEvent() {
     if (!form.title || !form.date || !form.city || !form.address) {
       return alert('❌ Faltan campos:\n\n- Título\n- Ciudad\n- Fecha\n- Dirección');
@@ -528,14 +569,11 @@ export default function App() {
       .then(function (res) {
         if (res.error) {
           console.error('❌ Error Supabase completo:', res.error);
-          alert(
-            '❌ Error Supabase:\n\n' +
-            (res.error.message || JSON.stringify(res.error, null, 2))
-          );
+          showToast('❌ Error al enviar: ' + (res.error.message || 'Error desconocido'), 'error');
           return;
         }
 
-        alert('✅ ¡Evento enviado a revisión correctamente!');
+        showToast('✅ Evento enviado a revisión correctamente', 'success');
 
         setForm(INITIAL_FORM);
         setView('home');
@@ -543,10 +581,7 @@ export default function App() {
       })
       .catch(function (err) {
         console.error('❌ Error completo:', err);
-        alert(
-          '❌ Error al enviar:\n\n' +
-          (err.message || JSON.stringify(err, null, 2))
-        );
+        showToast('❌ Error al enviar: ' + (err.message || 'Error desconocido'), 'error');
       })
       .finally(function () {
         setIsSubmitting(false);
@@ -567,6 +602,7 @@ export default function App() {
 
         setSelectedPendingEvent(null);
         fetchEvents();
+        showToast('✅ Evento aprobado', 'success');
       });
   }
 
@@ -584,6 +620,7 @@ export default function App() {
 
         setSelectedPendingEvent(null);
         fetchEvents();
+        showToast('!o rechazado', 'error');
       });
   }
 
@@ -603,6 +640,7 @@ export default function App() {
 
         setSelectedPendingEvent(null);
         fetchEvents();
+        showToast('🗑️ Evento borrado', 'error');
       });
   }
 
@@ -631,26 +669,13 @@ export default function App() {
     }
   }
 
-  function handleLogin() {
-    var email = prompt('Escribe tu email:');
-    if (!email) return;
-
-    supabase.auth.signInWithOtp({ email: email }).then(function (res) {
-      if (res.error) {
-        console.error('❌ Error login:', res.error);
-        alert('Error login:\n\n' + res.error.message);
-        return;
-      }
-
-      alert('Revisa tu email y pulsa el enlace.');
-    });
-  }
-
+  // NUEVO: Función de Logout
   function handleLogout() {
     supabase.auth.signOut().then(function () {
       setUserEmail('');
       setProfile(null);
       fetchEvents();
+      setView('home');
     });
   }
 
@@ -726,6 +751,7 @@ export default function App() {
     return favorites.indexOf(e.id) !== -1;
   });
 
+  // NUEVO: Filtrado de pendientes solo para admin
   var pendingEvents = hasAdmin
     ? events.filter(function (e) { return e.status === 'pending'; })
     : [];
@@ -765,6 +791,9 @@ export default function App() {
       display: 'flex',
       flexDirection: 'column'
     }}>
+      {/* NUEVO: Toast Notification */}
+      <ToastNotification show={toast.show} message={toast.message} type={toast.type} />
+
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color .25s, color .25s; }
         html, body, #root { width: 100%; height: 100%; overflow: hidden; }
@@ -781,6 +810,7 @@ export default function App() {
         .pulse-admin { animation:admin-pulse 1.4s infinite; }
         @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
         .heart-pop { animation:heartPop .6s ease-out; }
+        @keyframes slideDown { from { opacity: 0; transform: translateX(-50%) translateY(-20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
       `}</style>
 
       <nav style={{
@@ -811,22 +841,42 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* NUEVO: Botón Admin con contador */}
           {hasAdmin && (
-            <ShieldCheck
-              size={20}
-              className={pendingEvents.length > 0 ? 'pulse-admin' : ''}
-              style={{ color: '#6366f1', cursor: 'pointer' }}
-              onClick={function () {
-                setView('admin');
-                setSelectedEvent(null);
-                setSelectedPendingEvent(null);
-                setAdminTab('pending');
-                fetchEvents();
-              }}
-            />
+            <div style={{ position: 'relative', cursor: 'pointer' }} onClick={function () {
+              setView('admin');
+              setSelectedEvent(null);
+              setSelectedPendingEvent(null);
+              setAdminTab('pending');
+              fetchEvents();
+            }}>
+              <ShieldCheck
+                size={20}
+                className={pendingEventsCount > 0 ? 'pulse-admin' : ''}
+                style={{ color: '#6366f1', marginRight: 4 }}
+              />
+              {pendingEventsCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: -8,
+                  right: -8,
+                  background: '#ef4444',
+                  color: 'white',
+                  fontSize: 10,
+                  fontWeight: 900,
+                  borderRadius: '50%',
+                  padding: '2px 6px',
+                  minWidth: 18,
+                  textAlign: 'center',
+                  border: '2px solid ' + (isDark ? '#0f172a' : '#fff')
+                }}>
+                  {{pendingEventsCount}
+                </span>
+              )}
+            </div>
           )}
 
-          {!userEmail && (
+          {{!userEmail && (
             <button onClick={handleLogin} style={{
               background: '#4f46e5',
               color: 'white',
@@ -923,902 +973,3 @@ export default function App() {
                 url={isDark ? darkTileUrl : lightTileUrl}
                 attribution="Google Maps"
                 maxZoom={20}
-              />
-
-              {publicEvents.map(function (ev) {
-                if (!ev.lat || !ev.lng) return null;
-
-                return (
-                  <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={redPinIcon}>
-                    <Popup>
-                      <b>{ev.title}</b><br />
-                      {ev.address}, {ev.localidad || ''} - {ev.city}<br />
-                      {formatDate(ev.date)}
-                    </Popup>
-                  </Marker>
-                );
-              })}
-            </MapContainer>
-          </div>
-        )}
-
-        {view === 'home' && !selectedEvent && (
-          <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div style={{
-              padding: '8px 12px',
-              flexShrink: 0,
-              background: isDark ? '#020617' : '#f8fafc',
-              borderBottom: '1px solid rgba(128,128,128,.1)'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                background: isDark ? '#1e293b' : '#e2e8f0',
-                borderRadius: 12,
-                padding: '6px 12px'
-              }}>
-                <Search size={16} color="#6366f1" />
-
-                <input
-                  value={searchQuery}
-                  onChange={function (e) { setSearchQuery(e.target.value); }}
-                  placeholder="Buscar evento o ciudad..."
-                  style={{
-                    width: '100%',
-                    border: 'none',
-                    outline: 'none',
-                    background: 'transparent',
-                    fontWeight: 700,
-                    fontSize: 11,
-                    color: 'inherit'
-                  }}
-                />
-
-                {searchQuery && (
-                  <button
-                    onClick={function () { setSearchQuery(''); }}
-                    style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontSize: 16 }}
-                  >
-                    X
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div style={{
-              display: 'flex',
-              gap: 6,
-              padding: '6px 12px',
-              flexShrink: 0,
-              background: isDark ? '#020617' : '#f8fafc',
-              borderBottom: '1px solid rgba(128,128,128,.1)'
-            }}>
-              {[
-                { k: 'all', l: 'TODOS' },
-                { k: 'today', l: 'HOY' },
-                { k: 'week', l: 'ESTA SEMANA' }
-              ].map(function (f) {
-                return (
-                  <button
-                    key={f.k}
-                    onClick={function () { setDateFilter(f.k); }}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: 10,
-                      border: 'none',
-                      background: dateFilter === f.k ? '#22c55e' : 'transparent',
-                      color: dateFilter === f.k ? 'white' : '#6366f1',
-                      fontSize: 8,
-                      fontWeight: 900,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {f.l}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="no-scrollbar" style={{
-              display: 'flex',
-              gap: 8,
-              padding: '8px 12px',
-              overflowX: 'auto',
-              background: isDark ? '#020617' : '#f8fafc',
-              borderBottom: '1px solid rgba(128,128,128,.1)',
-              flexShrink: 0
-            }}>
-              {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINO', 'FIESTAS PATRONALES', 'OTROS'].map(function (cat) {
-                return (
-                  <button
-                    key={cat}
-                    onClick={function () { handleCategoryChange(cat); }}
-                    style={{
-                      padding: '7px 15px',
-                      borderRadius: 25,
-                      border: 'none',
-                      background: selectedCategory === cat ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'),
-                      color: selectedCategory === cat ? 'white' : 'inherit',
-                      fontSize: 10,
-                      fontWeight: 900,
-                      whiteSpace: 'nowrap',
-                      cursor: 'pointer',
-                      flexShrink: 0
-                    }}
-                  >
-                    {cat}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div style={{ padding: '4px 12px', fontSize: 9, color: '#6366f1', fontWeight: 800, flexShrink: 0 }}>
-              {filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''}
-            </div>
-
-            <div ref={listRef} className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: 15, paddingBottom: 120 }}>
-              {filteredEvents.length === 0 && (
-                <div style={{ textAlign: 'center', marginTop: 60, opacity: .5 }}>
-                  <Search size={40} style={{ margin: '0 auto 15px' }} />
-                  <p style={{ fontWeight: 900, fontSize: 14 }}>NO SE ENCONTRARON EVENTOS</p>
-                  <p style={{ fontSize: 10, marginTop: 8 }}>Prueba con otra búsqueda o categoría</p>
-                </div>
-              )}
-
-              {featuredEvent && (
-                <EventCard
-                  ev={featuredEvent}
-                  featured={true}
-                  isDark={isDark}
-                  favorites={favorites}
-                  animHeart={animHeart}
-                  toggleFavorite={toggleFavorite}
-                  setSelectedEvent={setSelectedEvent}
-                />
-              )}
-
-              {restEvents.map(function (ev) {
-                return (
-                  <EventCard
-                    key={ev.id}
-                    ev={ev}
-                    featured={false}
-                    isDark={isDark}
-                    favorites={favorites}
-                    animHeart={animHeart}
-                    toggleFavorite={toggleFavorite}
-                    setSelectedEvent={setSelectedEvent}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {selectedEvent && !selectedPendingEvent && (
-          <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
-              <button
-                onClick={function () { setSelectedEvent(null); }}
-                style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}
-              >
-                <ArrowLeft size={14} /> VOLVER
-              </button>
-            </div>
-
-            <div className={isDark ? 'card-dark' : 'card-light'} style={{
-              borderRadius: '15px 15px 0 0',
-              overflow: 'hidden',
-              padding: 0,
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              margin: '0 8px',
-              overflowY: 'auto'
-            }}>
-              <img
-                src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-                style={{ width: '100%', height: 150, objectFit: 'cover', flexShrink: 0 }}
-                alt=""
-              />
-
-              <div style={{ padding: '12px', flex: 1 }}>
-                <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>
-                  {categoryEmojis[selectedEvent.category] || '📌'}
-                </p>
-
-                <h2 style={{ fontSize: 17, fontWeight: 900, marginBottom: 8 }}>
-                  {selectedEvent.title}
-                </h2>
-
-                <div style={{ display: 'flex', gap: 15, marginBottom: 8 }}>
-                  <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}>
-                    <Calendar color="#6366f1" size={13} /> <b>{formatDate(selectedEvent.date)}</b>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}>
-                    <Clock color="#6366f1" size={13} /> <b>{selectedEvent.time}H</b>
-                  </div>
-                </div>
-
-                {getDaysLeft(selectedEvent.date) !== null && (function () {
-                  var dl = getDaysLabel(selectedEvent.date);
-                  return (
-                    <div style={{ display: 'inline-block', background: dl.bg, color: dl.color, padding: '3px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900, marginBottom: 8 }}>
-                      {dl.text}
-                    </div>
-                  );
-                })()}
-
-                <div
-                  onClick={function () {
-                    window.open(
-                      'https://www.google.com/maps/dir/?api=1&destination=' +
-                      encodeURIComponent(selectedEvent.address + ' ' + (selectedEvent.localidad || '') + ' ' + selectedEvent.city)
-                    );
-                  }}
-                  style={{
-                    background: 'rgba(99,102,241,.1)',
-                    padding: 10,
-                    borderRadius: 8,
-                    cursor: 'pointer',
-                    textAlign: 'center',
-                    border: '1px dashed #6366f1',
-                    marginBottom: 8
-                  }}
-                >
-                  <MapPin color="#6366f1" size={14} style={{ margin: '0 auto 2px' }} />
-                  <b style={{ fontSize: 10 }}>
-                    {selectedEvent.address}, {selectedEvent.localidad || ''} - {selectedEvent.city}
-                  </b>
-                  <br />
-                  <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                  <button
-                    onClick={function () { shareEvent(selectedEvent); }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 5,
-                      padding: 10,
-                      background: 'rgba(34,197,94,.1)',
-                      border: '1px dashed #22c55e',
-                      borderRadius: 8,
-                      color: '#22c55e',
-                      fontWeight: 900,
-                      fontSize: 10,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <Share2 size={12} /> COMPARTIR
-                  </button>
-
-                  <button
-                    onClick={function () { addToGoogleCalendar(selectedEvent); }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 5,
-                      padding: 10,
-                      background: 'rgba(66,133,244,.1)',
-                      border: '1px dashed #4285f4',
-                      borderRadius: 8,
-                      color: '#4285f4',
-                      fontWeight: 900,
-                      fontSize: 10,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <Calendar size={12} /> CALENDAR
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {view === 'create' && (
-          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
-            <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 15, borderRadius: 20, gap: 8, display: 'flex', flexDirection: 'column' }}>
-              <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 14 }}>AÑADIR EVENTO</h2>
-
-              <input name="title" placeholder="TÍTULO" style={INPUT_STYLE} value={form.title} onChange={handleInputChange} />
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 6 }}>
-                <input name="city" placeholder="CIUDAD" style={INPUT_STYLE} value={form.city} onChange={handleInputChange} />
-
-                <select name="category" style={INPUT_STYLE} value={form.category} onChange={handleInputChange}>
-                  <option value="MUSICA">MUSICA</option>
-                  <option value="GASTRONOMIA">GASTRONOMIA</option>
-                  <option value="TAURINO">TAURINO</option>
-                  <option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option>
-                  <option value="OTROS">OTROS</option>
-                </select>
-              </div>
-
-              <input name="localidad" placeholder="LOCALIDAD" style={INPUT_STYLE} value={form.localidad} onChange={handleInputChange} />
-              <input name="address" placeholder="DIRECCIÓN" style={INPUT_STYLE} value={form.address} onChange={handleInputChange} />
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                <input name="date" type="date" style={Object.assign({}, INPUT_STYLE, { padding: 8 })} value={form.date} onChange={handleInputChange} />
-                <input name="time" type="time" style={Object.assign({}, INPUT_STYLE, { padding: 8 })} value={form.time} onChange={handleInputChange} />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                <button
-                  onClick={generateAIImage}
-                  disabled={isGenerating}
-                  style={{
-                    padding: 10,
-                    background: '#4f46e5',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 10,
-                    fontSize: 9,
-                    fontWeight: 900,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 4,
-                    cursor: 'pointer'
-                  }}
-                >
-                  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
-                  IA FOTO
-                </button>
-
-                <label style={{
-                  padding: 10,
-                  background: '#1e293b',
-                  color: 'white',
-                  textAlign: 'center',
-                  borderRadius: 10,
-                  fontSize: 9,
-                  fontWeight: 900,
-                  cursor: 'pointer'
-                }}>
-                  GALERÍA
-                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleGalleryUpload} />
-                </label>
-              </div>
-
-              {form.image_url && (
-                <img
-                  src={form.image_url}
-                  style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 10 }}
-                  alt=""
-                />
-              )}
-
-              <button
-                onClick={handleSubmitEvent}
-                disabled={isSubmitting}
-                style={{
-                  width: '100%',
-                  background: '#4f46e5',
-                  color: 'white',
-                  padding: 13,
-                  borderRadius: 10,
-                  border: 'none',
-                  fontWeight: 900,
-                  fontSize: 11,
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                  opacity: isSubmitting ? .7 : 1
-                }}
-              >
-                {isSubmitting ? 'Enviando...' : 'ENVIAR REVISIÓN'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {view === 'admin' && !selectedPendingEvent && (
-          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
-            <button
-              onClick={function () { setView('home'); }}
-              style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}
-            >
-              <ArrowLeft size={16} /> VOLVER
-            </button>
-
-            <div style={{ textAlign: 'center', fontSize: 9, opacity: .7, marginBottom: 8 }}>
-              Admin: {userEmail || 'No conectado'}
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-              <button
-                onClick={function () { setAdminTab('pending'); fetchEvents(); }}
-                style={{
-                  padding: 10,
-                  borderRadius: 12,
-                  border: 'none',
-                  background: adminTab === 'pending' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'),
-                  color: adminTab === 'pending' ? 'white' : 'inherit',
-                  fontWeight: 900,
-                  fontSize: 11,
-                  cursor: 'pointer'
-                }}
-              >
-                PENDIENTES ({pendingEvents.length})
-              </button>
-
-              <button
-                onClick={function () { setAdminTab('approved'); fetchEvents(); }}
-                style={{
-                  padding: 10,
-                  borderRadius: 12,
-                  border: 'none',
-                  background: adminTab === 'approved' ? '#22c55e' : (isDark ? '#1e293b' : '#e2e8f0'),
-                  color: adminTab === 'approved' ? 'white' : 'inherit',
-                  fontWeight: 900,
-                  fontSize: 11,
-                  cursor: 'pointer'
-                }}
-              >
-                APROBADOS ({approvedEvents.length})
-              </button>
-            </div>
-
-            {approvedEvents.length > 0 && (
-              <button
-                onClick={function () { exportToCSV(approvedEvents); }}
-                style={{
-                  width: '100%',
-                  padding: 10,
-                  borderRadius: 10,
-                  border: 'none',
-                  background: 'rgba(99,102,241,.1)',
-                  color: '#6366f1',
-                  fontWeight: 900,
-                  fontSize: 10,
-                  cursor: 'pointer',
-                  marginBottom: 15,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6
-                }}
-              >
-                <Download size={14} /> EXPORTAR EVENTOS A CSV
-              </button>
-            )}
-
-            {adminTab === 'pending' && pendingEvents.length === 0 && (
-              <p style={{ textAlign: 'center', opacity: .7, marginTop: 50, fontWeight: 700 }}>
-                NO HAY EVENTOS PENDIENTES
-              </p>
-            )}
-
-            {adminTab === 'pending' && pendingEvents.map(function (ev) {
-              return (
-                <AdminListItem
-                  key={ev.id}
-                  ev={ev}
-                  isDark={isDark}
-                  onClick={function () { setSelectedPendingEvent(ev); }}
-                  rightText="VER >"
-                />
-              );
-            })}
-
-            {adminTab === 'approved' && approvedEvents.length === 0 && (
-              <p style={{ textAlign: 'center', opacity: .7, marginTop: 50, fontWeight: 700 }}>
-                NO HAY EVENTOS APROBADOS
-              </p>
-            )}
-
-            {adminTab === 'approved' && approvedEvents.map(function (ev) {
-              return (
-                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 15, padding: 10, marginBottom: 10 }}>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <img
-                      src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-                      style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover' }}
-                      alt=""
-                    />
-
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
-                      <p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city} | {formatDate(ev.date)}</p>
-                    </div>
-
-                    <button
-                      onClick={function () { handleDeleteEvent(ev.id); }}
-                      style={{
-                        padding: 8,
-                        background: '#ef4444',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 8,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        fontSize: 9,
-                        fontWeight: 900
-                      }}
-                    >
-                      <Trash2 size={14} /> BORRAR
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {view === 'admin' && selectedPendingEvent && (
-          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
-            <button
-              onClick={function () { setSelectedPendingEvent(null); }}
-              style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}
-            >
-              <ArrowLeft size={16} /> VOLVER A LISTA
-            </button>
-
-            <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 20, overflow: 'hidden', padding: 0 }}>
-              <img
-                src={selectedPendingEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-                style={{ width: '100%', height: 220, objectFit: 'cover' }}
-                alt=""
-              />
-
-              <div style={{ padding: 18 }}>
-                <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 15 }}>
-                  {selectedPendingEvent.title}
-                </h2>
-
-                <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                    <Calendar color="#6366f1" size={16} />
-                    <b>{formatDate(selectedPendingEvent.date)}</b>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                    <Clock color="#6366f1" size={16} />
-                    <b>{selectedPendingEvent.time}H</b>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                    <MapPin color="#6366f1" size={16} />
-                    <b>{selectedPendingEvent.address}, {selectedPendingEvent.localidad || ''} - {selectedPendingEvent.city}</b>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                    <span style={{ fontWeight: 900, color: '#6366f1' }}>CAT:</span>
-                    <b>{selectedPendingEvent.category}</b>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                  <button
-                    onClick={function () { handleApproveEvent(selectedPendingEvent.id); }}
-                    style={{ padding: 12, background: '#22c55e', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}
-                  >
-                    APROBAR
-                  </button>
-
-                  <button
-                    onClick={function () { handleRejectEvent(selectedPendingEvent.id); }}
-                    style={{ padding: 12, background: '#ef4444', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}
-                  >
-                    RECHAZAR
-                  </button>
-
-                  <button
-                    onClick={function () { handleDeleteEvent(selectedPendingEvent.id); }}
-                    style={{ padding: 12, background: '#64748b', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}
-                  >
-                    BORRAR
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {view === 'favorites' && (
-          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
-            <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16 }}>
-              MIS GUARDADOS ({favoriteEvents.length})
-            </h2>
-
-            {favoriteEvents.length === 0 ? (
-              <p style={{ textAlign: 'center', opacity: .7, marginTop: 50, fontWeight: 700 }}>
-                NO HAY EVENTOS GUARDADOS
-              </p>
-            ) : favoriteEvents.map(function (ev) {
-              var dl = getDaysLabel(ev.date);
-
-              return (
-                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center' }}>
-                  <img
-                    src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-                    style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }}
-                    alt=""
-                  />
-
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
-                    <p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city}</p>
-
-                    {dl && (
-                      <span style={{ fontSize: 8, color: dl.color, fontWeight: 900, background: dl.bg, padding: '2px 6px', borderRadius: 6 }}>
-                        {dl.text}
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={function () { toggleFavorite(ev.id); }}
-                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {view === 'profile' && (
-          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 22, borderRadius: 35, width: '100%', maxWidth: 300, textAlign: 'center' }}>
-              <h2 style={{ fontWeight: 900, marginBottom: 12, fontSize: 16 }}>SOPORTE</h2>
-
-              {userEmail && (
-                <p style={{ fontSize: 9, opacity: .6, marginBottom: 8 }}>
-                  Conectado: {userEmail}
-                </p>
-              )}
-
-              <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>
-                  APOYAR EN KO-FI
-                </a>
-
-                <a href="https://www.paypal.com/paypalme/jacobogarbas" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>
-                  APOYAR EN PAYPAL
-                </a>
-              </div>
-
-              {!userEmail ? (
-                <button onClick={handleLogin} style={{ background: '#4f46e5', color: 'white', fontSize: 10, padding: '8px 15px', borderRadius: 8, border: 'none', fontWeight: 900, cursor: 'pointer' }}>
-                  LOGIN
-                </button>
-              ) : (
-                <button onClick={handleLogout} style={{ background: '#ef4444', color: 'white', fontSize: 10, padding: '8px 15px', borderRadius: 8, border: 'none', fontWeight: 900, cursor: 'pointer' }}>
-                  CERRAR SESIÓN
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-      </main>
-
-      <nav style={{
-        position: 'fixed',
-        bottom: 10,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '88%',
-        maxWidth: 360,
-        height: 55,
-        borderRadius: 28,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-around',
-        boxShadow: '0 8px 25px rgba(0,0,0,.4)',
-        zIndex: 3000,
-        background: isDark ? 'rgba(15,23,42,.95)' : 'rgba(255,255,255,.95)'
-      }}>
-        <button
-          onClick={function () {
-            setView('home');
-            setSelectedEvent(null);
-            setSelectedPendingEvent(null);
-            setSearchQuery('');
-          }}
-          style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}
-        >
-          <LayoutList size={22} />
-        </button>
-
-        <button
-          onClick={function () {
-            setView('favorites');
-            setSelectedEvent(null);
-            setSelectedPendingEvent(null);
-          }}
-          style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}
-        >
-          <Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} />
-
-          {favoriteEvents.length > 0 && (
-            <span style={{
-              position: 'absolute',
-              top: -4,
-              right: -8,
-              background: '#ef4444',
-              color: 'white',
-              fontSize: 8,
-              fontWeight: 900,
-              borderRadius: 10,
-              padding: '1px 5px',
-              minWidth: 14,
-              textAlign: 'center'
-            }}>
-              {favoriteEvents.length}
-            </span>
-          )}
-        </button>
-
-        <button
-          onClick={function () {
-            setView('create');
-            setSelectedEvent(null);
-            setSelectedPendingEvent(null);
-          }}
-          style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}
-        >
-          <PlusCircle size={22} />
-        </button>
-
-        <button
-          onClick={function () {
-            setView('map');
-            setSelectedEvent(null);
-            setSelectedPendingEvent(null);
-          }}
-          style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}
-        >
-          <MapIcon size={22} />
-        </button>
-      </nav>
-    </div>
-  );
-}
-
-function EventCard(props) {
-  var ev = props.ev;
-  var dl = getDaysLabel(ev.date);
-
-  return (
-    <div className={props.isDark ? 'card-dark' : 'card-light'} style={{
-      borderRadius: 25,
-      overflow: 'hidden',
-      marginBottom: 15,
-      border: props.featured ? '2px solid #22c55e' : undefined
-    }}>
-      <div style={{ position: 'relative' }}>
-        {props.featured && (
-          <div style={{
-            position: 'absolute',
-            top: 10,
-            left: 10,
-            zIndex: 5,
-            background: '#22c55e',
-            color: 'white',
-            padding: '4px 10px',
-            borderRadius: 8,
-            fontSize: 9,
-            fontWeight: 900,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4
-          }}>
-            <Star size={12} fill="white" /> DESTACADO
-          </div>
-        )}
-
-        {dl && (
-          <div style={{
-            position: 'absolute',
-            top: 10,
-            right: 50,
-            zIndex: 5,
-            background: dl.bg,
-            color: dl.color,
-            padding: '4px 10px',
-            borderRadius: 8,
-            fontSize: 9,
-            fontWeight: 900
-          }}>
-            {dl.text}
-          </div>
-        )}
-
-        <div style={{ position: 'relative', height: props.featured ? 200 : 160 }}>
-          <img
-            src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            alt=""
-          />
-
-          <button
-            onClick={function () { props.toggleFavorite(ev.id); }}
-            style={{
-              position: 'absolute',
-              top: 10,
-              right: 10,
-              padding: props.featured ? 8 : 7,
-              background: 'white',
-              borderRadius: '50%',
-              border: 'none',
-              color: '#ef4444',
-              display: 'flex',
-              cursor: 'pointer'
-            }}
-          >
-            <Heart
-              size={props.featured ? 18 : 16}
-              className={props.animHeart === ev.id ? 'heart-pop' : ''}
-              fill={props.favorites.indexOf(ev.id) !== -1 ? 'red' : 'none'}
-            />
-          </button>
-        </div>
-
-        <div style={{ padding: 15, textAlign: 'center' }}>
-          <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 5 }}>
-            {categoryEmojis[ev.category] || '📌'} {ev.city} | {formatDate(ev.date)}
-          </p>
-
-          <h3 style={{ fontWeight: 900, fontSize: props.featured ? 17 : 15, marginBottom: 10 }}>
-            {ev.title}
-          </h3>
-
-          <button
-            onClick={function () { props.setSelectedEvent(ev); }}
-            style={{
-              width: '100%',
-              padding: props.featured ? 12 : 11,
-              borderRadius: 14,
-              background: '#4f46e5',
-              color: 'white',
-              border: 'none',
-              fontWeight: 900,
-              fontSize: props.featured ? 11 : 10,
-              cursor: 'pointer'
-            }}
-          >
-            {props.featured ? 'VER DETALLES' : 'DETALLES'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AdminListItem(props) {
-  var ev = props.ev;
-
-  return (
-    <div
-      className={props.isDark ? 'card-dark' : 'card-light'}
-      style={{ borderRadius: 15, padding: 10, marginBottom: 10, cursor: 'pointer' }}
-      onClick={props.onClick}
-    >
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        <img
-          src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-          style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover' }}
-          alt=""
-        />
-
-        <div style={{ flex: 1 }}>
-          <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
-          <p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city} | {formatDate(ev.date)}</p>
-        </div>
-
-        <span style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700 }}>
-          {props.rightText}
-        </span>
-      </div>
-    </div>
-  );
-}
