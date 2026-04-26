@@ -18,7 +18,10 @@ import {
   Search,
   Share2,
   Star,
-  Download
+  Download,
+  CheckCircle,
+  XCircle,
+  Info
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -88,6 +91,50 @@ function getDaysLabel(dateStr) {
   if (days <= 7) return { text: 'EN ' + days + ' DÍAS', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' };
 
   return { text: 'EN ' + days + ' DÍAS', color: '#6366f1', bg: 'rgba(99,102,241,0.15)' };
+}
+
+function Toast({ toast }) {
+  if (!toast) return null;
+
+  const isSuccess = toast.type === 'success';
+  const isError = toast.type === 'error';
+  const isInfo = toast.type === 'info';
+
+  const bg = isSuccess
+    ? 'rgba(22, 163, 74, 0.96)'
+    : isError
+      ? 'rgba(220, 38, 38, 0.96)'
+      : 'rgba(79, 70, 229, 0.96)';
+
+  const Icon = isSuccess ? CheckCircle : isError ? XCircle : Info;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 62,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 999999,
+      width: '90%',
+      maxWidth: 420,
+      background: bg,
+      color: 'white',
+      borderRadius: 16,
+      padding: '12px 14px',
+      boxShadow: '0 12px 35px rgba(0,0,0,0.35)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      fontSize: 12,
+      fontWeight: 900,
+      lineHeight: 1.35,
+      border: '1px solid rgba(255,255,255,0.22)',
+      animation: 'toastIn 0.25s ease-out'
+    }}>
+      <Icon size={20} />
+      <span style={{ flex: 1 }}>{toast.message}</span>
+    </div>
+  );
 }
 
 function Splash({ onDone }) {
@@ -384,12 +431,33 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('all');
   const [animHeart, setAnimHeart] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const listRef = useRef(null);
+  const toastTimerRef = useRef(null);
+
   const hasAdmin = profile && profile.role === 'admin';
+
+  function showToast(message, type = 'info') {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+
+    setToast({ message, type });
+
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+    }, 3600);
+  }
 
   useEffect(() => {
     fetchEvents();
+
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -431,6 +499,7 @@ export default function App() {
       .then((res) => {
         if (res.error) {
           console.error('❌ Error cargando eventos:', res.error);
+          showToast('Error cargando eventos', 'error');
           return;
         }
 
@@ -462,9 +531,11 @@ export default function App() {
   function toggleFavorite(id) {
     setFavorites((prev) => {
       if (prev.indexOf(id) !== -1) {
+        showToast('Evento quitado de guardados', 'info');
         return prev.filter((x) => x !== id);
       }
 
+      showToast('Evento guardado en favoritos', 'success');
       return prev.concat([id]);
     });
 
@@ -476,9 +547,13 @@ export default function App() {
   }
 
   function generateAIImage() {
-    if (!form.title) return alert('Escribe un título primero.');
+    if (!form.title) {
+      showToast('Escribe un título primero', 'error');
+      return;
+    }
 
     setIsGenerating(true);
+    showToast('Generando imagen con IA...', 'info');
 
     const seed = Math.floor(Math.random() * 999999);
     const url =
@@ -496,6 +571,7 @@ export default function App() {
 
     setTimeout(() => {
       setIsGenerating(false);
+      showToast('Imagen generada correctamente', 'success');
     }, 1200);
   }
 
@@ -504,16 +580,17 @@ export default function App() {
     if (!file) return;
 
     if (!file.type || file.type.indexOf('image/') !== 0) {
-      alert('Selecciona una imagen válida.');
+      showToast('Selecciona una imagen válida', 'error');
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('La imagen es demasiado grande. Máximo 5MB.');
+      showToast('La imagen es demasiado grande. Máximo 5MB', 'error');
       return;
     }
 
     setIsGenerating(true);
+    showToast('Subiendo imagen...', 'info');
 
     try {
       const ext = file.name.split('.').pop() || 'jpg';
@@ -529,7 +606,7 @@ export default function App() {
 
       if (upload.error) {
         console.error('❌ Error subiendo imagen:', upload.error);
-        alert('Error subiendo imagen:\n\n' + upload.error.message);
+        showToast('Error subiendo imagen: ' + upload.error.message, 'error');
         return;
       }
 
@@ -544,10 +621,10 @@ export default function App() {
         image_url: publicUrl
       }));
 
-      alert('✅ Imagen subida correctamente.');
+      showToast('Imagen subida correctamente', 'success');
     } catch (err) {
       console.error('❌ Error galería:', err);
-      alert('Error subiendo imagen:\n\n' + (err.message || JSON.stringify(err)));
+      showToast('Error subiendo imagen', 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -604,10 +681,12 @@ export default function App() {
 
   function handleSubmitEvent() {
     if (!form.title || !form.date || !form.city || !form.address) {
-      return alert('❌ Faltan campos:\n\n- Título\n- Ciudad\n- Fecha\n- Dirección');
+      showToast('Faltan campos: título, ciudad, fecha y dirección', 'error');
+      return;
     }
 
     setIsSubmitting(true);
+    showToast('Enviando evento a revisión...', 'info');
 
     geocodeAddress(form.address, form.localidad, form.city)
       .then((coords) => {
@@ -634,11 +713,11 @@ export default function App() {
       .then((res) => {
         if (res.error) {
           console.error('❌ Error Supabase completo:', res.error);
-          alert('❌ Error Supabase:\n\n' + (res.error.message || JSON.stringify(res.error, null, 2)));
+          showToast('Error Supabase: ' + (res.error.message || 'No se pudo guardar'), 'error');
           return;
         }
 
-        alert('✅ ¡Evento enviado a revisión correctamente!');
+        showToast('Evento enviado a revisión correctamente', 'success');
 
         setForm(INITIAL_FORM);
         setView('home');
@@ -646,7 +725,7 @@ export default function App() {
       })
       .catch((err) => {
         console.error('❌ Error completo:', err);
-        alert('❌ Error al enviar:\n\n' + (err.message || JSON.stringify(err, null, 2)));
+        showToast('Error al enviar el evento', 'error');
       })
       .finally(() => {
         setIsSubmitting(false);
@@ -661,10 +740,11 @@ export default function App() {
       .then((res) => {
         if (res.error) {
           console.error('❌ Error aprobando:', res.error);
-          alert('Error aprobando evento:\n\n' + res.error.message);
+          showToast('Error aprobando evento', 'error');
           return;
         }
 
+        showToast('Evento aprobado correctamente', 'success');
         setSelectedPendingEvent(null);
         fetchEvents();
       });
@@ -678,10 +758,11 @@ export default function App() {
       .then((res) => {
         if (res.error) {
           console.error('❌ Error rechazando:', res.error);
-          alert('Error rechazando evento:\n\n' + res.error.message);
+          showToast('Error rechazando evento', 'error');
           return;
         }
 
+        showToast('Evento rechazado', 'info');
         setSelectedPendingEvent(null);
         fetchEvents();
       });
@@ -697,10 +778,11 @@ export default function App() {
       .then((res) => {
         if (res.error) {
           console.error('❌ Error borrando:', res.error);
-          alert('Error borrando evento:\n\n' + res.error.message);
+          showToast('Error borrando evento', 'error');
           return;
         }
 
+        showToast('Evento borrado correctamente', 'success');
         setSelectedPendingEvent(null);
         fetchEvents();
       });
@@ -713,11 +795,11 @@ export default function App() {
     supabase.auth.signInWithOtp({ email }).then((res) => {
       if (res.error) {
         console.error('❌ Error login:', res.error);
-        alert('Error login:\n\n' + res.error.message);
+        showToast('Error enviando login', 'error');
         return;
       }
 
-      alert('Revisa tu email y pulsa el enlace.');
+      showToast('Revisa tu email y pulsa el enlace', 'success');
     });
   }
 
@@ -727,6 +809,7 @@ export default function App() {
       setProfile(null);
       fetchEvents();
       setView('home');
+      showToast('Sesión cerrada correctamente', 'success');
     });
   }
 
@@ -769,7 +852,7 @@ export default function App() {
       });
     } else {
       navigator.clipboard.writeText(text).then(() => {
-        alert('Texto copiado al portapapeles');
+        showToast('Texto copiado al portapapeles', 'success');
       });
     }
   }
@@ -881,6 +964,8 @@ export default function App() {
       display: 'flex',
       flexDirection: 'column'
     }}>
+      <Toast toast={toast} />
+
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color .25s, color .25s; }
         html, body, #root { width: 100%; height: 100%; overflow: hidden; }
@@ -897,6 +982,10 @@ export default function App() {
         .pulse-admin { animation:admin-pulse 1.4s infinite; }
         @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
         .heart-pop { animation:heartPop .6s ease-out; }
+        @keyframes toastIn {
+          from { opacity: 0; transform: translate(-50%, -12px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
       `}</style>
 
       <nav style={{
