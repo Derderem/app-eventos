@@ -21,7 +21,10 @@ import {
   Download,
   CheckCircle,
   XCircle,
-  Info
+  Info,
+  RefreshCw,
+  Check,
+  X
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -73,6 +76,29 @@ function formatDate(dateStr) {
   return dateStr;
 }
 
+function formatDateTime(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return '';
+  }
+}
+
+function normalizeText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 function getDaysLeft(dateStr) {
   if (!dateStr) return null;
   const eventDate = new Date(dateStr + 'T23:59:59');
@@ -98,7 +124,6 @@ function Toast({ toast }) {
 
   const isSuccess = toast.type === 'success';
   const isError = toast.type === 'error';
-  const isInfo = toast.type === 'info';
 
   const bg = isSuccess
     ? 'rgba(22, 163, 74, 0.96)'
@@ -365,12 +390,21 @@ function EventCard({
   );
 }
 
-function AdminListItem({ ev, isDark, onClick, rightText }) {
+function AdminMiniCard({
+  ev,
+  isDark,
+  onClick,
+  onApprove,
+  onReject,
+  onDelete,
+  onView,
+  mode
+}) {
   return (
     <div
       className={isDark ? 'card-dark' : 'card-light'}
       style={{
-        borderRadius: 15,
+        borderRadius: 16,
         padding: 10,
         marginBottom: 10,
         cursor: 'pointer'
@@ -382,24 +416,176 @@ function AdminListItem({ ev, isDark, onClick, rightText }) {
           src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
           alt=""
           style={{
-            width: 50,
-            height: 50,
-            borderRadius: 10,
-            objectFit: 'cover'
+            width: 56,
+            height: 56,
+            borderRadius: 12,
+            objectFit: 'cover',
+            flexShrink: 0
           }}
         />
 
-        <div style={{ flex: 1 }}>
-          <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
-          <p style={{ fontSize: 9, color: '#6366f1' }}>
-            {ev.city} | {formatDate(ev.date)}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{
+            fontWeight: 900,
+            fontSize: 13,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}>
+            {ev.title}
           </p>
-        </div>
 
-        <span style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700 }}>
-          {rightText}
-        </span>
+          <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800 }}>
+            {ev.city} | {formatDate(ev.date)} | {ev.time}
+          </p>
+
+          <p style={{
+            fontSize: 8,
+            opacity: 0.65,
+            marginTop: 3,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}>
+            {ev.address}, {ev.localidad || ''}
+          </p>
+
+          {ev.created_at && mode === 'pending' && (
+            <p style={{ fontSize: 8, opacity: 0.45, marginTop: 3 }}>
+              Enviado: {formatDateTime(ev.created_at)}
+            </p>
+          )}
+        </div>
       </div>
+
+      {mode === 'pending' && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr 1fr',
+          gap: 6,
+          marginTop: 10
+        }}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onApprove();
+            }}
+            style={{
+              padding: 8,
+              background: '#22c55e',
+              color: 'white',
+              border: 'none',
+              borderRadius: 10,
+              fontWeight: 900,
+              fontSize: 9,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4
+            }}
+          >
+            <Check size={12} /> APROBAR
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onReject();
+            }}
+            style={{
+              padding: 8,
+              background: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              borderRadius: 10,
+              fontWeight: 900,
+              fontSize: 9,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4
+            }}
+          >
+            <X size={12} /> RECHAZAR
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            style={{
+              padding: 8,
+              background: '#ef4444',
+              color: 'white',
+              border: 'none',
+              borderRadius: 10,
+              fontWeight: 900,
+              fontSize: 9,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4
+            }}
+          >
+            <Trash2 size={12} /> BORRAR
+          </button>
+        </div>
+      )}
+
+      {mode === 'approved' && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 6,
+          marginTop: 10
+        }}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onView();
+            }}
+            style={{
+              padding: 8,
+              background: '#4f46e5',
+              color: 'white',
+              border: 'none',
+              borderRadius: 10,
+              fontWeight: 900,
+              fontSize: 9,
+              cursor: 'pointer'
+            }}
+          >
+            VER EVENTO
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            style={{
+              padding: 8,
+              background: '#ef4444',
+              color: 'white',
+              border: 'none',
+              borderRadius: 10,
+              fontWeight: 900,
+              fontSize: 9,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4
+            }}
+          >
+            <Trash2 size={12} /> BORRAR
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -432,6 +618,8 @@ export default function App() {
   const [dateFilter, setDateFilter] = useState('all');
   const [animHeart, setAnimHeart] = useState(null);
   const [toast, setToast] = useState(null);
+  const [adminSearch, setAdminSearch] = useState('');
+  const [adminCityFilter, setAdminCityFilter] = useState('TODAS');
 
   const listRef = useRef(null);
   const toastTimerRef = useRef(null);
@@ -897,6 +1085,31 @@ export default function App() {
     if (listRef.current) listRef.current.scrollTop = 0;
   }
 
+  function eventMatchesAdminFilters(e) {
+    const cityOk = adminCityFilter === 'TODAS' || e.city === adminCityFilter;
+
+    if (!cityOk) return false;
+
+    const q = normalizeText(adminSearch).trim();
+
+    if (!q) return true;
+
+    const haystack = normalizeText([
+      e.title,
+      e.city,
+      e.localidad,
+      e.address,
+      e.category,
+      e.status,
+      e.date,
+      e.time
+    ].join(' '));
+
+    const terms = q.split(/\s+/).filter(Boolean);
+
+    return terms.every((term) => haystack.indexOf(term) !== -1);
+  }
+
   const today = new Date().toISOString().split('T')[0];
 
   const publicEvents = events.filter((e) => {
@@ -905,10 +1118,19 @@ export default function App() {
 
   const searchedEvents = searchQuery
     ? publicEvents.filter((e) => {
-        return (
-          String(e.title || '').toLowerCase().indexOf(searchQuery.toLowerCase()) !== -1 ||
-          String(e.city || '').toLowerCase().indexOf(searchQuery.toLowerCase()) !== -1
-        );
+        const q = normalizeText(searchQuery).trim();
+        const terms = q.split(/\s+/).filter(Boolean);
+
+        const haystack = normalizeText([
+          e.title,
+          e.city,
+          e.localidad,
+          e.address,
+          e.category,
+          e.date
+        ].join(' '));
+
+        return terms.every((term) => haystack.indexOf(term) !== -1);
       })
     : publicEvents;
 
@@ -931,16 +1153,33 @@ export default function App() {
   });
 
   const favoriteEvents = publicEvents.filter((e) => favorites.indexOf(e.id) !== -1);
-  const pendingEvents = hasAdmin ? events.filter((e) => e.status === 'pending') : [];
-  const approvedEvents = hasAdmin ? events.filter((e) => e.status === 'approved') : [];
+
+  const rawPendingEvents = hasAdmin
+    ? events.filter((e) => e.status === 'pending')
+    : [];
+
+  const rawApprovedEvents = hasAdmin
+    ? events.filter((e) => e.status === 'approved')
+    : [];
+
+  const pendingEvents = rawPendingEvents.filter(eventMatchesAdminFilters);
+  const approvedEvents = rawApprovedEvents.filter(eventMatchesAdminFilters);
 
   const citiesList = [];
   publicEvents.forEach((e) => {
     if (citiesList.indexOf(e.city) === -1) citiesList.push(e.city);
   });
 
+  const adminCitiesList = [];
+  events.forEach((e) => {
+    if (e.city && adminCitiesList.indexOf(e.city) === -1) adminCitiesList.push(e.city);
+  });
+  adminCitiesList.sort();
+
   const featuredEvent = filteredEvents.length ? filteredEvents[0] : null;
   const restEvents = filteredEvents.length ? filteredEvents.slice(1) : [];
+
+  const adminFiltersActive = adminSearch.trim() || adminCityFilter !== 'TODAS';
 
   const INPUT_STYLE = {
     width: '100%',
@@ -1028,11 +1267,11 @@ export default function App() {
             >
               <ShieldCheck
                 size={21}
-                className={pendingEvents.length > 0 ? 'pulse-admin' : ''}
+                className={rawPendingEvents.length > 0 ? 'pulse-admin' : ''}
                 style={{ color: '#6366f1' }}
               />
 
-              {pendingEvents.length > 0 && (
+              {rawPendingEvents.length > 0 && (
                 <span style={{
                   position: 'absolute',
                   top: -8,
@@ -1050,7 +1289,7 @@ export default function App() {
                   padding: '0 4px',
                   border: '2px solid ' + (isDark ? '#0f172a' : '#fff')
                 }}>
-                  {pendingEvents.length}
+                  {rawPendingEvents.length}
                 </span>
               )}
             </button>
@@ -1165,7 +1404,7 @@ export default function App() {
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar evento o ciudad..."
+                  placeholder="Buscar evento, ciudad, localidad..."
                   style={{
                     width: '100%',
                     border: 'none',
@@ -1534,8 +1773,163 @@ export default function App() {
               <ArrowLeft size={16} /> VOLVER
             </button>
 
-            <div style={{ textAlign: 'center', fontSize: 9, opacity: 0.7, marginBottom: 8 }}>
-              Admin: {userEmail || 'No conectado'}
+            <div className={isDark ? 'card-dark' : 'card-light'} style={{
+              borderRadius: 18,
+              padding: 12,
+              marginBottom: 12
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 10
+              }}>
+                <div>
+                  <p style={{ fontSize: 15, fontWeight: 900 }}>PANEL ADMIN</p>
+                  <p style={{ fontSize: 9, opacity: 0.65 }}>
+                    {userEmail || 'No conectado'}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    fetchEvents();
+                    showToast('Eventos actualizados', 'success');
+                  }}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 12,
+                    border: 'none',
+                    background: 'rgba(99,102,241,.15)',
+                    color: '#6366f1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <RefreshCw size={16} />
+                </button>
+              </div>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 8,
+                marginBottom: 10
+              }}>
+                <div style={{
+                  background: 'rgba(239,68,68,.12)',
+                  color: '#ef4444',
+                  borderRadius: 14,
+                  padding: 10,
+                  textAlign: 'center',
+                  fontWeight: 900,
+                  fontSize: 11
+                }}>
+                  {rawPendingEvents.length}<br />
+                  <span style={{ fontSize: 8 }}>PENDIENTES</span>
+                </div>
+
+                <div style={{
+                  background: 'rgba(34,197,94,.12)',
+                  color: '#22c55e',
+                  borderRadius: 14,
+                  padding: 10,
+                  textAlign: 'center',
+                  fontWeight: 900,
+                  fontSize: 11
+                }}>
+                  {rawApprovedEvents.length}<br />
+                  <span style={{ fontSize: 8 }}>APROBADOS</span>
+                </div>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background: isDark ? '#1e293b' : '#e2e8f0',
+                borderRadius: 12,
+                padding: '6px 10px',
+                marginBottom: 8
+              }}>
+                <Search size={15} color="#6366f1" />
+                <input
+                  value={adminSearch}
+                  onChange={(e) => setAdminSearch(e.target.value)}
+                  placeholder="Buscar por título, ciudad, dirección..."
+                  style={{
+                    width: '100%',
+                    border: 'none',
+                    outline: 'none',
+                    background: 'transparent',
+                    color: 'inherit',
+                    fontWeight: 800,
+                    fontSize: 10
+                  }}
+                />
+                {adminSearch && (
+                  <button
+                    onClick={() => setAdminSearch('')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#6366f1',
+                      cursor: 'pointer',
+                      fontWeight: 900
+                    }}
+                  >
+                    X
+                  </button>
+                )}
+              </div>
+
+              <select
+                value={adminCityFilter}
+                onChange={(e) => setAdminCityFilter(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  borderRadius: 12,
+                  border: 'none',
+                  outline: 'none',
+                  background: isDark ? '#1e293b' : '#e2e8f0',
+                  color: 'inherit',
+                  fontWeight: 900,
+                  fontSize: 10
+                }}
+              >
+                <option value="TODAS">TODAS LAS CIUDADES</option>
+                {adminCitiesList.map((city) => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
+              </select>
+
+              {adminFiltersActive && (
+                <button
+                  onClick={() => {
+                    setAdminSearch('');
+                    setAdminCityFilter('TODAS');
+                  }}
+                  style={{
+                    width: '100%',
+                    marginTop: 8,
+                    padding: 8,
+                    borderRadius: 10,
+                    border: 'none',
+                    background: 'rgba(99,102,241,.12)',
+                    color: '#6366f1',
+                    fontWeight: 900,
+                    fontSize: 9,
+                    cursor: 'pointer'
+                  }}
+                >
+                  LIMPIAR FILTROS
+                </button>
+              )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
@@ -1555,7 +1949,7 @@ export default function App() {
                   cursor: 'pointer'
                 }}
               >
-                PENDIENTES ({pendingEvents.length})
+                PENDIENTES ({pendingEvents.length}{adminFiltersActive ? '/' + rawPendingEvents.length : ''})
               </button>
 
               <button
@@ -1574,11 +1968,11 @@ export default function App() {
                   cursor: 'pointer'
                 }}
               >
-                APROBADOS ({approvedEvents.length})
+                APROBADOS ({approvedEvents.length}{adminFiltersActive ? '/' + rawApprovedEvents.length : ''})
               </button>
             </div>
 
-            {approvedEvents.length > 0 && (
+            {adminTab === 'approved' && approvedEvents.length > 0 && (
               <button
                 onClick={() => exportToCSV(approvedEvents)}
                 style={{
@@ -1598,7 +1992,7 @@ export default function App() {
                   gap: 6
                 }}
               >
-                <Download size={14} /> EXPORTAR EVENTOS A CSV
+                <Download size={14} /> EXPORTAR RESULTADOS A CSV
               </button>
             )}
 
@@ -1609,12 +2003,15 @@ export default function App() {
             )}
 
             {adminTab === 'pending' && pendingEvents.map((ev) => (
-              <AdminListItem
+              <AdminMiniCard
                 key={ev.id}
                 ev={ev}
                 isDark={isDark}
+                mode="pending"
                 onClick={() => setSelectedPendingEvent(ev)}
-                rightText="VER >"
+                onApprove={() => handleApproveEvent(ev.id)}
+                onReject={() => handleRejectEvent(ev.id)}
+                onDelete={() => handleDeleteEvent(ev.id)}
               />
             ))}
 
@@ -1625,39 +2022,15 @@ export default function App() {
             )}
 
             {adminTab === 'approved' && approvedEvents.map((ev) => (
-              <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 15, padding: 10, marginBottom: 10 }}>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <img
-                    src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-                    alt=""
-                    style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover' }}
-                  />
-
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
-                    <p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city} | {formatDate(ev.date)}</p>
-                  </div>
-
-                  <button
-                    onClick={() => handleDeleteEvent(ev.id)}
-                    style={{
-                      padding: 8,
-                      background: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: 8,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      fontSize: 9,
-                      fontWeight: 900
-                    }}
-                  >
-                    <Trash2 size={14} /> BORRAR
-                  </button>
-                </div>
-              </div>
+              <AdminMiniCard
+                key={ev.id}
+                ev={ev}
+                isDark={isDark}
+                mode="approved"
+                onClick={() => setSelectedEvent(ev)}
+                onView={() => setSelectedEvent(ev)}
+                onDelete={() => handleDeleteEvent(ev.id)}
+              />
             ))}
           </div>
         )}
@@ -1713,6 +2086,12 @@ export default function App() {
                     <span style={{ fontWeight: 900, color: '#6366f1' }}>CAT:</span>
                     <b>{selectedPendingEvent.category}</b>
                   </div>
+
+                  {selectedPendingEvent.created_at && (
+                    <div style={{ fontSize: 11, opacity: 0.65 }}>
+                      Enviado: {formatDateTime(selectedPendingEvent.created_at)}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
@@ -1725,14 +2104,14 @@ export default function App() {
 
                   <button
                     onClick={() => handleRejectEvent(selectedPendingEvent.id)}
-                    style={{ padding: 12, background: '#ef4444', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}
+                    style={{ padding: 12, background: '#f59e0b', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}
                   >
                     RECHAZAR
                   </button>
 
                   <button
                     onClick={() => handleDeleteEvent(selectedPendingEvent.id)}
-                    style={{ padding: 12, background: '#64748b', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}
+                    style={{ padding: 12, background: '#ef4444', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}
                   >
                     BORRAR
                   </button>
