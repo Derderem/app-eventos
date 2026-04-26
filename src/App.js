@@ -24,7 +24,8 @@ import {
   Info,
   RefreshCw,
   Check,
-  X
+  X,
+  Edit3
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -398,6 +399,7 @@ function AdminMiniCard({
   onReject,
   onDelete,
   onView,
+  onEdit,
   mode
 }) {
   return (
@@ -539,7 +541,7 @@ function AdminMiniCard({
       {mode === 'approved' && (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
+          gridTemplateColumns: '1fr 1fr 1fr',
           gap: 6,
           marginTop: 10
         }}>
@@ -559,7 +561,30 @@ function AdminMiniCard({
               cursor: 'pointer'
             }}
           >
-            VER EVENTO
+            VER
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            style={{
+              padding: 8,
+              background: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              borderRadius: 10,
+              fontWeight: 900,
+              fontSize: 9,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4
+            }}
+          >
+            <Edit3 size={12} /> EDITAR
           </button>
 
           <button
@@ -613,6 +638,8 @@ export default function App() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [userEmail, setUserEmail] = useState('');
   const [selectedPendingEvent, setSelectedPendingEvent] = useState(null);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [editForm, setEditForm] = useState(INITIAL_FORM);
   const [adminTab, setAdminTab] = useState('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('all');
@@ -716,6 +743,20 @@ export default function App() {
     }));
   }
 
+  function handleEditInputChange(e) {
+    const name = e.target.name;
+    let value = e.target.value;
+
+    if (['title', 'city', 'localidad'].indexOf(name) !== -1) {
+      value = value.toUpperCase();
+    }
+
+    setEditForm((prev) => ({
+      ...prev,
+      [name]: value
+    }));
+  }
+
   function toggleFavorite(id) {
     setFavorites((prev) => {
       if (prev.indexOf(id) !== -1) {
@@ -763,6 +804,58 @@ export default function App() {
     }, 1200);
   }
 
+  function generateAIImageEdit() {
+    if (!editForm.title) {
+      showToast('Escribe un título primero', 'error');
+      return;
+    }
+
+    setIsGenerating(true);
+    showToast('Generando imagen con IA...', 'info');
+
+    const seed = Math.floor(Math.random() * 999999);
+    const url =
+      'https://image.pollinations.ai/prompt/' +
+      encodeURIComponent('professional event photography ' + editForm.title) +
+      '?width=800&height=600&seed=' +
+      seed +
+      '&nologo=true&t=' +
+      Date.now();
+
+    setEditForm((prev) => ({
+      ...prev,
+      image_url: url
+    }));
+
+    setTimeout(() => {
+      setIsGenerating(false);
+      showToast('Imagen generada correctamente', 'success');
+    }, 1200);
+  }
+
+  async function uploadImageToStorage(file) {
+    const ext = file.name.split('.').pop() || 'jpg';
+    const safeName = Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext;
+    const path = 'uploads/' + safeName;
+
+    const upload = await supabase.storage
+      .from('event-images')
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (upload.error) {
+      throw upload.error;
+    }
+
+    const publicUrlData = supabase.storage
+      .from('event-images')
+      .getPublicUrl(path);
+
+    return publicUrlData.data.publicUrl;
+  }
+
   async function handleGalleryUpload(e) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -781,28 +874,7 @@ export default function App() {
     showToast('Subiendo imagen...', 'info');
 
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
-      const safeName = Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext;
-      const path = 'uploads/' + safeName;
-
-      const upload = await supabase.storage
-        .from('event-images')
-        .upload(path, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (upload.error) {
-        console.error('❌ Error subiendo imagen:', upload.error);
-        showToast('Error subiendo imagen: ' + upload.error.message, 'error');
-        return;
-      }
-
-      const publicUrlData = supabase.storage
-        .from('event-images')
-        .getPublicUrl(path);
-
-      const publicUrl = publicUrlData.data.publicUrl;
+      const publicUrl = await uploadImageToStorage(file);
 
       setForm((prev) => ({
         ...prev,
@@ -811,7 +883,41 @@ export default function App() {
 
       showToast('Imagen subida correctamente', 'success');
     } catch (err) {
-      console.error('❌ Error galería:', err);
+      console.error('❌ Error subiendo imagen:', err);
+      showToast('Error subiendo imagen', 'error');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleEditGalleryUpload(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (!file.type || file.type.indexOf('image/') !== 0) {
+      showToast('Selecciona una imagen válida', 'error');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('La imagen es demasiado grande. Máximo 5MB', 'error');
+      return;
+    }
+
+    setIsGenerating(true);
+    showToast('Subiendo nueva imagen...', 'info');
+
+    try {
+      const publicUrl = await uploadImageToStorage(file);
+
+      setEditForm((prev) => ({
+        ...prev,
+        image_url: publicUrl
+      }));
+
+      showToast('Imagen actualizada correctamente', 'success');
+    } catch (err) {
+      console.error('❌ Error subiendo imagen:', err);
       showToast('Error subiendo imagen', 'error');
     } finally {
       setIsGenerating(false);
@@ -920,6 +1026,93 @@ export default function App() {
       });
   }
 
+  function startEditEvent(ev) {
+    setEditingEvent(ev);
+    setSelectedEvent(null);
+    setSelectedPendingEvent(null);
+
+    setEditForm({
+      title: ev.title || '',
+      city: ev.city || '',
+      localidad: ev.localidad || '',
+      address: ev.address || '',
+      date: ev.date || '',
+      time: ev.time ? String(ev.time).slice(0, 5) : '21:00',
+      category: ev.category || 'MUSICA',
+      image_url: ev.image_url || ''
+    });
+  }
+
+  function cancelEditEvent() {
+    setEditingEvent(null);
+    setEditForm(INITIAL_FORM);
+  }
+
+  function handleSaveEditEvent() {
+    if (!editingEvent) return;
+
+    if (!editForm.title || !editForm.date || !editForm.city || !editForm.address) {
+      showToast('Faltan campos: título, ciudad, fecha y dirección', 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
+    showToast('Guardando cambios...', 'info');
+
+    const addressChanged =
+      editForm.address !== (editingEvent.address || '') ||
+      editForm.city !== (editingEvent.city || '') ||
+      editForm.localidad !== (editingEvent.localidad || '');
+
+    const coordsPromise = addressChanged
+      ? geocodeAddress(editForm.address, editForm.localidad, editForm.city)
+      : Promise.resolve({
+          lat: editingEvent.lat || null,
+          lng: editingEvent.lng || null
+        });
+
+    coordsPromise
+      .then((coords) => {
+        const updateData = {
+          title: editForm.title.trim(),
+          category: editForm.category,
+          city: editForm.city.trim(),
+          localidad: editForm.localidad ? editForm.localidad.trim() : null,
+          address: editForm.address.trim(),
+          date: editForm.date,
+          time: editForm.time || '21:00',
+          image_url: cleanImageUrl(editForm.image_url),
+          lat: coords.lat,
+          lng: coords.lng
+        };
+
+        return supabase
+          .from('events')
+          .update(updateData)
+          .eq('id', editingEvent.id);
+      })
+      .then((res) => {
+        if (res.error) {
+          console.error('❌ Error editando evento:', res.error);
+          showToast('Error guardando cambios', 'error');
+          return;
+        }
+
+        showToast('Evento actualizado correctamente', 'success');
+        setEditingEvent(null);
+        setEditForm(INITIAL_FORM);
+        fetchEvents();
+        setAdminTab('approved');
+      })
+      .catch((err) => {
+        console.error('❌ Error editando:', err);
+        showToast('Error guardando cambios', 'error');
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
+  }
+
   function handleApproveEvent(id) {
     supabase
       .from('events')
@@ -972,6 +1165,7 @@ export default function App() {
 
         showToast('Evento borrado correctamente', 'success');
         setSelectedPendingEvent(null);
+        setEditingEvent(null);
         fetchEvents();
       });
   }
@@ -997,6 +1191,7 @@ export default function App() {
       setProfile(null);
       fetchEvents();
       setView('home');
+      setEditingEvent(null);
       showToast('Sesión cerrada correctamente', 'success');
     });
   }
@@ -1077,6 +1272,7 @@ export default function App() {
     setView('home');
     setSelectedEvent(null);
     setSelectedPendingEvent(null);
+    setEditingEvent(null);
     setSearchQuery('');
   }
 
@@ -1253,6 +1449,7 @@ export default function App() {
                 setView('admin');
                 setSelectedEvent(null);
                 setSelectedPendingEvent(null);
+                setEditingEvent(null);
                 setAdminTab('pending');
                 fetchEvents();
               }}
@@ -1518,7 +1715,7 @@ export default function App() {
           </div>
         )}
 
-        {selectedEvent && !selectedPendingEvent && (
+        {selectedEvent && !selectedPendingEvent && !editingEvent && (
           <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
               <button
@@ -1754,7 +1951,199 @@ export default function App() {
           </div>
         )}
 
-        {view === 'admin' && !selectedPendingEvent && (
+        {view === 'admin' && editingEvent && (
+          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
+            <button
+              onClick={cancelEditEvent}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#6366f1',
+                fontWeight: 900,
+                display: 'flex',
+                gap: 6,
+                marginBottom: 12,
+                cursor: 'pointer',
+                fontSize: 12
+              }}
+            >
+              <ArrowLeft size={16} /> CANCELAR EDICIÓN
+            </button>
+
+            <div className={isDark ? 'card-dark' : 'card-light'} style={{
+              padding: 15,
+              borderRadius: 20,
+              gap: 8,
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 15 }}>
+                EDITAR EVENTO
+              </h2>
+
+              <input
+                name="title"
+                placeholder="TÍTULO"
+                style={INPUT_STYLE}
+                value={editForm.title}
+                onChange={handleEditInputChange}
+              />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 6 }}>
+                <input
+                  name="city"
+                  placeholder="CIUDAD"
+                  style={INPUT_STYLE}
+                  value={editForm.city}
+                  onChange={handleEditInputChange}
+                />
+
+                <select
+                  name="category"
+                  style={INPUT_STYLE}
+                  value={editForm.category}
+                  onChange={handleEditInputChange}
+                >
+                  <option value="MUSICA">MUSICA</option>
+                  <option value="GASTRONOMIA">GASTRONOMIA</option>
+                  <option value="TAURINO">TAURINO</option>
+                  <option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option>
+                  <option value="OTROS">OTROS</option>
+                </select>
+              </div>
+
+              <input
+                name="localidad"
+                placeholder="LOCALIDAD"
+                style={INPUT_STYLE}
+                value={editForm.localidad}
+                onChange={handleEditInputChange}
+              />
+
+              <input
+                name="address"
+                placeholder="DIRECCIÓN"
+                style={INPUT_STYLE}
+                value={editForm.address}
+                onChange={handleEditInputChange}
+              />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <input
+                  name="date"
+                  type="date"
+                  style={{ ...INPUT_STYLE, padding: 8 }}
+                  value={editForm.date}
+                  onChange={handleEditInputChange}
+                />
+
+                <input
+                  name="time"
+                  type="time"
+                  style={{ ...INPUT_STYLE, padding: 8 }}
+                  value={editForm.time}
+                  onChange={handleEditInputChange}
+                />
+              </div>
+
+              <input
+                name="image_url"
+                placeholder="URL DE IMAGEN"
+                style={INPUT_STYLE}
+                value={editForm.image_url}
+                onChange={handleEditInputChange}
+              />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <button
+                  onClick={generateAIImageEdit}
+                  disabled={isGenerating}
+                  style={{
+                    padding: 10,
+                    background: '#4f46e5',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 10,
+                    fontSize: 9,
+                    fontWeight: 900,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
+                  NUEVA IA
+                </button>
+
+                <label style={{
+                  padding: 10,
+                  background: '#1e293b',
+                  color: 'white',
+                  textAlign: 'center',
+                  borderRadius: 10,
+                  fontSize: 9,
+                  fontWeight: 900,
+                  cursor: 'pointer'
+                }}>
+                  NUEVA GALERÍA
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleEditGalleryUpload} />
+                </label>
+              </div>
+
+              {editForm.image_url && (
+                <img
+                  src={editForm.image_url}
+                  alt=""
+                  style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 12 }}
+                />
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
+                <button
+                  onClick={cancelEditEvent}
+                  disabled={isSubmitting}
+                  style={{
+                    width: '100%',
+                    background: '#64748b',
+                    color: 'white',
+                    padding: 13,
+                    borderRadius: 10,
+                    border: 'none',
+                    fontWeight: 900,
+                    fontSize: 11,
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    opacity: isSubmitting ? 0.7 : 1
+                  }}
+                >
+                  CANCELAR
+                </button>
+
+                <button
+                  onClick={handleSaveEditEvent}
+                  disabled={isSubmitting}
+                  style={{
+                    width: '100%',
+                    background: '#22c55e',
+                    color: 'white',
+                    padding: 13,
+                    borderRadius: 10,
+                    border: 'none',
+                    fontWeight: 900,
+                    fontSize: 11,
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    opacity: isSubmitting ? 0.7 : 1
+                  }}
+                >
+                  {isSubmitting ? 'Guardando...' : 'GUARDAR'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view === 'admin' && !selectedPendingEvent && !editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button
               onClick={() => setView('home')}
@@ -2029,13 +2418,14 @@ export default function App() {
                 mode="approved"
                 onClick={() => setSelectedEvent(ev)}
                 onView={() => setSelectedEvent(ev)}
+                onEdit={() => startEditEvent(ev)}
                 onDelete={() => handleDeleteEvent(ev.id)}
               />
             ))}
           </div>
         )}
 
-        {view === 'admin' && selectedPendingEvent && (
+        {view === 'admin' && selectedPendingEvent && !editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button
               onClick={() => setSelectedPendingEvent(null)}
@@ -2268,6 +2658,7 @@ export default function App() {
             setView('favorites');
             setSelectedEvent(null);
             setSelectedPendingEvent(null);
+            setEditingEvent(null);
           }}
           style={{
             background: 'none',
@@ -2303,6 +2694,7 @@ export default function App() {
             setView('create');
             setSelectedEvent(null);
             setSelectedPendingEvent(null);
+            setEditingEvent(null);
           }}
           style={{
             background: 'none',
@@ -2319,6 +2711,7 @@ export default function App() {
             setView('map');
             setSelectedEvent(null);
             setSelectedPendingEvent(null);
+            setEditingEvent(null);
           }}
           style={{
             background: 'none',
