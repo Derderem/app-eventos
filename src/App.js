@@ -78,10 +78,6 @@ function exportToCSV(events) {
   URL.revokeObjectURL(link.href);
 }
 
-// ✅ MAPA OSCURO/CLARO
-var darkTileUrl = 'https://mt1.google.com/vt/lyrs=r&hl=es&x={x}&y={y}&z={z}';
-var lightTileUrl = 'https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}';
-
 function MapResizer(props) {
   var map = useMap();
   var prevCenter = React.useRef(null);
@@ -96,7 +92,6 @@ function MapResizer(props) {
 }
 
 export default function App() {
-  // ✅ PUNTO 4: SPLASH
   var _splash = useState(true);
   var showSplash = _splash[0];
   var setShowSplash = _splash[1];
@@ -119,7 +114,6 @@ export default function App() {
   var _adminTab = useState('pending'); var adminTab = _adminTab[0]; var setAdminTab = _adminTab[1];
   var _search = useState(''); var searchQuery = _search[0]; var setSearchQuery = _search[1];
   var _dateFilter = useState('all'); var dateFilter = _dateFilter[0]; var setDateFilter = _dateFilter[1];
-  // ✅ PUNTO 3: ESTADO DE ANIMACIÓN FAVORITO
   var _animHeart = useState(null); var animHeart = _animHeart[0]; var setAnimHeart = _animHeart[1];
   var listRef = useRef(null);
 
@@ -148,7 +142,6 @@ export default function App() {
     });
   }
 
-  // ✅ PUNTO 3: TOGGLE FAVORITO CON ANIMACIÓN
   function toggleFavorite(id) {
     setFavorites(function (prev) {
       if (prev.indexOf(id) !== -1) return prev.filter(function (f) { return f !== id; });
@@ -162,8 +155,74 @@ export default function App() {
   function generateAIImage() { if (!form.title) return alert('Escribe un titulo primero'); setIsGenerating(true); var seed = Math.floor(Math.random() * 999999); var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional_event_photography_' + form.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now(); var nf = Object.assign({}, form); nf.image_url = url; setForm(nf); setTimeout(function () { setIsGenerating(false); }, 2000); }
   function handleGalleryUpload(e) { var file = e.target.files[0]; if (file) { var reader = new FileReader(); reader.onload = function (ev) { var nf = Object.assign({}, form); nf.image_url = ev.target.result; setForm(nf); }; reader.readAsDataURL(file); } }
   function handleCitySearch(city) { if (city === 'ESPAÑA') { setMapCenter(null); return; } fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(city + ', Espana')).then(function (r) { return r.json(); }).then(function (data) { if (data && data[0]) { setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]); } }).catch(function (err) { console.error(err); }); }
-  function geocodeAddress(address, localidad, city) { var fullAddress = address + ', ' + localidad + ', ' + city + ', Espana'; return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(fullAddress)).then(function (r) { return r.json(); }).then(function (data) { if (data && data[0]) { return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }; } return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(city + ', Espana')).then(function (r2) { return r2.json(); }).then(function (data2) { if (data2 && data2[0]) { return { lat: parseFloat(data2[0].lat), lng: parseFloat(data2[0].lon) }; } return { lat: null, lng: null }; }); }).catch(function () { return { lat: null, lng: null }; }); }
-  function handleSubmitEvent() { if (!form.title || !form.date || !form.city || !form.address) return alert('Rellena: titulo, ciudad, fecha y direccion.'); setIsSubmitting(true); geocodeAddress(form.address, form.localidad, form.city).then(function (coords) { return supabase.from('events').insert([Object.assign({}, form, { status: 'pending', lat: coords.lat, lng: coords.lng })]); }).then(function (r) { if (r.error) throw r.error; alert('Evento enviado a revision!'); setForm(INITIAL_FORM); setView('home'); fetchEvents(); }).catch(function (err) { alert('Error al enviar.'); console.error(err); }).finally(function () { setIsSubmitting(false); }); }
+
+  // ✅ GEOCODE ADDRESS MEJORADO
+  function geocodeAddress(address, localidad, city) {
+    var fullAddress = (address || '') + ', ' + (localidad || '') + ', ' + (city || '') + ', Espana';
+    console.log("🌍 Geocodificando:", fullAddress);
+    return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(fullAddress))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data[0]) {
+          console.log("📍 Encontrado:", data[0].lat, data[0].lon);
+          return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        }
+        console.log("📍 No encontrado, intentando solo ciudad...");
+        return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(city + ', Espana'))
+          .then(function (r2) { return r2.json(); })
+          .then(function (data2) {
+            if (data2 && data2[0]) {
+              return { lat: parseFloat(data2[0].lat), lng: parseFloat(data2[0].lon) };
+            }
+            return { lat: null, lng: null };
+          });
+      })
+      .catch(function (err) {
+        console.error("❌ Error geocoding:", err);
+        return { lat: null, lng: null };
+      });
+  }
+
+  // ✅ ENVIAR EVENTO MEJORADO
+  function handleSubmitEvent() {
+    if (!form.title || !form.date || !form.city || !form.address) {
+      return alert('❌ Faltan campos:\n\n- Título\n- Ciudad\n- Fecha\n- Dirección');
+    }
+    setIsSubmitting(true);
+    console.log("📤 Enviando evento...", form);
+    geocodeAddress(form.address, form.localidad, form.city).then(function (coords) {
+      console.log("📍 Coordenadas:", coords);
+      return supabase.from('events').insert([{
+        title: form.title,
+        category: form.category,
+        city: form.city,
+        localidad: form.localidad || null,
+        address: form.address,
+        date: form.date,
+        time: form.time,
+        image_url: form.image_url || null,
+        status: 'pending',
+        lat: coords.lat,
+        lng: coords.lng
+      }]).select();
+    }).then(function (r) {
+      if (r.error) {
+        console.error("❌ Error Supabase:", r.error);
+        throw r.error;
+      }
+      console.log("✅ Evento creado:", r.data);
+      alert('✅ ¡Evento enviado a revisión!');
+      setForm(INITIAL_FORM);
+      setView('home');
+      fetchEvents();
+    }).catch(function (err) {
+      console.error("❌ Error completo:", err);
+      alert('❌ Error al enviar.\n\nAbre consola (F12) y dime qué aparece en rojo.');
+    }).finally(function () {
+      setIsSubmitting(false);
+    });
+  }
+
   function handleApproveEvent(id) { supabase.from('events').update({ status: 'approved' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); }); }
   function handleRejectEvent(id) { supabase.from('events').update({ status: 'rejected' }).eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); }); }
   function handleDeleteEvent(id) { if (confirm('Seguro que quieres borrar este evento?')) { supabase.from('events').delete().eq('id', id).then(function () { setSelectedPendingEvent(null); fetchEvents(); }); } }
@@ -171,7 +230,7 @@ export default function App() {
   function handleLogin() { var email = prompt('Escribe tu email:'); if (email) { supabase.auth.signInWithOtp({ email: email }).then(function () { alert('Revisa tu email y pulsa el enlace.'); }); } }
   function handleCategoryChange(cat) { setSelectedCategory(cat); if (listRef.current) { listRef.current.scrollTop = 0; } }
 
-  // ✅ PUNTO 2: AÑADIR A GOOGLE CALENDAR
+  // ✅ AÑADIR A GOOGLE CALENDAR
   function addToGoogleCalendar(ev) {
     var dateParts = ev.date.split('-');
     var startDate = dateParts.join('T').replace(/-/g, '');
@@ -204,7 +263,6 @@ export default function App() {
   var INPUT_STYLE = { width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700 };
   var hasAdmin = profile && profile.role === 'admin';
 
-  // ✅ PUNTO 4: SI SPLASH ESTÁ ACTIVO, MOSTRAR SPLASH
   if (showSplash) {
     return <Splash onDone={function () { setShowSplash(false); }} />;
   }
@@ -227,7 +285,6 @@ export default function App() {
         .pulse-admin { animation: admin-pulse 2s infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .animate-spin { animation: spin 1s linear infinite; }
-        /* ✅ ANIMACIÓN FAVORITO */
         @keyframes heartPop {
           0% { transform: scale(1); }
           30% { transform: scale(1.5); }
@@ -301,14 +358,12 @@ export default function App() {
                 <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 25, overflow: 'hidden', marginBottom: 15, border: '2px solid #22c55e' }}>
                   <div style={{ position: 'relative' }}>
                     <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 5, background: '#22c55e', color: 'white', padding: '4px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 4 }}><Star size={12} fill="white" /> DESTACADO</div>
-                    {/* ✅ PUNTO 1: CUENTA ATRÁS */}
                     {getDaysLeft(featuredEvent.date) !== null && (function () {
                       var dl = getDaysLabel(featuredEvent.date);
                       return <div style={{ position: 'absolute', top: 10, right: 50, zIndex: 5, background: dl.bg, color: dl.color, padding: '4px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900 }}>{dl.text}</div>;
                     })()}
                     <div style={{ position: 'relative', height: 200 }}>
                       <img src={featuredEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                      {/* ✅ PUNTO 3: ANIMACIÓN FAVORITO */}
                       <button onClick={function () { toggleFavorite(featuredEvent.id); }} style={{ position: 'absolute', top: 10, right: 10, padding: 8, background: 'white', borderRadius: '50%', border: 'none', color: '#ef4444', display: 'flex', cursor: 'pointer' }}>
                         <Heart size={18} className={animHeart === featuredEvent.id ? 'heart-pop' : ''} fill={favorites.indexOf(featuredEvent.id) !== -1 ? 'red' : 'none'} />
                       </button>
@@ -328,9 +383,7 @@ export default function App() {
                   <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 25, overflow: 'hidden', marginBottom: 15 }}>
                     <div style={{ position: 'relative', height: 160 }}>
                       <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                      {/* ✅ PUNTO 1 */}
                       {dl && <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 5, background: dl.bg, color: dl.color, padding: '3px 8px', borderRadius: 8, fontSize: 8, fontWeight: 900 }}>{dl.text}</div>}
-                      {/* ✅ PUNTO 3 */}
                       <button onClick={function () { toggleFavorite(ev.id); }} style={{ position: 'absolute', top: 10, right: 10, padding: 7, background: 'white', borderRadius: '50%', border: 'none', color: '#ef4444', display: 'flex', cursor: 'pointer' }}>
                         <Heart size={16} className={animHeart === ev.id ? 'heart-pop' : ''} fill={favorites.indexOf(ev.id) !== -1 ? 'red' : 'none'} />
                       </button>
@@ -362,7 +415,6 @@ export default function App() {
                   <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}><Calendar color="#6366f1" size={13} /> <b>{formatDate(selectedEvent.date)}</b></div>
                   <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}><Clock color="#6366f1" size={13} /> <b>{selectedEvent.time}H</b></div>
                 </div>
-                {/* ✅ PUNTO 1 EN DETALLES */}
                 {getDaysLeft(selectedEvent.date) !== null && (function () {
                   var dl = getDaysLabel(selectedEvent.date);
                   return <div style={{ display: 'inline-block', background: dl.bg, color: dl.color, padding: '3px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900, marginBottom: 6 }}>{dl.text}</div>;
@@ -374,7 +426,6 @@ export default function App() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                   <button onClick={function () { shareEvent(selectedEvent); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 10, background: 'rgba(34,197,94,0.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}><Share2 size={12} /> COMPARTIR</button>
-                  {/* ✅ PUNTO 2 */}
                   <button onClick={function () { addToGoogleCalendar(selectedEvent); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 10, background: 'rgba(66,133,244,0.1)', border: '1px dashed #4285f4', borderRadius: 8, color: '#4285f4', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}><Calendar size={12} /> CALENDAR</button>
                 </div>
               </div>
@@ -414,7 +465,6 @@ export default function App() {
               <button onClick={function () { setAdminTab('pending'); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'pending' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'pending' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>PENDIENTES ({pendingEvents.length})</button>
               <button onClick={function () { setAdminTab('approved'); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'approved' ? '#22c55e' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'approved' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>APROBADOS ({approvedEvents.length})</button>
             </div>
-            {/* ✅ PUNTO 5: EXPORTAR CSV */}
             {approvedEvents.length > 0 && (
               <button onClick={function () { exportToCSV(approvedEvents); }} style={{ width: '100%', padding: 10, borderRadius: 10, border: 'none', background: 'rgba(99,102,241,0.1)', color: '#6366f1', fontWeight: 900, fontSize: 10, cursor: 'pointer', marginBottom: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 <Download size={14} /> EXPORTAR EVENTOS A CSV
