@@ -2,29 +2,59 @@
 <html lang="es">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
-    <title>EVENTOS</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-      body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow-x: hidden; }
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#020617" />
+    <meta name="description" content="Eventora - Eventos cerca de ti" />
 
-      /* BLOQUEAR MODO OSCURO EN EL MAPA */
-      .leaflet-container, 
-      .leaflet-tile, 
+    <title>EVENTORA</title>
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap");
+
+      html,
+      body,
+      #root {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: "Inter", sans-serif;
+        background: #020617;
+      }
+
+      body {
+        overscroll-behavior: none;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      /* Evita filtros raros en el mapa */
+      .leaflet-container,
+      .leaflet-tile,
       .leaflet-tile-pane,
-      .leaflet-layer { 
-        filter: none !important; 
+      .leaflet-layer {
+        filter: none !important;
         -webkit-filter: none !important;
       }
-      
-      /* Ajuste de altura automática para el mapa */
-      .leaflet-container { width: 100%; height: 100% !important; }
+
+      .leaflet-container {
+        width: 100%;
+        height: 100% !important;
+      }
     </style>
   </head>
-  <body class="bg-slate-50 dark:bg-slate-950">
+
+  <body>
+    <noscript>Necesitas activar JavaScript para usar Eventora.</noscript>
     <div id="root"></div>
   </body>
 </html>
