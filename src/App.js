@@ -82,17 +82,20 @@ function Splash({ onDone }) {
   useEffect(function () {
     var t = setTimeout(function () {
       onDone();
-    }, 1500);
+    }, 2200);
 
     return function () {
       clearTimeout(t);
     };
-  }, [onDone]);
+  }, []);
 
   return (
     <div style={{
       position: 'fixed',
-      inset: 0,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
       zIndex: 99999,
       background: '#020617',
       display: 'flex',
@@ -104,7 +107,7 @@ function Splash({ onDone }) {
       <img
         src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png"
         alt="Eventora"
-        style={{ height: 50, width: 'auto' }}
+        style={{ height: 50, width: 'auto', animation: 'fadeIn 0.6s ease-out' }}
       />
       <p style={{ color: '#6366f1', fontSize: 11, fontWeight: 700 }}>
         Cargando eventos...
@@ -117,7 +120,18 @@ function Splash({ onDone }) {
 function exportToCSV(events) {
   if (events.length === 0) return alert('No hay eventos para exportar.');
 
-  var headers = ['Titulo', 'Ciudad', 'Localidad', 'Direccion', 'Fecha', 'Hora', 'Categoria', 'Estado', 'Lat', 'Lng'];
+  var headers = [
+    'Titulo',
+    'Ciudad',
+    'Localidad',
+    'Direccion',
+    'Fecha',
+    'Hora',
+    'Categoria',
+    'Estado',
+    'Lat',
+    'Lng'
+  ];
 
   var rows = events.map(function (e) {
     return [
@@ -150,14 +164,13 @@ function exportToCSV(events) {
 
 function MapResizer(props) {
   var map = useMap();
-  var prevCenter = useRef(null);
+  var prevCenter = React.useRef(null);
 
   useEffect(function () {
     map.invalidateSize();
 
     if (props.center) {
-      var isNew =
-        !prevCenter.current ||
+      var isNew = !prevCenter.current ||
         prevCenter.current[0] !== props.center[0] ||
         prevCenter.current[1] !== props.center[1];
 
@@ -169,7 +182,7 @@ function MapResizer(props) {
       map.setView([40.4167, -3.7037], 6);
       prevCenter.current = null;
     }
-  }, [props.center, map]);
+  }, [props.center]);
 
   return null;
 }
@@ -281,6 +294,7 @@ export default function App() {
 
     var sub = supabase.auth.onAuthStateChange(function (event, session) {
       handleSession(session);
+      fetchEvents();
     });
 
     return function () {
@@ -361,13 +375,9 @@ export default function App() {
     setIsGenerating(true);
 
     var seed = Math.floor(Math.random() * 999999);
-    var url =
-      'https://image.pollinations.ai/prompt/' +
+    var url = 'https://image.pollinations.ai/prompt/' +
       encodeURIComponent('professional_event_photography_' + form.title) +
-      '?width=800&height=600&seed=' +
-      seed +
-      '&nologo=true&t=' +
-      Date.now();
+      '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
 
     var nf = Object.assign({}, form);
     nf.image_url = url;
@@ -418,11 +428,7 @@ export default function App() {
   }
 
   function geocodeAddress(address, localidad, city) {
-    var fullAddress =
-      (address || '') + ', ' +
-      (localidad || '') + ', ' +
-      (city || '') +
-      ', Espana';
+    var fullAddress = (address || '') + ', ' + (localidad || '') + ', ' + (city || '') + ', Espana';
 
     console.log('🌍 Geocodificando:', fullAddress);
 
@@ -435,11 +441,15 @@ export default function App() {
       })
       .then(function (data) {
         if (data && data[0]) {
+          console.log('📍 Coordenadas encontradas:', data[0].lat, data[0].lon);
+
           return {
             lat: parseFloat(data[0].lat),
             lng: parseFloat(data[0].lon)
           };
         }
+
+        console.log('📍 No encontrado con dirección completa. Buscando solo ciudad...');
 
         return fetch(
           'https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' +
@@ -464,6 +474,7 @@ export default function App() {
       })
       .catch(function (err) {
         console.error('❌ Error geocoding:', err);
+
         return {
           lat: null,
           lng: null
@@ -484,7 +495,7 @@ export default function App() {
       .then(function (coords) {
         console.log('📍 Coordenadas:', coords);
 
-        return supabase.from('events').insert([{
+        var eventToInsert = {
           title: form.title,
           category: form.category,
           city: form.city,
@@ -496,17 +507,29 @@ export default function App() {
           status: 'pending',
           lat: coords.lat,
           lng: coords.lng
-        }]);
+        };
+
+        console.log('📝 Evento que se va a guardar:', eventToInsert);
+
+        return supabase
+          .from('events')
+          .insert([eventToInsert]);
       })
       .then(function (r) {
         if (r.error) {
           console.error('❌ Error Supabase:', r.error);
-          throw r.error;
+
+          alert(
+            '❌ Error Supabase:\n\n' +
+            (r.error.message || JSON.stringify(r.error))
+          );
+
+          return;
         }
 
         console.log('✅ Evento enviado correctamente');
 
-        alert('✅ ¡Evento enviado a revisión!');
+        alert('✅ ¡Evento enviado a revisión correctamente!');
 
         setForm(INITIAL_FORM);
         setView('home');
@@ -516,8 +539,8 @@ export default function App() {
         console.error('❌ Error completo:', err);
 
         alert(
-          '❌ Error al enviar.\n\n' +
-          'Abre la consola F12 en Eventora y dime qué aparece en rojo.'
+          '❌ Error al enviar:\n\n' +
+          (err.message || JSON.stringify(err))
         );
       })
       .finally(function () {
@@ -531,7 +554,12 @@ export default function App() {
       .update({ status: 'approved' })
       .eq('id', id)
       .then(function (r) {
-        if (r.error) console.error('❌ Error aprobando:', r.error);
+        if (r.error) {
+          console.error('❌ Error aprobando:', r.error);
+          alert('Error aprobando evento: ' + r.error.message);
+          return;
+        }
+
         setSelectedPendingEvent(null);
         fetchEvents();
       });
@@ -543,20 +571,30 @@ export default function App() {
       .update({ status: 'rejected' })
       .eq('id', id)
       .then(function (r) {
-        if (r.error) console.error('❌ Error rechazando:', r.error);
+        if (r.error) {
+          console.error('❌ Error rechazando:', r.error);
+          alert('Error rechazando evento: ' + r.error.message);
+          return;
+        }
+
         setSelectedPendingEvent(null);
         fetchEvents();
       });
   }
 
   function handleDeleteEvent(id) {
-    if (window.confirm('Seguro que quieres borrar este evento?')) {
+    if (confirm('Seguro que quieres borrar este evento?')) {
       supabase
         .from('events')
         .delete()
         .eq('id', id)
         .then(function (r) {
-          if (r.error) console.error('❌ Error borrando:', r.error);
+          if (r.error) {
+            console.error('❌ Error borrando:', r.error);
+            alert('Error borrando evento: ' + r.error.message);
+            return;
+          }
+
           setSelectedPendingEvent(null);
           fetchEvents();
         });
@@ -564,17 +602,7 @@ export default function App() {
   }
 
   function shareEvent(ev) {
-    var text =
-      'EVENTO: ' +
-      ev.title +
-      ' | ' +
-      ev.city +
-      ' | ' +
-      formatDate(ev.date) +
-      ' | ' +
-      ev.address +
-      ', ' +
-      ev.localidad;
+    var text = 'EVENTO: ' + ev.title + ' | ' + ev.city + ' | ' + formatDate(ev.date) + ' | ' + ev.address + ', ' + ev.localidad;
 
     if (navigator.share) {
       navigator.share({
@@ -589,13 +617,13 @@ export default function App() {
   }
 
   function handleLogin() {
-    var email = window.prompt('Escribe tu email:');
+    var email = prompt('Escribe tu email:');
 
     if (email) {
       supabase.auth.signInWithOtp({ email: email }).then(function (r) {
         if (r.error) {
           console.error('❌ Error login:', r.error);
-          alert('Error enviando email de login');
+          alert('Error enviando login: ' + r.error.message);
           return;
         }
 
@@ -614,29 +642,20 @@ export default function App() {
 
   function addToGoogleCalendar(ev) {
     var dateParts = ev.date.split('-');
-    var compactDate = dateParts.join('');
-
+    var startDate = dateParts.join('T').replace(/-/g, '');
     var timeParts = (ev.time || '12:00').split(':');
-    var hour = parseInt(timeParts[0], 10);
-    var minute = timeParts[1];
-
-    var startTime = compactDate + 'T' + String(hour).padStart(2, '0') + minute + '00';
-    var endHour = hour + 2;
-    var endTime = compactDate + 'T' + String(endHour).padStart(2, '0') + minute + '00';
+    var startTime = startDate + 'T' + timeParts[0] + timeParts[1] + '00';
+    var endHour = parseInt(timeParts[0]) + 2;
+    var endTime = startDate + 'T' + (endHour < 10 ? '0' + endHour : endHour) + timeParts[1] + '00';
 
     var details = ev.title + '\n' + ev.address + ', ' + ev.localidad + ' - ' + ev.city;
 
     var url =
       'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' +
       encodeURIComponent(ev.title) +
-      '&dates=' +
-      startTime +
-      '/' +
-      endTime +
-      '&details=' +
-      encodeURIComponent(details) +
-      '&location=' +
-      encodeURIComponent(ev.address + ', ' + ev.localidad + ', ' + ev.city);
+      '&dates=' + startTime + '/' + endTime +
+      '&details=' + encodeURIComponent(details) +
+      '&location=' + encodeURIComponent(ev.address + ', ' + ev.localidad + ', ' + ev.city);
 
     window.open(url, '_blank');
   }
@@ -649,11 +668,9 @@ export default function App() {
 
   var searchedEvents = searchQuery
     ? publicEvents.filter(function (e) {
-        return (
-          e.title.toLowerCase().indexOf(searchQuery.toLowerCase()) !== -1 ||
-          e.city.toLowerCase().indexOf(searchQuery.toLowerCase()) !== -1
-        );
-      })
+      return e.title.toLowerCase().indexOf(searchQuery.toLowerCase()) !== -1 ||
+        e.city.toLowerCase().indexOf(searchQuery.toLowerCase()) !== -1;
+    })
     : publicEvents;
 
   var categoryEvents = searchedEvents.filter(function (e) {
@@ -668,6 +685,7 @@ export default function App() {
       var now = new Date();
       var weekEnd = new Date(now);
       weekEnd.setDate(weekEnd.getDate() + 7);
+
       return eventDate >= now && eventDate <= weekEnd;
     }
 
@@ -723,6 +741,7 @@ export default function App() {
         * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
         html, body, #root { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
         .leaflet-container { background: #aad3df !important; }
+        .leaflet-tile-pane { background: #aad3df !important; }
         .leaflet-container img { max-width: none !important; max-height: none !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -734,7 +753,12 @@ export default function App() {
         .pulse-admin { animation: admin-pulse 2s infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .animate-spin { animation: spin 1s linear infinite; }
-        @keyframes heartPop { 0% { transform: scale(1); } 30% { transform: scale(1.5); } 60% { transform: scale(0.9); } 100% { transform: scale(1); } }
+        @keyframes heartPop {
+          0% { transform: scale(1); }
+          30% { transform: scale(1.5); }
+          60% { transform: scale(0.9); }
+          100% { transform: scale(1); }
+        }
         .heart-pop { animation: heartPop 0.6s ease-out; }
       `}</style>
 
@@ -749,12 +773,15 @@ export default function App() {
         background: isDark ? '#0f172a' : '#fff',
         flexShrink: 0
       }}>
-        <div style={{ cursor: 'pointer' }} onClick={function () {
-          setView('home');
-          setSelectedEvent(null);
-          setSelectedPendingEvent(null);
-          setSearchQuery('');
-        }}>
+        <div
+          style={{ cursor: 'pointer' }}
+          onClick={function () {
+            setView('home');
+            setSelectedEvent(null);
+            setSelectedPendingEvent(null);
+            setSearchQuery('');
+          }}
+        >
           <img
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png"
             alt="Eventora"
@@ -791,13 +818,10 @@ export default function App() {
             </button>
           )}
 
-          <button onClick={function () { setIsDark(!isDark); }} style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            padding: 0
-          }}>
+          <button
+            onClick={function () { setIsDark(!isDark); }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}
+          >
             {isDark ? <Sun size={18} color="#facc15" /> : <Moon size={18} color="#4f46e5" />}
           </button>
 
@@ -805,16 +829,15 @@ export default function App() {
             size={18}
             color="#6366f1"
             style={{ cursor: 'pointer' }}
-            onClick={function () {
-              setView('profile');
-            }}
+            onClick={function () { setView('profile'); }}
           />
         </div>
       </nav>
 
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
+
         {view === 'map' && (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}>
             <div style={{
               position: 'absolute',
               top: 15,
@@ -834,19 +857,21 @@ export default function App() {
               }}>
                 <Search size={16} color="#6366f1" />
 
-                <select onChange={function (e) {
-                  handleCitySearch(e.target.value);
-                }} style={{
-                  width: '100%',
-                  padding: 10,
-                  border: 'none',
-                  outline: 'none',
-                  fontWeight: 900,
-                  fontSize: 11,
-                  color: '#0f172a',
-                  background: 'transparent'
-                }}>
+                <select
+                  onChange={function (e) { handleCitySearch(e.target.value); }}
+                  style={{
+                    width: '100%',
+                    padding: 10,
+                    border: 'none',
+                    outline: 'none',
+                    fontWeight: 900,
+                    fontSize: 11,
+                    color: '#0f172a',
+                    background: 'transparent'
+                  }}
+                >
                   <option value="ESPAÑA">BUSCAR CIUDAD...</option>
+
                   {citiesList.map(function (c) {
                     return <option key={c} value={c}>{c}</option>;
                   })}
@@ -854,31 +879,46 @@ export default function App() {
               </div>
             </div>
 
-            <MapContainer center={[40.41, -3.70]} zoom={6} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
-              <MapResizer center={mapCenter} />
-              <TileLayer
-                url={isDark ? darkTileUrl : lightTileUrl}
-                attribution="Google Maps"
-                maxZoom={20}
-                subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
-              />
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: isDark ? '#1a1a2e' : '#aad3df'
+            }}>
+              <MapContainer
+                center={[40.41, -3.70]}
+                zoom={6}
+                style={{ height: '100%', width: '100%' }}
+                scrollWheelZoom={true}
+              >
+                <MapResizer center={mapCenter} />
 
-              {publicEvents.map(function (ev) {
-                if (ev.lat && ev.lng) {
-                  return (
-                    <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={redPinIcon}>
-                      <Popup>
-                        <b>{ev.title}</b><br />
-                        {ev.address}, {ev.localidad} - {ev.city}<br />
-                        {formatDate(ev.date)}
-                      </Popup>
-                    </Marker>
-                  );
-                }
+                <TileLayer
+                  url={isDark ? darkTileUrl : lightTileUrl}
+                  attribution="Google Maps"
+                  maxZoom={20}
+                  subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+                />
 
-                return null;
-              })}
-            </MapContainer>
+                {publicEvents.map(function (ev) {
+                  if (ev.lat && ev.lng) {
+                    return (
+                      <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={redPinIcon}>
+                        <Popup>
+                          <b>{ev.title}</b><br />
+                          {ev.address}, {ev.localidad} - {ev.city}<br />
+                          {formatDate(ev.date)}
+                        </Popup>
+                      </Marker>
+                    );
+                  }
+
+                  return null;
+                })}
+              </MapContainer>
+            </div>
           </div>
         )}
 
@@ -916,14 +956,17 @@ export default function App() {
                 />
 
                 {searchQuery && (
-                  <button onClick={function () { setSearchQuery(''); }} style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#6366f1',
-                    cursor: 'pointer',
-                    fontSize: 16,
-                    padding: 0
-                  }}>
+                  <button
+                    onClick={function () { setSearchQuery(''); }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#6366f1',
+                      cursor: 'pointer',
+                      fontSize: 16,
+                      padding: 0
+                    }}
+                  >
                     X
                   </button>
                 )}
@@ -944,16 +987,20 @@ export default function App() {
                 { k: 'week', l: 'ESTA SEMANA' }
               ].map(function (f) {
                 return (
-                  <button key={f.k} onClick={function () { setDateFilter(f.k); }} style={{
-                    padding: '5px 10px',
-                    borderRadius: 10,
-                    border: 'none',
-                    background: dateFilter === f.k ? '#22c55e' : 'transparent',
-                    color: dateFilter === f.k ? 'white' : '#6366f1',
-                    fontSize: 8,
-                    fontWeight: 900,
-                    cursor: 'pointer'
-                  }}>
+                  <button
+                    key={f.k}
+                    onClick={function () { setDateFilter(f.k); }}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: 10,
+                      border: 'none',
+                      background: dateFilter === f.k ? '#22c55e' : 'transparent',
+                      color: dateFilter === f.k ? 'white' : '#6366f1',
+                      fontSize: 8,
+                      fontWeight: 900,
+                      cursor: 'pointer'
+                    }}
+                  >
                     {f.l}
                   </button>
                 );
@@ -971,18 +1018,22 @@ export default function App() {
             }}>
               {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINO', 'FIESTAS PATRONALES', 'OTROS'].map(function (cat) {
                 return (
-                  <button key={cat} onClick={function () { handleCategoryChange(cat); }} style={{
-                    padding: '7px 15px',
-                    borderRadius: 25,
-                    border: 'none',
-                    background: selectedCategory === cat ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'),
-                    color: selectedCategory === cat ? 'white' : 'inherit',
-                    fontSize: 10,
-                    fontWeight: 900,
-                    whiteSpace: 'nowrap',
-                    cursor: 'pointer',
-                    flexShrink: 0
-                  }}>
+                  <button
+                    key={cat}
+                    onClick={function () { handleCategoryChange(cat); }}
+                    style={{
+                      padding: '7px 15px',
+                      borderRadius: 25,
+                      border: 'none',
+                      background: selectedCategory === cat ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'),
+                      color: selectedCategory === cat ? 'white' : 'inherit',
+                      fontSize: 10,
+                      fontWeight: 900,
+                      whiteSpace: 'nowrap',
+                      cursor: 'pointer',
+                      flexShrink: 0
+                    }}
+                  >
                     {cat}
                   </button>
                 );
@@ -1014,29 +1065,206 @@ export default function App() {
               )}
 
               {featuredEvent && (
-                <EventCard
-                  ev={featuredEvent}
-                  isDark={isDark}
-                  featured={true}
-                  favorites={favorites}
-                  animHeart={animHeart}
-                  toggleFavorite={toggleFavorite}
-                  setSelectedEvent={setSelectedEvent}
-                />
+                <div className={isDark ? 'card-dark' : 'card-light'} style={{
+                  borderRadius: 25,
+                  overflow: 'hidden',
+                  marginBottom: 15,
+                  border: '2px solid #22c55e'
+                }}>
+                  <div style={{ position: 'relative' }}>
+                    <div style={{
+                      position: 'absolute',
+                      top: 10,
+                      left: 10,
+                      zIndex: 5,
+                      background: '#22c55e',
+                      color: 'white',
+                      padding: '4px 10px',
+                      borderRadius: 8,
+                      fontSize: 9,
+                      fontWeight: 900,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4
+                    }}>
+                      <Star size={12} fill="white" /> DESTACADO
+                    </div>
+
+                    {getDaysLeft(featuredEvent.date) !== null && (function () {
+                      var dl = getDaysLabel(featuredEvent.date);
+
+                      return (
+                        <div style={{
+                          position: 'absolute',
+                          top: 10,
+                          right: 50,
+                          zIndex: 5,
+                          background: dl.bg,
+                          color: dl.color,
+                          padding: '4px 10px',
+                          borderRadius: 8,
+                          fontSize: 9,
+                          fontWeight: 900
+                        }}>
+                          {dl.text}
+                        </div>
+                      );
+                    })()}
+
+                    <div style={{ position: 'relative', height: 200 }}>
+                      <img
+                        src={featuredEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        alt=""
+                      />
+
+                      <button
+                        onClick={function () { toggleFavorite(featuredEvent.id); }}
+                        style={{
+                          position: 'absolute',
+                          top: 10,
+                          right: 10,
+                          padding: 8,
+                          background: 'white',
+                          borderRadius: '50%',
+                          border: 'none',
+                          color: '#ef4444',
+                          display: 'flex',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Heart
+                          size={18}
+                          className={animHeart === featuredEvent.id ? 'heart-pop' : ''}
+                          fill={favorites.indexOf(featuredEvent.id) !== -1 ? 'red' : 'none'}
+                        />
+                      </button>
+                    </div>
+
+                    <div style={{ padding: 15, textAlign: 'center' }}>
+                      <p style={{
+                        fontSize: 9,
+                        color: '#6366f1',
+                        fontWeight: 800,
+                        letterSpacing: 1,
+                        marginBottom: 5
+                      }}>
+                        {categoryEmojis[featuredEvent.category] || '📌'} {featuredEvent.city} | {formatDate(featuredEvent.date)}
+                      </p>
+
+                      <h3 style={{ fontWeight: 900, fontSize: 17, marginBottom: 10 }}>
+                        {featuredEvent.title}
+                      </h3>
+
+                      <button
+                        onClick={function () { setSelectedEvent(featuredEvent); }}
+                        style={{
+                          width: '100%',
+                          padding: 12,
+                          borderRadius: 14,
+                          background: '#4f46e5',
+                          color: 'white',
+                          border: 'none',
+                          fontWeight: 900,
+                          fontSize: 11,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        VER DETALLES
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {restEvents.map(function (ev) {
+                var dl = getDaysLabel(ev.date);
+
                 return (
-                  <EventCard
-                    key={ev.id}
-                    ev={ev}
-                    isDark={isDark}
-                    featured={false}
-                    favorites={favorites}
-                    animHeart={animHeart}
-                    toggleFavorite={toggleFavorite}
-                    setSelectedEvent={setSelectedEvent}
-                  />
+                  <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{
+                    borderRadius: 25,
+                    overflow: 'hidden',
+                    marginBottom: 15
+                  }}>
+                    <div style={{ position: 'relative', height: 160 }}>
+                      <img
+                        src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        alt=""
+                      />
+
+                      {dl && (
+                        <div style={{
+                          position: 'absolute',
+                          top: 10,
+                          left: 10,
+                          zIndex: 5,
+                          background: dl.bg,
+                          color: dl.color,
+                          padding: '3px 8px',
+                          borderRadius: 8,
+                          fontSize: 8,
+                          fontWeight: 900
+                        }}>
+                          {dl.text}
+                        </div>
+                      )}
+
+                      <button
+                        onClick={function () { toggleFavorite(ev.id); }}
+                        style={{
+                          position: 'absolute',
+                          top: 10,
+                          right: 10,
+                          padding: 7,
+                          background: 'white',
+                          borderRadius: '50%',
+                          border: 'none',
+                          color: '#ef4444',
+                          display: 'flex',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Heart
+                          size={16}
+                          className={animHeart === ev.id ? 'heart-pop' : ''}
+                          fill={favorites.indexOf(ev.id) !== -1 ? 'red' : 'none'}
+                        />
+                      </button>
+                    </div>
+
+                    <div style={{ padding: 15, textAlign: 'center' }}>
+                      <p style={{
+                        fontSize: 9,
+                        color: '#6366f1',
+                        fontWeight: 800,
+                        letterSpacing: 1,
+                        marginBottom: 5
+                      }}>
+                        {categoryEmojis[ev.category] || '📌'} {ev.city} | {formatDate(ev.date)}
+                      </p>
+
+                      <h3 style={{ fontWeight: 900, fontSize: 15 }}>{ev.title}</h3>
+
+                      <button
+                        onClick={function () { setSelectedEvent(ev); }}
+                        style={{
+                          width: '100%',
+                          padding: 11,
+                          borderRadius: 14,
+                          background: '#4f46e5',
+                          color: 'white',
+                          border: 'none',
+                          fontWeight: 900,
+                          fontSize: 10,
+                          cursor: 'pointer',
+                          marginTop: 10
+                        }}
+                      >
+                        DETALLES
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -1051,16 +1279,19 @@ export default function App() {
             flexDirection: 'column'
           }}>
             <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
-              <button onClick={function () { setSelectedEvent(null); }} style={{
-                background: 'none',
-                border: 'none',
-                color: '#6366f1',
-                fontWeight: 900,
-                display: 'flex',
-                gap: 4,
-                cursor: 'pointer',
-                fontSize: 11
-              }}>
+              <button
+                onClick={function () { setSelectedEvent(null); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#6366f1',
+                  fontWeight: 900,
+                  display: 'flex',
+                  gap: 4,
+                  cursor: 'pointer',
+                  fontSize: 11
+                }}
+              >
                 <ArrowLeft size={14} /> VOLVER
               </button>
             </div>
@@ -1082,7 +1313,13 @@ export default function App() {
               />
 
               <div style={{ padding: '10px 12px 8px', flex: 1 }}>
-                <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>
+                <p style={{
+                  fontSize: 9,
+                  color: '#6366f1',
+                  fontWeight: 800,
+                  letterSpacing: 1,
+                  marginBottom: 4
+                }}>
                   {categoryEmojis[selectedEvent.category] || '📌'}
                 </p>
 
@@ -1121,20 +1358,23 @@ export default function App() {
                   );
                 })()}
 
-                <div onClick={function () {
-                  window.open(
-                    'https://www.google.com/maps/dir/?api=1&destination=' +
-                    encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.localidad + ' ' + selectedEvent.city)
-                  );
-                }} style={{
-                  background: 'rgba(99,102,241,0.1)',
-                  padding: '10px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  border: '1px dashed #6366f1',
-                  marginBottom: 6
-                }}>
+                <div
+                  onClick={function () {
+                    window.open(
+                      'https://www.google.com/maps/dir/?api=1&destination=' +
+                      encodeURIComponent(selectedEvent.address + ' ' + selectedEvent.localidad + ' ' + selectedEvent.city)
+                    );
+                  }}
+                  style={{
+                    background: 'rgba(99,102,241,0.1)',
+                    padding: '10px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    border: '1px dashed #6366f1',
+                    marginBottom: 6
+                  }}
+                >
                   <MapPin color="#6366f1" size={14} style={{ margin: '0 auto 2px' }} />
 
                   <b style={{ fontSize: 10 }}>
@@ -1149,37 +1389,43 @@ export default function App() {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                  <button onClick={function () { shareEvent(selectedEvent); }} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 5,
-                    padding: 10,
-                    background: 'rgba(34,197,94,0.1)',
-                    border: '1px dashed #22c55e',
-                    borderRadius: 8,
-                    color: '#22c55e',
-                    fontWeight: 900,
-                    fontSize: 10,
-                    cursor: 'pointer'
-                  }}>
+                  <button
+                    onClick={function () { shareEvent(selectedEvent); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 5,
+                      padding: 10,
+                      background: 'rgba(34,197,94,0.1)',
+                      border: '1px dashed #22c55e',
+                      borderRadius: 8,
+                      color: '#22c55e',
+                      fontWeight: 900,
+                      fontSize: 10,
+                      cursor: 'pointer'
+                    }}
+                  >
                     <Share2 size={12} /> COMPARTIR
                   </button>
 
-                  <button onClick={function () { addToGoogleCalendar(selectedEvent); }} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 5,
-                    padding: 10,
-                    background: 'rgba(66,133,244,0.1)',
-                    border: '1px dashed #4285f4',
-                    borderRadius: 8,
-                    color: '#4285f4',
-                    fontWeight: 900,
-                    fontSize: 10,
-                    cursor: 'pointer'
-                  }}>
+                  <button
+                    onClick={function () { addToGoogleCalendar(selectedEvent); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 5,
+                      padding: 10,
+                      background: 'rgba(66,133,244,0.1)',
+                      border: '1px dashed #4285f4',
+                      borderRadius: 8,
+                      color: '#4285f4',
+                      fontWeight: 900,
+                      fontSize: 10,
+                      cursor: 'pointer'
+                    }}
+                  >
                     <Calendar size={12} /> CALENDAR
                   </button>
                 </div>
@@ -1206,12 +1452,29 @@ export default function App() {
                 ANADIR EVENTO
               </h2>
 
-              <input name="title" placeholder="TITULO" style={INPUT_STYLE} value={form.title} onChange={handleInputChange} />
+              <input
+                name="title"
+                placeholder="TITULO"
+                style={INPUT_STYLE}
+                value={form.title}
+                onChange={handleInputChange}
+              />
 
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 6 }}>
-                <input name="city" placeholder="CIUDAD" style={INPUT_STYLE} value={form.city} onChange={handleInputChange} />
+                <input
+                  name="city"
+                  placeholder="CIUDAD"
+                  style={INPUT_STYLE}
+                  value={form.city}
+                  onChange={handleInputChange}
+                />
 
-                <select name="category" style={INPUT_STYLE} value={form.category} onChange={handleInputChange}>
+                <select
+                  name="category"
+                  style={INPUT_STYLE}
+                  value={form.category}
+                  onChange={handleInputChange}
+                >
                   <option value="MUSICA">MUSICA</option>
                   <option value="GASTRONOMIA">GASTRONOMIA</option>
                   <option value="TAURINO">TAURINO</option>
@@ -1220,30 +1483,60 @@ export default function App() {
                 </select>
               </div>
 
-              <input name="localidad" placeholder="LOCALIDAD" style={INPUT_STYLE} value={form.localidad} onChange={handleInputChange} />
-              <input name="address" placeholder="DIRECCION" style={INPUT_STYLE} value={form.address} onChange={handleInputChange} />
+              <input
+                name="localidad"
+                placeholder="LOCALIDAD"
+                style={INPUT_STYLE}
+                value={form.localidad}
+                onChange={handleInputChange}
+              />
+
+              <input
+                name="address"
+                placeholder="DIRECCION"
+                style={INPUT_STYLE}
+                value={form.address}
+                onChange={handleInputChange}
+              />
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                <input name="date" type="date" style={Object.assign({}, INPUT_STYLE, { padding: 8 })} value={form.date} onChange={handleInputChange} />
-                <input name="time" type="time" style={Object.assign({}, INPUT_STYLE, { padding: 8 })} value={form.time} onChange={handleInputChange} />
+                <input
+                  name="date"
+                  type="date"
+                  style={Object.assign({}, INPUT_STYLE, { padding: 8 })}
+                  value={form.date}
+                  onChange={handleInputChange}
+                />
+
+                <input
+                  name="time"
+                  type="time"
+                  style={Object.assign({}, INPUT_STYLE, { padding: 8 })}
+                  value={form.time}
+                  onChange={handleInputChange}
+                />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                <button onClick={generateAIImage} style={{
-                  padding: 10,
-                  background: '#4f46e5',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 10,
-                  fontSize: 9,
-                  fontWeight: 900,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 4,
-                  cursor: 'pointer'
-                }}>
-                  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />} IA FOTO
+                <button
+                  onClick={generateAIImage}
+                  style={{
+                    padding: 10,
+                    background: '#4f46e5',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 10,
+                    fontSize: 9,
+                    fontWeight: 900,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
+                  IA FOTO
                 </button>
 
                 <label style={{
@@ -1262,26 +1555,29 @@ export default function App() {
               </div>
 
               {form.image_url && (
-                <img src={form.image_url} style={{
-                  width: '100%',
-                  height: 100,
-                  objectFit: 'cover',
-                  borderRadius: 10
-                }} alt="" />
+                <img
+                  src={form.image_url}
+                  style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 10 }}
+                  alt=""
+                />
               )}
 
-              <button onClick={handleSubmitEvent} disabled={isSubmitting} style={{
-                width: '100%',
-                background: '#4f46e5',
-                color: 'white',
-                padding: 13,
-                borderRadius: 10,
-                border: 'none',
-                fontWeight: 900,
-                fontSize: 11,
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                opacity: isSubmitting ? 0.7 : 1
-              }}>
+              <button
+                onClick={handleSubmitEvent}
+                disabled={isSubmitting}
+                style={{
+                  width: '100%',
+                  background: '#4f46e5',
+                  color: 'white',
+                  padding: 13,
+                  borderRadius: 10,
+                  border: 'none',
+                  fontWeight: 900,
+                  fontSize: 11,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  opacity: isSubmitting ? 0.7 : 1
+                }}
+              >
                 {isSubmitting ? 'Enviando...' : 'ENVIAR REVISION'}
               </button>
             </div>
@@ -1295,17 +1591,20 @@ export default function App() {
             overflowY: 'auto',
             paddingBottom: 120
           }}>
-            <button onClick={function () { setView('home'); }} style={{
-              background: 'none',
-              border: 'none',
-              color: '#6366f1',
-              fontWeight: 900,
-              display: 'flex',
-              gap: 6,
-              marginBottom: 12,
-              cursor: 'pointer',
-              fontSize: 12
-            }}>
+            <button
+              onClick={function () { setView('home'); }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#6366f1',
+                fontWeight: 900,
+                display: 'flex',
+                gap: 6,
+                marginBottom: 12,
+                cursor: 'pointer',
+                fontSize: 12
+              }}
+            >
               <ArrowLeft size={16} /> VOLVER
             </button>
 
@@ -1315,50 +1614,59 @@ export default function App() {
               gap: 8,
               marginBottom: 10
             }}>
-              <button onClick={function () { setAdminTab('pending'); }} style={{
-                padding: 10,
-                borderRadius: 12,
-                border: 'none',
-                background: adminTab === 'pending' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'),
-                color: adminTab === 'pending' ? 'white' : 'inherit',
-                fontWeight: 900,
-                fontSize: 11,
-                cursor: 'pointer'
-              }}>
+              <button
+                onClick={function () { setAdminTab('pending'); }}
+                style={{
+                  padding: 10,
+                  borderRadius: 12,
+                  border: 'none',
+                  background: adminTab === 'pending' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'),
+                  color: adminTab === 'pending' ? 'white' : 'inherit',
+                  fontWeight: 900,
+                  fontSize: 11,
+                  cursor: 'pointer'
+                }}
+              >
                 PENDIENTES ({pendingEvents.length})
               </button>
 
-              <button onClick={function () { setAdminTab('approved'); }} style={{
-                padding: 10,
-                borderRadius: 12,
-                border: 'none',
-                background: adminTab === 'approved' ? '#22c55e' : (isDark ? '#1e293b' : '#e2e8f0'),
-                color: adminTab === 'approved' ? 'white' : 'inherit',
-                fontWeight: 900,
-                fontSize: 11,
-                cursor: 'pointer'
-              }}>
+              <button
+                onClick={function () { setAdminTab('approved'); }}
+                style={{
+                  padding: 10,
+                  borderRadius: 12,
+                  border: 'none',
+                  background: adminTab === 'approved' ? '#22c55e' : (isDark ? '#1e293b' : '#e2e8f0'),
+                  color: adminTab === 'approved' ? 'white' : 'inherit',
+                  fontWeight: 900,
+                  fontSize: 11,
+                  cursor: 'pointer'
+                }}
+              >
                 APROBADOS ({approvedEvents.length})
               </button>
             </div>
 
             {approvedEvents.length > 0 && (
-              <button onClick={function () { exportToCSV(approvedEvents); }} style={{
-                width: '100%',
-                padding: 10,
-                borderRadius: 10,
-                border: 'none',
-                background: 'rgba(99,102,241,0.1)',
-                color: '#6366f1',
-                fontWeight: 900,
-                fontSize: 10,
-                cursor: 'pointer',
-                marginBottom: 15,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6
-              }}>
+              <button
+                onClick={function () { exportToCSV(approvedEvents); }}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  borderRadius: 10,
+                  border: 'none',
+                  background: 'rgba(99,102,241,0.1)',
+                  color: '#6366f1',
+                  fontWeight: 900,
+                  fontSize: 10,
+                  cursor: 'pointer',
+                  marginBottom: 15,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6
+                }}
+              >
                 <Download size={14} /> EXPORTAR EVENTOS A CSV
               </button>
             )}
@@ -1371,12 +1679,38 @@ export default function App() {
 
             {adminTab === 'pending' && pendingEvents.map(function (ev) {
               return (
-                <AdminListItem
+                <div
                   key={ev.id}
-                  ev={ev}
-                  isDark={isDark}
+                  className={isDark ? 'card-dark' : 'card-light'}
+                  style={{
+                    borderRadius: 15,
+                    padding: 10,
+                    marginBottom: 10,
+                    cursor: 'pointer'
+                  }}
                   onClick={function () { setSelectedPendingEvent(ev); }}
-                />
+                >
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    {ev.image_url && (
+                      <img
+                        src={ev.image_url}
+                        style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover' }}
+                        alt=""
+                      />
+                    )}
+
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
+                      <p style={{ fontSize: 9, color: '#6366f1' }}>
+                        {ev.city} | {formatDate(ev.date)}
+                      </p>
+                    </div>
+
+                    <span style={{ fontSize: 8, color: '#94a3b8', fontWeight: 700 }}>
+                      VER &gt;
+                    </span>
+                  </div>
+                </div>
               );
             })}
 
@@ -1388,19 +1722,22 @@ export default function App() {
 
             {adminTab === 'approved' && approvedEvents.map(function (ev) {
               return (
-                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{
-                  borderRadius: 15,
-                  padding: 10,
-                  marginBottom: 10
-                }}>
+                <div
+                  key={ev.id}
+                  className={isDark ? 'card-dark' : 'card-light'}
+                  style={{
+                    borderRadius: 15,
+                    padding: 10,
+                    marginBottom: 10
+                  }}
+                >
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                     {ev.image_url && (
-                      <img src={ev.image_url} style={{
-                        width: 50,
-                        height: 50,
-                        borderRadius: 10,
-                        objectFit: 'cover'
-                      }} alt="" />
+                      <img
+                        src={ev.image_url}
+                        style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover' }}
+                        alt=""
+                      />
                     )}
 
                     <div style={{ flex: 1 }}>
@@ -1410,22 +1747,25 @@ export default function App() {
                       </p>
                     </div>
 
-                    <button onClick={function (e) {
-                      e.stopPropagation();
-                      handleDeleteEvent(ev.id);
-                    }} style={{
-                      padding: 8,
-                      background: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: 8,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      fontSize: 9,
-                      fontWeight: 900
-                    }}>
+                    <button
+                      onClick={function (e) {
+                        e.stopPropagation();
+                        handleDeleteEvent(ev.id);
+                      }}
+                      style={{
+                        padding: 8,
+                        background: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        fontSize: 9,
+                        fontWeight: 900
+                      }}
+                    >
                       <Trash2 size={14} /> BORRAR
                     </button>
                   </div>
@@ -1442,17 +1782,20 @@ export default function App() {
             overflowY: 'auto',
             paddingBottom: 120
           }}>
-            <button onClick={function () { setSelectedPendingEvent(null); }} style={{
-              background: 'none',
-              border: 'none',
-              color: '#6366f1',
-              fontWeight: 900,
-              display: 'flex',
-              gap: 6,
-              marginBottom: 12,
-              cursor: 'pointer',
-              fontSize: 12
-            }}>
+            <button
+              onClick={function () { setSelectedPendingEvent(null); }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#6366f1',
+                fontWeight: 900,
+                display: 'flex',
+                gap: 6,
+                marginBottom: 12,
+                cursor: 'pointer',
+                fontSize: 12
+              }}
+            >
               <ArrowLeft size={16} /> VOLVER A LISTA
             </button>
 
@@ -1462,11 +1805,11 @@ export default function App() {
               padding: 0
             }}>
               {selectedPendingEvent.image_url && (
-                <img src={selectedPendingEvent.image_url} style={{
-                  width: '100%',
-                  height: 220,
-                  objectFit: 'cover'
-                }} alt="" />
+                <img
+                  src={selectedPendingEvent.image_url}
+                  style={{ width: '100%', height: 220, objectFit: 'cover' }}
+                  alt=""
+                />
               )}
 
               <div style={{ padding: 18 }}>
@@ -1498,47 +1841,52 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr 1fr',
-                  gap: 8
-                }}>
-                  <button onClick={function () { handleApproveEvent(selectedPendingEvent.id); }} style={{
-                    padding: 12,
-                    background: '#22c55e',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 10,
-                    fontWeight: 900,
-                    fontSize: 10,
-                    cursor: 'pointer'
-                  }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  <button
+                    onClick={function () { handleApproveEvent(selectedPendingEvent.id); }}
+                    style={{
+                      padding: 12,
+                      background: '#22c55e',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 10,
+                      fontWeight: 900,
+                      fontSize: 10,
+                      cursor: 'pointer'
+                    }}
+                  >
                     APROBAR
                   </button>
 
-                  <button onClick={function () { handleRejectEvent(selectedPendingEvent.id); }} style={{
-                    padding: 12,
-                    background: '#ef4444',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 10,
-                    fontWeight: 900,
-                    fontSize: 10,
-                    cursor: 'pointer'
-                  }}>
+                  <button
+                    onClick={function () { handleRejectEvent(selectedPendingEvent.id); }}
+                    style={{
+                      padding: 12,
+                      background: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 10,
+                      fontWeight: 900,
+                      fontSize: 10,
+                      cursor: 'pointer'
+                    }}
+                  >
                     RECHAZAR
                   </button>
 
-                  <button onClick={function () { handleDeleteEvent(selectedPendingEvent.id); }} style={{
-                    padding: 12,
-                    background: '#64748b',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 10,
-                    fontWeight: 900,
-                    fontSize: 10,
-                    cursor: 'pointer'
-                  }}>
+                  <button
+                    onClick={function () { handleDeleteEvent(selectedPendingEvent.id); }}
+                    style={{
+                      padding: 12,
+                      background: '#64748b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 10,
+                      fontWeight: 900,
+                      fontSize: 10,
+                      cursor: 'pointer'
+                    }}
+                  >
                     BORRAR
                   </button>
                 </div>
@@ -1554,12 +1902,7 @@ export default function App() {
             overflowY: 'auto',
             paddingBottom: 120
           }}>
-            <h2 style={{
-              textAlign: 'center',
-              fontWeight: 900,
-              marginBottom: 12,
-              fontSize: 16
-            }}>
+            <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16 }}>
               MIS GUARDADOS ({favoriteEvents.length})
             </h2>
 
@@ -1579,12 +1922,11 @@ export default function App() {
                   marginBottom: 8,
                   alignItems: 'center'
                 }}>
-                  <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} style={{
-                    width: 45,
-                    height: 45,
-                    borderRadius: 10,
-                    objectFit: 'cover'
-                  }} alt="" />
+                  <img
+                    src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
+                    style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }}
+                    alt=""
+                  />
 
                   <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
@@ -1604,12 +1946,15 @@ export default function App() {
                     )}
                   </div>
 
-                  <button onClick={function () { toggleFavorite(ev.id); }} style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#ef4444',
-                    cursor: 'pointer'
-                  }}>
+                  <button
+                    onClick={function () { toggleFavorite(ev.id); }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#ef4444',
+                      cursor: 'pointer'
+                    }}
+                  >
                     <Trash2 size={18} />
                   </button>
                 </div>
@@ -1644,41 +1989,54 @@ export default function App() {
               )}
 
               <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{
-                  background: '#29abe0',
-                  color: 'white',
-                  padding: 14,
-                  borderRadius: 12,
-                  textDecoration: 'none',
-                  fontWeight: 900,
-                  fontSize: 11
-                }}>
+                <a
+                  href="https://ko-fi.com/eventora"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    background: '#29abe0',
+                    color: 'white',
+                    padding: 14,
+                    borderRadius: 12,
+                    textDecoration: 'none',
+                    fontWeight: 900,
+                    fontSize: 11
+                  }}
+                >
                   APOYAR EN KO-FI
                 </a>
 
-                <a href="https://www.paypal.com/paypalme/jacobogarbas" target="_blank" rel="noreferrer" style={{
-                  background: '#003087',
-                  color: 'white',
-                  padding: 14,
-                  borderRadius: 12,
-                  textDecoration: 'none',
-                  fontWeight: 900,
-                  fontSize: 11
-                }}>
+                <a
+                  href="https://www.paypal.com/paypalme/jacobogarbas"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    background: '#003087',
+                    color: 'white',
+                    padding: 14,
+                    borderRadius: 12,
+                    textDecoration: 'none',
+                    fontWeight: 900,
+                    fontSize: 11
+                  }}
+                >
                   APOYAR EN PAYPAL
                 </a>
               </div>
 
-              <button onClick={handleLogin} style={{
-                background: '#4f46e5',
-                color: 'white',
-                fontSize: 10,
-                padding: '8px 15px',
-                borderRadius: 8,
-                border: 'none',
-                fontWeight: 900,
-                cursor: 'pointer'
-              }}>
+              <button
+                onClick={handleLogin}
+                style={{
+                  background: '#4f46e5',
+                  color: 'white',
+                  fontSize: 10,
+                  padding: '8px 15px',
+                  borderRadius: 8,
+                  border: 'none',
+                  fontWeight: 900,
+                  cursor: 'pointer'
+                }}
+              >
                 LOGIN
               </button>
             </div>
@@ -1702,31 +2060,37 @@ export default function App() {
         zIndex: 3000,
         background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)'
       }}>
-        <button onClick={function () {
-          setView('home');
-          setSelectedEvent(null);
-          setSelectedPendingEvent(null);
-          setSearchQuery('');
-        }} style={{
-          background: 'none',
-          border: 'none',
-          color: view === 'home' ? '#4f46e5' : '#64748b',
-          cursor: 'pointer'
-        }}>
+        <button
+          onClick={function () {
+            setView('home');
+            setSelectedEvent(null);
+            setSelectedPendingEvent(null);
+            setSearchQuery('');
+          }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: view === 'home' ? '#4f46e5' : '#64748b',
+            cursor: 'pointer'
+          }}
+        >
           <LayoutList size={22} />
         </button>
 
-        <button onClick={function () {
-          setView('favorites');
-          setSelectedEvent(null);
-          setSelectedPendingEvent(null);
-        }} style={{
-          background: 'none',
-          border: 'none',
-          color: view === 'favorites' ? '#ef4444' : '#64748b',
-          cursor: 'pointer',
-          position: 'relative'
-        }}>
+        <button
+          onClick={function () {
+            setView('favorites');
+            setSelectedEvent(null);
+            setSelectedPendingEvent(null);
+          }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: view === 'favorites' ? '#ef4444' : '#64748b',
+            cursor: 'pointer',
+            position: 'relative'
+          }}
+        >
           <Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} />
 
           {favoriteEvents.length > 0 && (
@@ -1748,200 +2112,38 @@ export default function App() {
           )}
         </button>
 
-        <button onClick={function () {
-          setView('create');
-          setSelectedEvent(null);
-          setSelectedPendingEvent(null);
-        }} style={{
-          background: 'none',
-          border: 'none',
-          color: view === 'create' ? '#4f46e5' : '#64748b',
-          cursor: 'pointer'
-        }}>
+        <button
+          onClick={function () {
+            setView('create');
+            setSelectedEvent(null);
+            setSelectedPendingEvent(null);
+          }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: view === 'create' ? '#4f46e5' : '#64748b',
+            cursor: 'pointer'
+          }}
+        >
           <PlusCircle size={22} />
         </button>
 
-        <button onClick={function () {
-          setView('map');
-          setSelectedEvent(null);
-          setSelectedPendingEvent(null);
-        }} style={{
-          background: 'none',
-          border: 'none',
-          color: view === 'map' ? '#4f46e5' : '#64748b',
-          cursor: 'pointer'
-        }}>
+        <button
+          onClick={function () {
+            setView('map');
+            setSelectedEvent(null);
+            setSelectedPendingEvent(null);
+          }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: view === 'map' ? '#4f46e5' : '#64748b',
+            cursor: 'pointer'
+          }}
+        >
           <MapIcon size={22} />
         </button>
       </nav>
-    </div>
-  );
-}
-
-function EventCard(props) {
-  var ev = props.ev;
-  var isDark = props.isDark;
-  var featured = props.featured;
-  var favorites = props.favorites;
-  var animHeart = props.animHeart;
-  var toggleFavorite = props.toggleFavorite;
-  var setSelectedEvent = props.setSelectedEvent;
-
-  var dl = getDaysLabel(ev.date);
-
-  return (
-    <div className={isDark ? 'card-dark' : 'card-light'} style={{
-      borderRadius: 25,
-      overflow: 'hidden',
-      marginBottom: 15,
-      border: featured ? '2px solid #22c55e' : undefined
-    }}>
-      <div style={{ position: 'relative' }}>
-        {featured && (
-          <div style={{
-            position: 'absolute',
-            top: 10,
-            left: 10,
-            zIndex: 5,
-            background: '#22c55e',
-            color: 'white',
-            padding: '4px 10px',
-            borderRadius: 8,
-            fontSize: 9,
-            fontWeight: 900,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4
-          }}>
-            <Star size={12} fill="white" /> DESTACADO
-          </div>
-        )}
-
-        {dl && (
-          <div style={{
-            position: 'absolute',
-            top: 10,
-            right: featured ? 50 : 10,
-            left: featured ? undefined : 10,
-            zIndex: 5,
-            background: dl.bg,
-            color: dl.color,
-            padding: featured ? '4px 10px' : '3px 8px',
-            borderRadius: 8,
-            fontSize: featured ? 9 : 8,
-            fontWeight: 900,
-            width: 'fit-content'
-          }}>
-            {dl.text}
-          </div>
-        )}
-
-        <div style={{ position: 'relative', height: featured ? 200 : 160 }}>
-          <img
-            src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            alt=""
-          />
-
-          <button onClick={function () { toggleFavorite(ev.id); }} style={{
-            position: 'absolute',
-            top: 10,
-            right: 10,
-            padding: featured ? 8 : 7,
-            background: 'white',
-            borderRadius: '50%',
-            border: 'none',
-            color: '#ef4444',
-            display: 'flex',
-            cursor: 'pointer'
-          }}>
-            <Heart
-              size={featured ? 18 : 16}
-              className={animHeart === ev.id ? 'heart-pop' : ''}
-              fill={favorites.indexOf(ev.id) !== -1 ? 'red' : 'none'}
-            />
-          </button>
-        </div>
-
-        <div style={{ padding: 15, textAlign: 'center' }}>
-          <p style={{
-            fontSize: 9,
-            color: '#6366f1',
-            fontWeight: 800,
-            letterSpacing: 1,
-            marginBottom: 5
-          }}>
-            {categoryEmojis[ev.category] || '📌'} {ev.city} | {formatDate(ev.date)}
-          </p>
-
-          <h3 style={{
-            fontWeight: 900,
-            fontSize: featured ? 17 : 15,
-            marginBottom: featured ? 10 : 0
-          }}>
-            {ev.title}
-          </h3>
-
-          <button onClick={function () { setSelectedEvent(ev); }} style={{
-            width: '100%',
-            padding: featured ? 12 : 11,
-            borderRadius: 14,
-            background: '#4f46e5',
-            color: 'white',
-            border: 'none',
-            fontWeight: 900,
-            fontSize: featured ? 11 : 10,
-            cursor: 'pointer',
-            marginTop: featured ? 0 : 10
-          }}>
-            {featured ? 'VER DETALLES' : 'DETALLES'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AdminListItem(props) {
-  var ev = props.ev;
-  var isDark = props.isDark;
-  var onClick = props.onClick;
-
-  return (
-    <div className={isDark ? 'card-dark' : 'card-light'} style={{
-      borderRadius: 15,
-      padding: 10,
-      marginBottom: 10,
-      cursor: 'pointer'
-    }} onClick={onClick}>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        {ev.image_url && (
-          <img src={ev.image_url} style={{
-            width: 50,
-            height: 50,
-            borderRadius: 10,
-            objectFit: 'cover'
-          }} alt="" />
-        )}
-
-        <div style={{ flex: 1 }}>
-          <p style={{ fontWeight: 900, fontSize: 13 }}>
-            {ev.title}
-          </p>
-
-          <p style={{ fontSize: 9, color: '#6366f1' }}>
-            {ev.city} | {formatDate(ev.date)}
-          </p>
-        </div>
-
-        <span style={{
-          fontSize: 8,
-          color: '#94a3b8',
-          fontWeight: 700
-        }}>
-          VER &gt;
-        </span>
-      </div>
     </div>
   );
 }
