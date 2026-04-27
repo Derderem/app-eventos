@@ -110,14 +110,108 @@ function getDaysLeft(dateStr) {
 
 function getDaysLabel(dateStr) {
   const days = getDaysLeft(dateStr);
-
   if (days === null) return null;
   if (days === 0) return { text: 'HOY', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
   if (days === 1) return { text: 'MAÑANA', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' };
   if (days <= 3) return { text: 'EN ' + days + ' DÍAS', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
   if (days <= 7) return { text: 'EN ' + days + ' DÍAS', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' };
-
   return { text: 'EN ' + days + ' DÍAS', color: '#6366f1', bg: 'rgba(99,102,241,0.15)' };
+}
+
+function cleanImageUrl(url) {
+  if (!url) return null;
+  if (String(url).indexOf('data:image') === 0) return null;
+  if (String(url).length > 1900) return null;
+  return url;
+}
+
+async function compressImage(file, options = {}) {
+  const maxSize = options.maxSize || 1600;
+  const quality = options.quality || 0.82;
+
+  if (!file || !file.type || file.type.indexOf('image/') !== 0) {
+    throw new Error('Archivo no válido');
+  }
+
+  const imageBitmapSupported = typeof createImageBitmap === 'function';
+
+  let img;
+
+  if (imageBitmapSupported) {
+    img = await createImageBitmap(file);
+  } else {
+    img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = URL.createObjectURL(file);
+    });
+  }
+
+  const originalWidth = img.width;
+  const originalHeight = img.height;
+
+  let targetWidth = originalWidth;
+  let targetHeight = originalHeight;
+
+  if (originalWidth > maxSize || originalHeight > maxSize) {
+    if (originalWidth > originalHeight) {
+      targetWidth = maxSize;
+      targetHeight = Math.round((originalHeight * maxSize) / originalWidth);
+    } else {
+      targetHeight = maxSize;
+      targetWidth = Math.round((originalWidth * maxSize) / originalHeight);
+    }
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+  const webpBlob = await new Promise((resolve) => {
+    canvas.toBlob(resolve, 'image/webp', quality);
+  });
+
+  if (webpBlob && webpBlob.size > 0) {
+    return {
+      blob: webpBlob,
+      extension: 'webp',
+      type: 'image/webp',
+      originalSize: file.size,
+      compressedSize: webpBlob.size,
+      width: targetWidth,
+      height: targetHeight
+    };
+  }
+
+  const jpegBlob = await new Promise((resolve) => {
+    canvas.toBlob(resolve, 'image/jpeg', quality);
+  });
+
+  if (jpegBlob && jpegBlob.size > 0) {
+    return {
+      blob: jpegBlob,
+      extension: 'jpg',
+      type: 'image/jpeg',
+      originalSize: file.size,
+      compressedSize: jpegBlob.size,
+      width: targetWidth,
+      height: targetHeight
+    };
+  }
+
+  return {
+    blob: file,
+    extension: file.name.split('.').pop() || 'jpg',
+    type: file.type,
+    originalSize: file.size,
+    compressedSize: file.size,
+    width: originalWidth,
+    height: originalHeight
+  };
 }
 
 function Toast({ toast }) {
@@ -186,9 +280,7 @@ function Splash({ onDone }) {
         alt="Eventora"
         style={{ height: 50, width: 'auto' }}
       />
-      <p style={{ color: '#6366f1', fontSize: 11, fontWeight: 700 }}>
-        Cargando eventos...
-      </p>
+      <p style={{ color: '#6366f1', fontSize: 11, fontWeight: 700 }}>Cargando eventos...</p>
       <Loader2 className="animate-spin" size={24} color="#4f46e5" />
     </div>
   );
@@ -264,15 +356,7 @@ function exportToCSV(events) {
   URL.revokeObjectURL(link.href);
 }
 
-function EventCard({
-  ev,
-  featured,
-  isDark,
-  favorites,
-  animHeart,
-  toggleFavorite,
-  setSelectedEvent
-}) {
+function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, setSelectedEvent }) {
   const dl = getDaysLabel(ev.date);
 
   return (
@@ -361,11 +445,7 @@ function EventCard({
             {categoryEmojis[ev.category] || '📌'} {ev.city} | {formatDate(ev.date)}
           </p>
 
-          <h3 style={{
-            fontWeight: 900,
-            fontSize: featured ? 17 : 15,
-            marginBottom: 10
-          }}>
+          <h3 style={{ fontWeight: 900, fontSize: featured ? 17 : 15, marginBottom: 10 }}>
             {ev.title}
           </h3>
 
@@ -391,39 +471,18 @@ function EventCard({
   );
 }
 
-function AdminMiniCard({
-  ev,
-  isDark,
-  onClick,
-  onApprove,
-  onReject,
-  onDelete,
-  onView,
-  onEdit,
-  mode
-}) {
+function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onView, onEdit, mode }) {
   return (
     <div
       className={isDark ? 'card-dark' : 'card-light'}
-      style={{
-        borderRadius: 16,
-        padding: 10,
-        marginBottom: 10,
-        cursor: 'pointer'
-      }}
+      style={{ borderRadius: 16, padding: 10, marginBottom: 10, cursor: 'pointer' }}
       onClick={onClick}
     >
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <img
           src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
           alt=""
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 12,
-            objectFit: 'cover',
-            flexShrink: 0
-          }}
+          style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }}
         />
 
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -461,12 +520,7 @@ function AdminMiniCard({
       </div>
 
       {mode === 'pending' && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr',
-          gap: 6,
-          marginTop: 10
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 10 }}>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -539,12 +593,7 @@ function AdminMiniCard({
       )}
 
       {mode === 'approved' && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr',
-          gap: 6,
-          marginTop: 10
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 10 }}>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -669,9 +718,7 @@ export default function App() {
     fetchEvents();
 
     return () => {
-      if (toastTimerRef.current) {
-        clearTimeout(toastTimerRef.current);
-      }
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
 
@@ -737,10 +784,7 @@ export default function App() {
       value = value.toUpperCase();
     }
 
-    setForm((prev) => ({
-      ...prev,
-      [name]: value
-    }));
+    setForm((prev) => ({ ...prev, [name]: value }));
   }
 
   function handleEditInputChange(e) {
@@ -751,10 +795,7 @@ export default function App() {
       value = value.toUpperCase();
     }
 
-    setEditForm((prev) => ({
-      ...prev,
-      [name]: value
-    }));
+    setEditForm((prev) => ({ ...prev, [name]: value }));
   }
 
   function toggleFavorite(id) {
@@ -775,6 +816,115 @@ export default function App() {
     }, 700);
   }
 
+  async function uploadImageToStorage(file) {
+    if (!file) throw new Error('No hay imagen');
+
+    if (!file.type || file.type.indexOf('image/') !== 0) {
+      throw new Error('Selecciona una imagen válida');
+    }
+
+    if (file.size > 12 * 1024 * 1024) {
+      throw new Error('La imagen es demasiado grande. Máximo 12MB');
+    }
+
+    const optimized = await compressImage(file, {
+      maxSize: 1600,
+      quality: 0.82
+    });
+
+    const safeName =
+      Date.now() +
+      '-' +
+      Math.random().toString(36).slice(2) +
+      '.' +
+      optimized.extension;
+
+    const path = 'uploads/' + safeName;
+
+    const upload = await supabase.storage
+      .from('event-images')
+      .upload(path, optimized.blob, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: optimized.type
+      });
+
+    if (upload.error) {
+      throw upload.error;
+    }
+
+    const publicUrlData = supabase.storage
+      .from('event-images')
+      .getPublicUrl(path);
+
+    return {
+      url: publicUrlData.data.publicUrl,
+      originalSize: optimized.originalSize,
+      compressedSize: optimized.compressedSize,
+      width: optimized.width,
+      height: optimized.height
+    };
+  }
+
+  async function handleGalleryUpload(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    setIsGenerating(true);
+    showToast('Optimizando imagen...', 'info');
+
+    try {
+      const result = await uploadImageToStorage(file);
+
+      setForm((prev) => ({
+        ...prev,
+        image_url: result.url
+      }));
+
+      const savedKb = Math.round((result.originalSize - result.compressedSize) / 1024);
+      const finalKb = Math.round(result.compressedSize / 1024);
+
+      showToast(
+        savedKb > 0
+          ? `Imagen optimizada y subida (${finalKb}KB)`
+          : 'Imagen subida correctamente',
+        'success'
+      );
+    } catch (err) {
+      console.error('❌ Error subiendo imagen:', err);
+      showToast(err.message || 'Error subiendo imagen', 'error');
+    } finally {
+      setIsGenerating(false);
+      e.target.value = '';
+    }
+  }
+
+  async function handleEditGalleryUpload(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    setIsGenerating(true);
+    showToast('Optimizando nueva imagen...', 'info');
+
+    try {
+      const result = await uploadImageToStorage(file);
+
+      setEditForm((prev) => ({
+        ...prev,
+        image_url: result.url
+      }));
+
+      const finalKb = Math.round(result.compressedSize / 1024);
+      showToast(`Nueva imagen optimizada y subida (${finalKb}KB)`, 'success');
+    } catch (err) {
+      console.error('❌ Error subiendo imagen:', err);
+      showToast(err.message || 'Error subiendo imagen', 'error');
+    } finally {
+      setIsGenerating(false);
+      e.target.value = '';
+    }
+  }
+
   function generateAIImage() {
     if (!form.title) {
       showToast('Escribe un título primero', 'error');
@@ -793,10 +943,7 @@ export default function App() {
       '&nologo=true&t=' +
       Date.now();
 
-    setForm((prev) => ({
-      ...prev,
-      image_url: url
-    }));
+    setForm((prev) => ({ ...prev, image_url: url }));
 
     setTimeout(() => {
       setIsGenerating(false);
@@ -822,10 +969,7 @@ export default function App() {
       '&nologo=true&t=' +
       Date.now();
 
-    setEditForm((prev) => ({
-      ...prev,
-      image_url: url
-    }));
+    setEditForm((prev) => ({ ...prev, image_url: url }));
 
     setTimeout(() => {
       setIsGenerating(false);
@@ -833,103 +977,10 @@ export default function App() {
     }, 1200);
   }
 
-  async function uploadImageToStorage(file) {
-    const ext = file.name.split('.').pop() || 'jpg';
-    const safeName = Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext;
-    const path = 'uploads/' + safeName;
-
-    const upload = await supabase.storage
-      .from('event-images')
-      .upload(path, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
-
-    if (upload.error) {
-      throw upload.error;
-    }
-
-    const publicUrlData = supabase.storage
-      .from('event-images')
-      .getPublicUrl(path);
-
-    return publicUrlData.data.publicUrl;
-  }
-
-  async function handleGalleryUpload(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-
-    if (!file.type || file.type.indexOf('image/') !== 0) {
-      showToast('Selecciona una imagen válida', 'error');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('La imagen es demasiado grande. Máximo 5MB', 'error');
-      return;
-    }
-
-    setIsGenerating(true);
-    showToast('Subiendo imagen...', 'info');
-
-    try {
-      const publicUrl = await uploadImageToStorage(file);
-
-      setForm((prev) => ({
-        ...prev,
-        image_url: publicUrl
-      }));
-
-      showToast('Imagen subida correctamente', 'success');
-    } catch (err) {
-      console.error('❌ Error subiendo imagen:', err);
-      showToast('Error subiendo imagen', 'error');
-    } finally {
-      setIsGenerating(false);
-    }
-  }
-
-  async function handleEditGalleryUpload(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-
-    if (!file.type || file.type.indexOf('image/') !== 0) {
-      showToast('Selecciona una imagen válida', 'error');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('La imagen es demasiado grande. Máximo 5MB', 'error');
-      return;
-    }
-
-    setIsGenerating(true);
-    showToast('Subiendo nueva imagen...', 'info');
-
-    try {
-      const publicUrl = await uploadImageToStorage(file);
-
-      setEditForm((prev) => ({
-        ...prev,
-        image_url: publicUrl
-      }));
-
-      showToast('Imagen actualizada correctamente', 'success');
-    } catch (err) {
-      console.error('❌ Error subiendo imagen:', err);
-      showToast('Error subiendo imagen', 'error');
-    } finally {
-      setIsGenerating(false);
-    }
-  }
-
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España']
       .filter(Boolean)
       .join(', ');
-
-    console.log('🌍 Geocodificando:', fullAddress);
 
     return fetch(
       'https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' +
@@ -960,17 +1011,9 @@ export default function App() {
             return { lat: null, lng: null };
           });
       })
-      .catch((err) => {
-        console.error('❌ Error geocoding:', err);
+      .catch(() => {
         return { lat: null, lng: null };
       });
-  }
-
-  function cleanImageUrl(url) {
-    if (!url) return null;
-    if (String(url).indexOf('data:image') === 0) return null;
-    if (String(url).length > 1900) return null;
-    return url;
   }
 
   function handleSubmitEvent() {
@@ -998,27 +1041,22 @@ export default function App() {
           lng: coords.lng
         };
 
-        console.log('📝 Evento que se va a guardar:', eventToInsert);
-
-        return supabase
-          .from('events')
-          .insert([eventToInsert]);
+        return supabase.from('events').insert([eventToInsert]);
       })
       .then((res) => {
         if (res.error) {
-          console.error('❌ Error Supabase completo:', res.error);
+          console.error('❌ Error Supabase:', res.error);
           showToast('Error Supabase: ' + (res.error.message || 'No se pudo guardar'), 'error');
           return;
         }
 
         showToast('Evento enviado a revisión correctamente', 'success');
-
         setForm(INITIAL_FORM);
         setView('home');
         fetchEvents();
       })
       .catch((err) => {
-        console.error('❌ Error completo:', err);
+        console.error('❌ Error:', err);
         showToast('Error al enviar el evento', 'error');
       })
       .finally(() => {
@@ -1120,7 +1158,6 @@ export default function App() {
       .eq('id', id)
       .then((res) => {
         if (res.error) {
-          console.error('❌ Error aprobando:', res.error);
           showToast('Error aprobando evento', 'error');
           return;
         }
@@ -1138,7 +1175,6 @@ export default function App() {
       .eq('id', id)
       .then((res) => {
         if (res.error) {
-          console.error('❌ Error rechazando:', res.error);
           showToast('Error rechazando evento', 'error');
           return;
         }
@@ -1158,7 +1194,6 @@ export default function App() {
       .eq('id', id)
       .then((res) => {
         if (res.error) {
-          console.error('❌ Error borrando:', res.error);
           showToast('Error borrando evento', 'error');
           return;
         }
@@ -1176,7 +1211,6 @@ export default function App() {
 
     supabase.auth.signInWithOtp({ email }).then((res) => {
       if (res.error) {
-        console.error('❌ Error login:', res.error);
         showToast('Error enviando login', 'error');
         return;
       }
@@ -1229,10 +1263,7 @@ export default function App() {
       (ev.localidad || '');
 
     if (navigator.share) {
-      navigator.share({
-        title: ev.title,
-        text
-      });
+      navigator.share({ title: ev.title, text });
     } else {
       navigator.clipboard.writeText(text).then(() => {
         showToast('Texto copiado al portapapeles', 'success');
@@ -1283,11 +1314,9 @@ export default function App() {
 
   function eventMatchesAdminFilters(e) {
     const cityOk = adminCityFilter === 'TODAS' || e.city === adminCityFilter;
-
     if (!cityOk) return false;
 
     const q = normalizeText(adminSearch).trim();
-
     if (!q) return true;
 
     const haystack = normalizeText([
@@ -1302,8 +1331,22 @@ export default function App() {
     ].join(' '));
 
     const terms = q.split(/\s+/).filter(Boolean);
-
     return terms.every((term) => haystack.indexOf(term) !== -1);
+  }
+
+  function handleNormalSearch(e) {
+    setSearchQuery(e.target.value);
+  }
+
+  function handleEditInputChange(e) {
+    const name = e.target.name;
+    let value = e.target.value;
+
+    if (['title', 'city', 'localidad'].indexOf(name) !== -1) {
+      value = value.toUpperCase();
+    }
+
+    setEditForm((prev) => ({ ...prev, [name]: value }));
   }
 
   const today = new Date().toISOString().split('T')[0];
@@ -1350,13 +1393,8 @@ export default function App() {
 
   const favoriteEvents = publicEvents.filter((e) => favorites.indexOf(e.id) !== -1);
 
-  const rawPendingEvents = hasAdmin
-    ? events.filter((e) => e.status === 'pending')
-    : [];
-
-  const rawApprovedEvents = hasAdmin
-    ? events.filter((e) => e.status === 'approved')
-    : [];
+  const rawPendingEvents = hasAdmin ? events.filter((e) => e.status === 'pending') : [];
+  const rawApprovedEvents = hasAdmin ? events.filter((e) => e.status === 'approved') : [];
 
   const pendingEvents = rawPendingEvents.filter(eventMatchesAdminFilters);
   const approvedEvents = rawApprovedEvents.filter(eventMatchesAdminFilters);
@@ -1374,7 +1412,6 @@ export default function App() {
 
   const featuredEvent = filteredEvents.length ? filteredEvents[0] : null;
   const restEvents = filteredEvents.length ? filteredEvents.slice(1) : [];
-
   const adminFiltersActive = adminSearch.trim() || adminCityFilter !== 'TODAS';
 
   const INPUT_STYLE = {
@@ -1600,7 +1637,7 @@ export default function App() {
                 <Search size={16} color="#6366f1" />
                 <input
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={handleNormalSearch}
                   placeholder="Buscar evento, ciudad, localidad..."
                   style={{
                     width: '100%',
@@ -1977,33 +2014,14 @@ export default function App() {
               display: 'flex',
               flexDirection: 'column'
             }}>
-              <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 15 }}>
-                EDITAR EVENTO
-              </h2>
+              <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 15 }}>EDITAR EVENTO</h2>
 
-              <input
-                name="title"
-                placeholder="TÍTULO"
-                style={INPUT_STYLE}
-                value={editForm.title}
-                onChange={handleEditInputChange}
-              />
+              <input name="title" placeholder="TÍTULO" style={INPUT_STYLE} value={editForm.title} onChange={handleEditInputChange} />
 
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 6 }}>
-                <input
-                  name="city"
-                  placeholder="CIUDAD"
-                  style={INPUT_STYLE}
-                  value={editForm.city}
-                  onChange={handleEditInputChange}
-                />
+                <input name="city" placeholder="CIUDAD" style={INPUT_STYLE} value={editForm.city} onChange={handleEditInputChange} />
 
-                <select
-                  name="category"
-                  style={INPUT_STYLE}
-                  value={editForm.category}
-                  onChange={handleEditInputChange}
-                >
+                <select name="category" style={INPUT_STYLE} value={editForm.category} onChange={handleEditInputChange}>
                   <option value="MUSICA">MUSICA</option>
                   <option value="GASTRONOMIA">GASTRONOMIA</option>
                   <option value="TAURINO">TAURINO</option>
@@ -2012,47 +2030,15 @@ export default function App() {
                 </select>
               </div>
 
-              <input
-                name="localidad"
-                placeholder="LOCALIDAD"
-                style={INPUT_STYLE}
-                value={editForm.localidad}
-                onChange={handleEditInputChange}
-              />
-
-              <input
-                name="address"
-                placeholder="DIRECCIÓN"
-                style={INPUT_STYLE}
-                value={editForm.address}
-                onChange={handleEditInputChange}
-              />
+              <input name="localidad" placeholder="LOCALIDAD" style={INPUT_STYLE} value={editForm.localidad} onChange={handleEditInputChange} />
+              <input name="address" placeholder="DIRECCIÓN" style={INPUT_STYLE} value={editForm.address} onChange={handleEditInputChange} />
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                <input
-                  name="date"
-                  type="date"
-                  style={{ ...INPUT_STYLE, padding: 8 }}
-                  value={editForm.date}
-                  onChange={handleEditInputChange}
-                />
-
-                <input
-                  name="time"
-                  type="time"
-                  style={{ ...INPUT_STYLE, padding: 8 }}
-                  value={editForm.time}
-                  onChange={handleEditInputChange}
-                />
+                <input name="date" type="date" style={{ ...INPUT_STYLE, padding: 8 }} value={editForm.date} onChange={handleEditInputChange} />
+                <input name="time" type="time" style={{ ...INPUT_STYLE, padding: 8 }} value={editForm.time} onChange={handleEditInputChange} />
               </div>
 
-              <input
-                name="image_url"
-                placeholder="URL DE IMAGEN"
-                style={INPUT_STYLE}
-                value={editForm.image_url}
-                onChange={handleEditInputChange}
-              />
+              <input name="image_url" placeholder="URL DE IMAGEN" style={INPUT_STYLE} value={editForm.image_url} onChange={handleEditInputChange} />
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                 <button
@@ -2093,11 +2079,7 @@ export default function App() {
               </div>
 
               {editForm.image_url && (
-                <img
-                  src={editForm.image_url}
-                  alt=""
-                  style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 12 }}
-                />
+                <img src={editForm.image_url} alt="" style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 12 }} />
               )}
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
@@ -2162,23 +2144,11 @@ export default function App() {
               <ArrowLeft size={16} /> VOLVER
             </button>
 
-            <div className={isDark ? 'card-dark' : 'card-light'} style={{
-              borderRadius: 18,
-              padding: 12,
-              marginBottom: 12
-            }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 8,
-                marginBottom: 10
-              }}>
+            <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 18, padding: 12, marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <div>
                   <p style={{ fontSize: 15, fontWeight: 900 }}>PANEL ADMIN</p>
-                  <p style={{ fontSize: 9, opacity: 0.65 }}>
-                    {userEmail || 'No conectado'}
-                  </p>
+                  <p style={{ fontSize: 9, opacity: 0.65 }}>{userEmail || 'No conectado'}</p>
                 </div>
 
                 <button
@@ -2203,12 +2173,7 @@ export default function App() {
                 </button>
               </div>
 
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 8,
-                marginBottom: 10
-              }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
                 <div style={{
                   background: 'rgba(239,68,68,.12)',
                   color: '#ef4444',
