@@ -39,6 +39,7 @@ const supabase = createClient(
 );
 
 const ADMIN_EMAILS = ['garverjacobo@gmail.com', 'jacobogarver@gmail.com'];
+const APP_URL = 'https://app-eventos-pro-final.vercel.app';
 
 const INITIAL_FORM = {
   title: '',
@@ -110,11 +111,13 @@ function getDaysLeft(dateStr) {
 
 function getDaysLabel(dateStr) {
   const days = getDaysLeft(dateStr);
+
   if (days === null) return null;
   if (days === 0) return { text: 'HOY', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
   if (days === 1) return { text: 'MAÑANA', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' };
   if (days <= 3) return { text: 'EN ' + days + ' DÍAS', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
   if (days <= 7) return { text: 'EN ' + days + ' DÍAS', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' };
+
   return { text: 'EN ' + days + ' DÍAS', color: '#6366f1', bg: 'rgba(99,102,241,0.15)' };
 }
 
@@ -133,18 +136,20 @@ async function compressImage(file, options = {}) {
     throw new Error('Archivo no válido');
   }
 
-  const imageBitmapSupported = typeof createImageBitmap === 'function';
-
   let img;
 
-  if (imageBitmapSupported) {
+  if (typeof createImageBitmap === 'function') {
     img = await createImageBitmap(file);
   } else {
     img = await new Promise((resolve, reject) => {
       const image = new Image();
-      image.onload = () => resolve(image);
+      const url = URL.createObjectURL(file);
+      image.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(image);
+      };
       image.onerror = reject;
-      image.src = URL.createObjectURL(file);
+      image.src = url;
     });
   }
 
@@ -280,7 +285,9 @@ function Splash({ onDone }) {
         alt="Eventora"
         style={{ height: 50, width: 'auto' }}
       />
-      <p style={{ color: '#6366f1', fontSize: 11, fontWeight: 700 }}>Cargando eventos...</p>
+      <p style={{ color: '#6366f1', fontSize: 11, fontWeight: 700 }}>
+        Cargando eventos...
+      </p>
       <Loader2 className="animate-spin" size={24} color="#4f46e5" />
     </div>
   );
@@ -356,7 +363,15 @@ function exportToCSV(events) {
   URL.revokeObjectURL(link.href);
 }
 
-function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, setSelectedEvent }) {
+function EventCard({
+  ev,
+  featured,
+  isDark,
+  favorites,
+  animHeart,
+  toggleFavorite,
+  setSelectedEvent
+}) {
   const dl = getDaysLabel(ev.date);
 
   return (
@@ -445,7 +460,11 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
             {categoryEmojis[ev.category] || '📌'} {ev.city} | {formatDate(ev.date)}
           </p>
 
-          <h3 style={{ fontWeight: 900, fontSize: featured ? 17 : 15, marginBottom: 10 }}>
+          <h3 style={{
+            fontWeight: 900,
+            fontSize: featured ? 17 : 15,
+            marginBottom: 10
+          }}>
             {ev.title}
           </h3>
 
@@ -471,18 +490,39 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
   );
 }
 
-function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onView, onEdit, mode }) {
+function AdminMiniCard({
+  ev,
+  isDark,
+  onClick,
+  onApprove,
+  onReject,
+  onDelete,
+  onView,
+  onEdit,
+  mode
+}) {
   return (
     <div
       className={isDark ? 'card-dark' : 'card-light'}
-      style={{ borderRadius: 16, padding: 10, marginBottom: 10, cursor: 'pointer' }}
+      style={{
+        borderRadius: 16,
+        padding: 10,
+        marginBottom: 10,
+        cursor: 'pointer'
+      }}
       onClick={onClick}
     >
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <img
           src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
           alt=""
-          style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }}
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 12,
+            objectFit: 'cover',
+            flexShrink: 0
+          }}
         />
 
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -497,7 +537,7 @@ function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onV
           </p>
 
           <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800 }}>
-            {ev.city} | {formatDate(ev.date)} | {ev.time}
+            {ev.city} | {formatDate(ev.date)} | {String(ev.time || '').slice(0, 5)}
           </p>
 
           <p style={{
@@ -520,7 +560,12 @@ function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onV
       </div>
 
       {mode === 'pending' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 10 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr 1fr',
+          gap: 6,
+          marginTop: 10
+        }}>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -593,7 +638,12 @@ function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onV
       )}
 
       {mode === 'approved' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 10 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr 1fr',
+          gap: 6,
+          marginTop: 10
+        }}>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -667,6 +717,7 @@ function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onV
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [events, setEvents] = useState([]);
+
   const [favorites, setFavorites] = useState(() => {
     try {
       const saved = localStorage.getItem('eventora_favs_v5');
@@ -718,7 +769,9 @@ export default function App() {
     fetchEvents();
 
     return () => {
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
     };
   }, []);
 
@@ -774,6 +827,21 @@ export default function App() {
           return prev.filter((id) => validIds.indexOf(id) !== -1);
         });
       });
+  }
+
+  function openAdminPanel() {
+    setView('admin');
+    setSelectedEvent(null);
+    setSelectedPendingEvent(null);
+    setEditingEvent(null);
+    setAdminTab('pending');
+
+    // ✅ CORRECCIÓN IMPORTANTE:
+    // Limpiar filtros admin al pulsar el escudo para que siempre se vean los pendientes.
+    setAdminSearch('');
+    setAdminCityFilter('TODAS');
+
+    fetchEvents();
   }
 
   function handleInputChange(e) {
@@ -881,15 +949,9 @@ export default function App() {
         image_url: result.url
       }));
 
-      const savedKb = Math.round((result.originalSize - result.compressedSize) / 1024);
       const finalKb = Math.round(result.compressedSize / 1024);
 
-      showToast(
-        savedKb > 0
-          ? `Imagen optimizada y subida (${finalKb}KB)`
-          : 'Imagen subida correctamente',
-        'success'
-      );
+      showToast(`Imagen optimizada y subida (${finalKb}KB)`, 'success');
     } catch (err) {
       console.error('❌ Error subiendo imagen:', err);
       showToast(err.message || 'Error subiendo imagen', 'error');
@@ -1205,27 +1267,24 @@ export default function App() {
       });
   }
 
- function handleLogin() {
-  const email = prompt('Escribe tu email:');
-  if (!email) return;
+  function handleLogin() {
+    const email = prompt('Escribe tu email:');
+    if (!email) return;
 
-  const redirectTo = 'https://app-eventos-pro-final.vercel.app';
+    supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: APP_URL
+      }
+    }).then((res) => {
+      if (res.error) {
+        showToast('Error enviando login', 'error');
+        return;
+      }
 
-  supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: redirectTo
-    }
-  }).then((res) => {
-    if (res.error) {
-      console.error('❌ Error login:', res.error);
-      showToast('Error enviando login', 'error');
-      return;
-    }
-
-    showToast('Revisa tu email y pulsa el enlace', 'success');
-  });
-}
+      showToast('Revisa tu email y pulsa el enlace', 'success');
+    });
+  }
 
   function handleLogout() {
     supabase.auth.signOut().then(() => {
@@ -1342,21 +1401,6 @@ export default function App() {
     return terms.every((term) => haystack.indexOf(term) !== -1);
   }
 
-  function handleNormalSearch(e) {
-    setSearchQuery(e.target.value);
-  }
-
-  function handleEditInputChange(e) {
-    const name = e.target.name;
-    let value = e.target.value;
-
-    if (['title', 'city', 'localidad'].indexOf(name) !== -1) {
-      value = value.toUpperCase();
-    }
-
-    setEditForm((prev) => ({ ...prev, [name]: value }));
-  }
-
   const today = new Date().toISOString().split('T')[0];
 
   const publicEvents = events.filter((e) => {
@@ -1401,8 +1445,13 @@ export default function App() {
 
   const favoriteEvents = publicEvents.filter((e) => favorites.indexOf(e.id) !== -1);
 
-  const rawPendingEvents = hasAdmin ? events.filter((e) => e.status === 'pending') : [];
-  const rawApprovedEvents = hasAdmin ? events.filter((e) => e.status === 'approved') : [];
+  const rawPendingEvents = hasAdmin
+    ? events.filter((e) => e.status === 'pending')
+    : [];
+
+  const rawApprovedEvents = hasAdmin
+    ? events.filter((e) => e.status === 'approved')
+    : [];
 
   const pendingEvents = rawPendingEvents.filter(eventMatchesAdminFilters);
   const approvedEvents = rawApprovedEvents.filter(eventMatchesAdminFilters);
@@ -1490,14 +1539,7 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {hasAdmin && (
             <button
-              onClick={() => {
-                setView('admin');
-                setSelectedEvent(null);
-                setSelectedPendingEvent(null);
-                setEditingEvent(null);
-                setAdminTab('pending');
-                fetchEvents();
-              }}
+              onClick={openAdminPanel}
               style={{
                 position: 'relative',
                 background: 'none',
@@ -1645,7 +1687,7 @@ export default function App() {
                 <Search size={16} color="#6366f1" />
                 <input
                   value={searchQuery}
-                  onChange={handleNormalSearch}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Buscar evento, ciudad, localidad..."
                   style={{
                     width: '100%',
@@ -1811,7 +1853,7 @@ export default function App() {
                   </div>
 
                   <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}>
-                    <Clock color="#6366f1" size={13} /> <b>{selectedEvent.time}H</b>
+                    <Clock color="#6366f1" size={13} /> <b>{String(selectedEvent.time || '').slice(0, 5)}H</b>
                   </div>
                 </div>
 
@@ -2087,7 +2129,11 @@ export default function App() {
               </div>
 
               {editForm.image_url && (
-                <img src={editForm.image_url} alt="" style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 12 }} />
+                <img
+                  src={editForm.image_url}
+                  alt=""
+                  style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 12 }}
+                />
               )}
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
@@ -2437,7 +2483,7 @@ export default function App() {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
                     <Clock color="#6366f1" size={16} />
-                    <b>{selectedPendingEvent.time}H</b>
+                    <b>{String(selectedPendingEvent.time || '').slice(0, 5)}H</b>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
