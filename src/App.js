@@ -1205,19 +1205,27 @@ export default function App() {
       });
   }
 
-  function handleLogin() {
-    const email = prompt('Escribe tu email:');
-    if (!email) return;
+ function handleLogin() {
+  const email = prompt('Escribe tu email:');
+  if (!email) return;
 
-    supabase.auth.signInWithOtp({ email }).then((res) => {
-      if (res.error) {
-        showToast('Error enviando login', 'error');
-        return;
-      }
+  const redirectTo = 'https://app-eventos-pro-final.vercel.app';
 
-      showToast('Revisa tu email y pulsa el enlace', 'success');
-    });
-  }
+  supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: redirectTo
+    }
+  }).then((res) => {
+    if (res.error) {
+      console.error('❌ Error login:', res.error);
+      showToast('Error enviando login', 'error');
+      return;
+    }
+
+    showToast('Revisa tu email y pulsa el enlace', 'success');
+  });
+}
 
   function handleLogout() {
     supabase.auth.signOut().then(() => {
