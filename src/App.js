@@ -162,6 +162,7 @@ async function compressImage(file, options = {}) {
 
   let img;
 
+
   if (typeof createImageBitmap === 'function') {
     img = await createImageBitmap(file);
   } else {
