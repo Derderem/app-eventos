@@ -101,11 +101,35 @@ function normalizeText(value) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function eventMatchesSearch(event, query) {
+  const q = normalizeText(query).trim();
+
+  if (!q) return true;
+
+  const terms = q.split(/\s+/).filter(Boolean);
+
+  const haystack = normalizeText([
+    event.title,
+    event.city,
+    event.localidad,
+    event.address,
+    event.category,
+    event.date,
+    formatDate(event.date),
+    event.time
+  ].join(' '));
+
+  return terms.every((term) => haystack.indexOf(term) !== -1);
+}
+
 function getDaysLeft(dateStr) {
   if (!dateStr) return null;
+
   const eventDate = new Date(dateStr + 'T23:59:59');
   const today = new Date();
+
   today.setHours(0, 0, 0, 0);
+
   return Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
 }
 
@@ -144,10 +168,12 @@ async function compressImage(file, options = {}) {
     img = await new Promise((resolve, reject) => {
       const image = new Image();
       const url = URL.createObjectURL(file);
+
       image.onload = () => {
         URL.revokeObjectURL(url);
         resolve(image);
       };
+
       image.onerror = reject;
       image.src = url;
     });
@@ -731,6 +757,7 @@ export default function App() {
   const [view, setView] = useState('home');
   const [isDark, setIsDark] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('TODOS');
+  const [selectedCity, setSelectedCity] = useState('TODAS');
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -835,12 +862,8 @@ export default function App() {
     setSelectedPendingEvent(null);
     setEditingEvent(null);
     setAdminTab('pending');
-
-    // ✅ CORRECCIÓN IMPORTANTE:
-    // Limpiar filtros admin al pulsar el escudo para que siempre se vean los pendientes.
     setAdminSearch('');
     setAdminCityFilter('TODAS');
-
     fetchEvents();
   }
 
@@ -1379,6 +1402,24 @@ export default function App() {
     if (listRef.current) listRef.current.scrollTop = 0;
   }
 
+  function handleCityFilterChange(city) {
+    setSelectedCity(city);
+    if (listRef.current) listRef.current.scrollTop = 0;
+  }
+
+  function clearHomeFilters() {
+    setSearchQuery('');
+    setSelectedCategory('TODOS');
+    setSelectedCity('TODAS');
+    setDateFilter('all');
+
+    if (listRef.current) {
+      listRef.current.scrollTop = 0;
+    }
+
+    showToast('Filtros limpiados', 'info');
+  }
+
   function eventMatchesAdminFilters(e) {
     const cityOk = adminCityFilter === 'TODAS' || e.city === adminCityFilter;
     if (!cityOk) return false;
@@ -1407,23 +1448,21 @@ export default function App() {
     return e.status === 'approved' && e.date >= today;
   });
 
+  const publicCitiesList = [];
+  publicEvents.forEach((e) => {
+    if (e.city && publicCitiesList.indexOf(e.city) === -1) {
+      publicCitiesList.push(e.city);
+    }
+  });
+  publicCitiesList.sort();
+
+  const cityFilteredEvents = publicEvents.filter((e) => {
+    return selectedCity === 'TODAS' || e.city === selectedCity;
+  });
+
   const searchedEvents = searchQuery
-    ? publicEvents.filter((e) => {
-        const q = normalizeText(searchQuery).trim();
-        const terms = q.split(/\s+/).filter(Boolean);
-
-        const haystack = normalizeText([
-          e.title,
-          e.city,
-          e.localidad,
-          e.address,
-          e.category,
-          e.date
-        ].join(' '));
-
-        return terms.every((term) => haystack.indexOf(term) !== -1);
-      })
-    : publicEvents;
+    ? cityFilteredEvents.filter((e) => eventMatchesSearch(e, searchQuery))
+    : cityFilteredEvents;
 
   const categoryEvents = searchedEvents.filter((e) => {
     return selectedCategory === 'TODOS' || e.category === selectedCategory;
@@ -1456,20 +1495,26 @@ export default function App() {
   const pendingEvents = rawPendingEvents.filter(eventMatchesAdminFilters);
   const approvedEvents = rawApprovedEvents.filter(eventMatchesAdminFilters);
 
-  const citiesList = [];
-  publicEvents.forEach((e) => {
-    if (citiesList.indexOf(e.city) === -1) citiesList.push(e.city);
-  });
-
   const adminCitiesList = [];
   events.forEach((e) => {
-    if (e.city && adminCitiesList.indexOf(e.city) === -1) adminCitiesList.push(e.city);
+    if (e.city && adminCitiesList.indexOf(e.city) === -1) {
+      adminCitiesList.push(e.city);
+    }
   });
   adminCitiesList.sort();
 
+  const citiesList = publicCitiesList;
+
   const featuredEvent = filteredEvents.length ? filteredEvents[0] : null;
   const restEvents = filteredEvents.length ? filteredEvents.slice(1) : [];
+
   const adminFiltersActive = adminSearch.trim() || adminCityFilter !== 'TODAS';
+
+  const homeFiltersActive =
+    searchQuery.trim() ||
+    selectedCategory !== 'TODOS' ||
+    selectedCity !== 'TODAS' ||
+    dateFilter !== 'all';
 
   const INPUT_STYLE = {
     width: '100%',
@@ -1688,7 +1733,7 @@ export default function App() {
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar evento, ciudad, localidad..."
+                  placeholder="Buscar por evento, ciudad, localidad, categoría..."
                   style={{
                     width: '100%',
                     border: 'none',
@@ -1700,11 +1745,40 @@ export default function App() {
                   }}
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer' }}>
+                  <button onClick={() => setSearchQuery('')} style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#6366f1',
+                    cursor: 'pointer',
+                    fontWeight: 900
+                  }}>
                     X
                   </button>
                 )}
               </div>
+            </div>
+
+            <div style={{ padding: '0 12px 6px', flexShrink: 0 }}>
+              <select
+                value={selectedCity}
+                onChange={(e) => handleCityFilterChange(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  borderRadius: 12,
+                  border: 'none',
+                  outline: 'none',
+                  background: isDark ? '#1e293b' : '#e2e8f0',
+                  color: 'inherit',
+                  fontWeight: 900,
+                  fontSize: 10
+                }}
+              >
+                <option value="TODAS">TODAS LAS CIUDADES</option>
+                {publicCitiesList.map((city) => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
+              </select>
             </div>
 
             <div style={{ display: 'flex', gap: 6, padding: '6px 12px', flexShrink: 0 }}>
@@ -1730,6 +1804,25 @@ export default function App() {
                   {f.l}
                 </button>
               ))}
+
+              {homeFiltersActive && (
+                <button
+                  onClick={clearHomeFilters}
+                  style={{
+                    marginLeft: 'auto',
+                    padding: '5px 10px',
+                    borderRadius: 10,
+                    border: 'none',
+                    background: 'rgba(239,68,68,.12)',
+                    color: '#ef4444',
+                    fontSize: 8,
+                    fontWeight: 900,
+                    cursor: 'pointer'
+                  }}
+                >
+                  LIMPIAR
+                </button>
+              )}
             </div>
 
             <div className="no-scrollbar" style={{
@@ -1763,6 +1856,7 @@ export default function App() {
 
             <div style={{ padding: '4px 12px', fontSize: 9, color: '#6366f1', fontWeight: 800, flexShrink: 0 }}>
               {filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''}
+              {selectedCity !== 'TODAS' ? ' en ' + selectedCity : ''}
             </div>
 
             <div ref={listRef} className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: 15, paddingBottom: 120 }}>
@@ -1770,7 +1864,7 @@ export default function App() {
                 <div style={{ textAlign: 'center', marginTop: 60, opacity: 0.5 }}>
                   <Search size={40} style={{ margin: '0 auto 15px' }} />
                   <p style={{ fontWeight: 900, fontSize: 14 }}>NO SE ENCONTRARON EVENTOS</p>
-                  <p style={{ fontSize: 10, marginTop: 8 }}>Prueba con otra búsqueda o categoría</p>
+                  <p style={{ fontSize: 10, marginTop: 8 }}>Prueba con otra búsqueda, ciudad o categoría</p>
                 </div>
               )}
 
