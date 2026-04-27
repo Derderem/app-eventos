@@ -760,6 +760,7 @@ export default function App() {
   const [selectedCity, setSelectedCity] = useState('TODAS');
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
+  const [mapSearch, setMapSearch] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
@@ -1321,22 +1322,40 @@ export default function App() {
   }
 
   function handleCitySearch(city) {
-    if (city === 'ESPAÑA') {
-      setMapCenter(null);
+    const cleanCity = String(city || '').trim();
+
+    if (!cleanCity) {
+      showToast('Escribe una ciudad para buscar', 'error');
       return;
     }
 
     fetch(
       'https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' +
-      encodeURIComponent(city + ', España')
+      encodeURIComponent(cleanCity + ', España')
     )
       .then((r) => r.json())
       .then((data) => {
         if (data && data[0]) {
           setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+          showToast('Mostrando mapa de ' + cleanCity.toUpperCase(), 'success');
+        } else {
+          showToast('No se encontró esa ciudad', 'error');
         }
       })
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        console.error(err);
+        showToast('Error buscando ciudad', 'error');
+      });
+  }
+
+  function handleMapSearchSubmit() {
+    handleCitySearch(mapSearch);
+  }
+
+  function resetMapToSpain() {
+    setMapSearch('');
+    setMapCenter(null);
+    showToast('Mostrando España', 'info');
   }
 
   function shareEvent(ev) {
@@ -1503,8 +1522,6 @@ export default function App() {
   });
   adminCitiesList.sort();
 
-  const citiesList = publicCitiesList;
-
   const featuredEvent = filteredEvents.length ? filteredEvents[0] : null;
   const restEvents = filteredEvents.length ? filteredEvents.slice(1) : [];
 
@@ -1660,40 +1677,90 @@ export default function App() {
           <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
             <div style={{
               position: 'absolute',
-              top: 15,
+              top: 12,
               left: '50%',
               transform: 'translateX(-50%)',
               zIndex: 1000,
-              width: '85%',
-              maxWidth: 300
+              width: '92%',
+              maxWidth: 430
             }}>
               <div style={{
-                background: '#fff',
-                borderRadius: 15,
-                padding: '4px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                boxShadow: '0 10px 25px rgba(0,0,0,.2)'
+                background: 'rgba(255,255,255,0.96)',
+                borderRadius: 18,
+                padding: 8,
+                boxShadow: '0 10px 25px rgba(0,0,0,.22)',
+                display: 'grid',
+                gap: 8
               }}>
-                <Search size={16} color="#6366f1" />
-                <select
-                  onChange={(e) => handleCitySearch(e.target.value)}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  gap: 6,
+                  alignItems: 'center'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: '#e2e8f0',
+                    borderRadius: 12,
+                    padding: '0 10px'
+                  }}>
+                    <Search size={16} color="#6366f1" />
+                    <input
+                      value={mapSearch}
+                      onChange={(e) => setMapSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleMapSearchSubmit();
+                        }
+                      }}
+                      placeholder="Escribe una ciudad..."
+                      style={{
+                        width: '100%',
+                        padding: '11px 0',
+                        border: 'none',
+                        outline: 'none',
+                        background: 'transparent',
+                        color: '#0f172a',
+                        fontWeight: 900,
+                        fontSize: 11
+                      }}
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleMapSearchSubmit}
+                    style={{
+                      padding: '11px 12px',
+                      borderRadius: 12,
+                      border: 'none',
+                      background: '#4f46e5',
+                      color: 'white',
+                      fontWeight: 900,
+                      fontSize: 10,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    BUSCAR
+                  </button>
+                </div>
+
+                <button
+                  onClick={resetMapToSpain}
                   style={{
-                    width: '100%',
-                    padding: 10,
+                    padding: 9,
+                    borderRadius: 12,
                     border: 'none',
-                    outline: 'none',
+                    background: 'rgba(34,197,94,.14)',
+                    color: '#16a34a',
                     fontWeight: 900,
-                    fontSize: 11,
-                    color: '#0f172a',
-                    background: 'transparent'
+                    fontSize: 10,
+                    cursor: 'pointer'
                   }}
                 >
-                  <option value="ESPAÑA">BUSCAR CIUDAD...</option>
-                  {citiesList.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                  VER ESPAÑA
+                </button>
               </div>
             </div>
 
