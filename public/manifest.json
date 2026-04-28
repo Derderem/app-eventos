@@ -1,24 +1,46 @@
 {
+  "id": "https://app-eventos-pro-final.vercel.app/",
   "short_name": "Eventora",
-  "name": "Eventora - Eventos cerca de ti",
+  "name": "Eventora - Eventos en España",
   "description": "Descubre eventos de música, gastronomía, toros y fiestas en España",
-  "start_url": "/",
-  "display": "standalone",
-  "orientation": "portrait",
-  "theme_color": "#020617",
-  "background_color": "#020617",
+  "categories": ["events", "entertainment", "lifestyle"],
   "icons": [
     {
-      "src": "/icon-512.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay"],
+  "theme_color": "#4f46e5",
+  "background_color": "#020617",
+  "orientation": "portrait-primary",
+  "screenshots": [
+    {
+      "src": "https://app-eventos-pro-final.vercel.app/screenshot1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Añadir Evento",
+      "url": "/crear",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
