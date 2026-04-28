@@ -288,16 +288,18 @@ export default function App() {
   function resetMapToSpain(){setMapSearch('');setMapCenter(null);showToast('Mostrando España','info');}
 
   // ✅ COMPARTIR CON ENLACE REAL
-  function shareEvent(ev){
-    const eventUrl = APP_URL + '/?evento=' + ev.id;
-    const text = ev.title + '\n📍 ' + ev.city + ' | ' + formatDate(ev.date) + '\n🔗 ' + eventUrl;
+function shareEvent(ev){
+  const eventUrl = APP_URL + '/?evento=' + ev.id;
 
-    if(navigator.share){
-      navigator.share({title:ev.title,text:text,url:eventUrl});
-    } else {
-      navigator.clipboard.writeText(text).then(()=>showToast('Enlace copiado al portapapeles','success'));
-    }
+  if(navigator.share){
+    navigator.share({
+      title: ev.title,
+      url: eventUrl
+    }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(eventUrl).then(()=>showToast('Enlace copiado','success'));
   }
+}
 
   function addToGoogleCalendar(ev){const day=String(ev.date).replace(/-/g,'');const p=String(ev.time||'12:00').split(':');const h=p[0]||'12',m=p[1]||'00';const st=day+'T'+h+m+'00';let eh=parseInt(h,10)+2;if(eh>=24)eh=23;const et=day+'T'+String(eh).padStart(2,'0')+m+'00';const d=ev.title+'\n'+ev.address+', '+(ev.localidad||'')+' - '+ev.city;window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(ev.title)+'&dates='+st+'/'+et+'&details='+encodeURIComponent(d)+'&location='+encodeURIComponent(ev.address+', '+(ev.localidad||'')+', '+ev.city),'_blank');}
 
