@@ -727,22 +727,39 @@ export default function App() {
   }
 
   // ✅ COMPARTIR ENLACE LIMPIO
-  function shareEvent(ev) {
-    const realLink = APP_URL + '/evento/' + ev.id;
-    const shortText = '🎉 ' + ev.title + ' (' + ev.city + ' - ' + formatDate(ev.date) + ')';
+ function shareEvent(ev) {
+  const realLink = APP_URL + '/evento/' + ev.id;
 
-    if (navigator.share) {
-      navigator.share({
-        title: ev.title,
-        text: shortText,
-        url: realLink
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(realLink).then(() => {
-        showToast('Enlace copiado al portapapeles', 'success');
-      });
-    }
+  // Forzar copia al portapapeles SIEMPRE (móvil y PC)
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(realLink).then(() => {
+      showToast('✅ Enlace copiado: ' + realLink, 'success');
+    }).catch(() => {
+      // Fallback si falla el portapapeles
+      fallbackCopyText(realLink);
+    });
+  } else {
+    fallbackCopyText(realLink);
   }
+}
+
+// Función auxiliar para navegadores antiguos
+function fallbackCopyText(text) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    showToast('✅ Enlace copiado', 'success');
+  } catch (err) {
+    showToast('No se pudo copiar', 'error');
+  }
+  document.body.removeChild(textarea);
+}
 
   function addToGoogleCalendar(ev) {
     const day = String(ev.date).replace(/-/g, '');
