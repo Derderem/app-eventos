@@ -1,19 +1,21 @@
 {
-  "id": "https://app-eventos-pro-final.vercel.app/",
+  "id": "/?source=pwa",
   "short_name": "Eventora",
   "name": "Eventora - Eventos en España",
-  "description": "Descubre eventos de música, gastronomía, toros y fiestas en España",
-  "categories": ["events", "entertainment", "lifestyle"],
+  "description": "Descubre eventos de música, gastronomía, toros y fiestas cerca de ti",
+  "categories": ["events", "entertainment", "lifestyle", "social"],
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
@@ -24,16 +26,21 @@
   ],
   "start_url": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay"],
   "theme_color": "#4f46e5",
   "background_color": "#020617",
   "orientation": "portrait-primary",
   "screenshots": [
     {
-      "src": "https://app-eventos-pro-final.vercel.app/screenshot1.png",
+      "src": "https://app-eventos-pro-final.vercel.app/screenshot-wide.png",
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide"
+    },
+    {
+      "src": "https://app-eventos-pro-final.vercel.app/screenshot-mobile.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow"
     }
   ],
   "shortcuts": [
