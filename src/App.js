@@ -139,6 +139,23 @@ async function compressImage(file, options = {}) {
   return { blob: file, extension: file.name.split('.').pop() || 'jpg', type: file.type, originalSize: file.size, compressedSize: file.size };
 }
 
+function fallbackCopyText(text, showToast) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    showToast('✅ Enlace copiado', 'success');
+  } catch (err) {
+    showToast('No se pudo copiar', 'error');
+  }
+  document.body.removeChild(textarea);
+}
+
 function Toast({ toast }) {
   if (!toast) return null;
   const isSuccess = toast.type === 'success';
@@ -726,55 +743,18 @@ export default function App() {
     }, 600);
   }
 
-  // ✅ COMPARTIR ENLACE LIMPIO
- function shareEvent(ev) {
-  const realLink = APP_URL + '/evento/' + ev.id;
+  function shareEvent(ev) {
+    const realLink = APP_URL + '/evento/' + ev.id;
 
-  // Forzar copia al portapapeles SIEMPRE (móvil y PC)
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(realLink).then(() => {
-      showToast('✅ Enlace copiado: ' + realLink, 'success');
-    }).catch(() => {
-      // Fallback si falla el portapapeles
-      fallbackCopyText(realLink);
-    });
-  } else {
-    fallbackCopyText(realLink);
-  }
-}
-
-// Función auxiliar para navegadores antiguos
-function fallbackCopyText(text) {
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-  try {
-    document.execCommand('copy');
-    showToast('✅ Enlace copiado', 'success');
-  } catch (err) {
-    showToast('No se pudo copiar', 'error');
-  }
-  document.body.removeChild(textarea);
-}
-
-  function addToGoogleCalendar(ev) {
-    const day = String(ev.date).replace(/-/g, '');
-    const parts = String(ev.time || '12:00').split(':');
-    const hour = parts[0] || '12';
-    const min = parts[1] || '00';
-    const startTime = day + 'T' + hour + min + '00';
-    let endHour = parseInt(hour, 10) + 2;
-    if (endHour >= 24) endHour = 23;
-    const endTime = day + 'T' + String(endHour).padStart(2, '0') + min + '00';
-    const details = ev.title + '\n' + ev.address + ', ' + (ev.localidad || '') + ' - ' + ev.city;
-    const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(ev.title) +
-      '&dates=' + startTime + '/' + endTime + '&details=' + encodeURIComponent(details) +
-      '&location=' + encodeURIComponent(ev.address + ', ' + (ev.localidad || '') + ', ' + ev.city);
-    window.open(url, '_blank');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(realLink).then(() => {
+        showToast('✅ Enlace copiado: ' + realLink, 'success');
+      }).catch(() => {
+        fallbackCopyText(realLink, showToast);
+      });
+    } else {
+      fallbackCopyText(realLink, showToast);
+    }
   }
 
   function goHome() {
@@ -1022,14 +1002,9 @@ function fallbackCopyText(text) {
                   <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                  <button onClick={() => shareEvent(selectedEvent)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 10, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>
-                    <Share2 size={12} /> COMPARTIR
-                  </button>
-                  <button onClick={() => addToGoogleCalendar(selectedEvent)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 10, background: 'rgba(66,133,244,.1)', border: '1px dashed #4285f4', borderRadius: 8, color: '#4285f4', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>
-                    <Calendar size={12} /> CALENDAR
-                  </button>
-                </div>
+                <button onClick={() => shareEvent(selectedEvent)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+                  <Share2 size={14} /> COMPARTIR EVENTO
+                </button>
               </div>
             </div>
           </div>
