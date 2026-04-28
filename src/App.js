@@ -757,15 +757,23 @@ export default function App() {
 
   // ✅ COMPARTIR ENLACE REAL
   function shareEvent(ev) {
-    const realLink = APP_URL + '/evento/' + ev.id;
-    const text = '🎉 ' + ev.title + '\n📅 ' + formatDate(ev.date) + ' a las ' + ev.time + '\n📍 ' + ev.city + '\n\n' + realLink;
+  const realLink = APP_URL + '/evento/' + ev.id;
+  const shortText = '🎉 ' + ev.title + ' (' + ev.city + ' - ' + formatDate(ev.date) + ')';
 
-    if (navigator.share) {
-      navigator.share({ title: ev.title, text, url: realLink }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(text).then(() => showToast('Enlace copiado al portapapeles', 'success'));
-    }
+  // Si el navegador soporta compartir nativo (móviles)
+  if (navigator.share) {
+    navigator.share({
+      title: ev.title,
+      text: shortText,
+      url: realLink
+    }).catch(() => {});
+  } else {
+    // En PC: copia solo el enlace
+    navigator.clipboard.writeText(realLink).then(() => {
+      showToast('Enlace copiado al portapapeles', 'success');
+    });
   }
+}
 
   function addToGoogleCalendar(ev) {
     const day = String(ev.date).replace(/-/g, '');
