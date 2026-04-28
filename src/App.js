@@ -37,6 +37,32 @@ function getDaysLeft(d) { if (!d) return null; const e = new Date(d+'T23:59:59')
 function getDaysLabel(d) { const days = getDaysLeft(d); if (days===null) return null; if (days===0) return {text:'HOY',color:'#ef4444',bg:'rgba(239,68,68,0.15)'}; if (days===1) return {text:'MAÑANA',color:'#f59e0b',bg:'rgba(245,158,11,0.15)'}; if (days<=3) return {text:'EN '+days+' DÍAS',color:'#ef4444',bg:'rgba(239,68,68,0.15)'}; if (days<=7) return {text:'EN '+days+' DÍAS',color:'#22c55e',bg:'rgba(34,197,94,0.15)'}; return {text:'EN '+days+' DÍAS',color:'#6366f1',bg:'rgba(99,102,241,0.15)'}; }
 function cleanImageUrl(u) { if (!u) return null; if (String(u).indexOf('data:image')===0) return null; if (String(u).length>1900) return null; return u; }
 
+function getEventIdFromURL() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('evento');
+    return id ? parseInt(id, 10) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setURLForEvent(id) {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('evento', id);
+    window.history.replaceState({}, '', url.toString());
+  } catch {}
+}
+
+function clearEventURL() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('evento');
+    window.history.replaceState({}, '', url.toString());
+  } catch {}
+}
+
 async function compressImage(file, opts={}) {
   const maxSize=opts.maxSize||1600, quality=opts.quality||0.82;
   if (!file||!file.type||file.type.indexOf('image/')!==0) throw new Error('Archivo no válido');
@@ -52,11 +78,8 @@ async function compressImage(file, opts={}) {
 }
 
 function Toast({toast}) { if (!toast) return null; const s=toast.type==='success', e=toast.type==='error'; const bg=s?'rgba(22,163,74,0.96)':e?'rgba(220,38,38,0.96)':'rgba(79,70,229,0.96)'; const I=s?CheckCircle:e?XCircle:Info; return (<div style={{position:'fixed',top:62,left:'50%',transform:'translateX(-50%)',zIndex:999999,width:'90%',maxWidth:420,background:bg,color:'white',borderRadius:16,padding:'12px 14px',boxShadow:'0 12px 35px rgba(0,0,0,0.35)',display:'flex',alignItems:'center',gap:10,fontSize:12,fontWeight:900,lineHeight:1.35,border:'1px solid rgba(255,255,255,0.22)',animation:'toastIn 0.25s ease-out'}}><I size={20}/><span style={{flex:1}}>{toast.message}</span></div>); }
-
 function Splash({onDone}) { useEffect(()=>{const t=setTimeout(onDone,1000);return()=>clearTimeout(t);},[onDone]); return (<div style={{position:'fixed',inset:0,zIndex:99999,background:'#020617',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:20}}><img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png" alt="Eventora" style={{height:50,width:'auto'}}/><p style={{color:'#6366f1',fontSize:11,fontWeight:700}}>Cargando eventos...</p><Loader2 className="animate-spin" size={24} color="#4f46e5"/></div>); }
-
 function MapResizer({center}) { const map=useMap(); const prev=useRef(null); useEffect(()=>{ map.invalidateSize(); if (center) { const isNew=!prev.current||prev.current[0]!==center[0]||prev.current[1]!==center[1]; if (isNew) { map.flyTo(center,9,{animate:true,duration:1.5}); prev.current=center; } } else { map.setView([40.4167,-3.7037],6); prev.current=null; } },[center,map]); return null; }
-
 function exportToCSV(events) { if (!events.length) return alert('No hay eventos.'); const h=['Titulo','Ciudad','Localidad','Direccion','Fecha','Hora','Categoria','Estado','Destacado','Lat','Lng']; const rows=events.map(e=>[e.title||'',e.city||'',e.localidad||'',e.address||'',formatDate(e.date),e.time||'',e.category||'',e.status||'',e.featured?'SI':'NO',e.lat||'',e.lng||''].map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(';')); const csv='\uFEFF'+h.join(';')+'\n'+rows.join('\n'); const b=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const l=document.createElement('a'); l.href=URL.createObjectURL(b); l.download='eventora_eventos_'+new Date().toISOString().split('T')[0]+'.csv'; l.click(); URL.revokeObjectURL(l.href); }
 
 function EventCard({ev,isDark,favorites,animHeart,toggleFavorite,setSelectedEvent}) {
@@ -141,6 +164,7 @@ export default function App() {
   const [toast,setToast]=useState(null);
   const [adminSearch,setAdminSearch]=useState('');
   const [adminCityFilter,setAdminCityFilter]=useState('TODAS');
+  const [deepLinkChecked,setDeepLinkChecked]=useState(false);
 
   const listRef=useRef(null);
   const toastTimerRef=useRef(null);
@@ -150,6 +174,21 @@ export default function App() {
 
   useEffect(()=>{fetchEvents();return()=>{if(toastTimerRef.current)clearTimeout(toastTimerRef.current);};},[]);
   useEffect(()=>{localStorage.setItem('eventora_favs_v5',JSON.stringify(favorites));},[favorites]);
+
+  // ✅ DEEP LINK: abrir evento desde URL
+  useEffect(()=>{
+    if (deepLinkChecked || events.length === 0) return;
+    const eventId = getEventIdFromURL();
+    if (eventId) {
+      const found = events.find(e => e.id === eventId);
+      if (found) {
+        setSelectedEvent(found);
+        setView('home');
+      }
+    }
+    setDeepLinkChecked(true);
+  },[events, deepLinkChecked]);
+
   useEffect(()=>{
     function isAdminUser(u){return !!(u&&u.email&&ADMIN_EMAILS.indexOf(u.email)!==-1);}
     function handleSession(s){const u=s&&s.user;setUserEmail(u?u.email:'');setProfile(isAdminUser(u)?{role:'admin'}:null);fetchEvents();}
@@ -168,7 +207,17 @@ export default function App() {
     });
   }
 
-  function openAdminPanel(){setView('admin');setSelectedEvent(null);setSelectedPendingEvent(null);setEditingEvent(null);setAdminTab('pending');setAdminSearch('');setAdminCityFilter('TODAS');fetchEvents();}
+  function selectEvent(ev) {
+    setSelectedEvent(ev);
+    setURLForEvent(ev.id);
+  }
+
+  function deselectEvent() {
+    setSelectedEvent(null);
+    clearEventURL();
+  }
+
+  function openAdminPanel(){setView('admin');setSelectedEvent(null);setSelectedPendingEvent(null);setEditingEvent(null);setAdminTab('pending');setAdminSearch('');setAdminCityFilter('TODAS');clearEventURL();fetchEvents();}
   function handleInputChange(e){const n=e.target.name;let v=e.target.value;if(['title','city','localidad'].indexOf(n)!==-1)v=v.toUpperCase();setForm(p=>({...p,[n]:v}));}
   function handleEditInputChange(e){const n=e.target.name;let v=e.target.value;if(['title','city','localidad'].indexOf(n)!==-1)v=v.toUpperCase();setEditForm(p=>({...p,[n]:v}));}
 
@@ -206,14 +255,10 @@ export default function App() {
     }).then(res=>{
       if(res.error){showToast('Error: '+(res.error.message||''),'error');return;}
       showToast('Evento enviado a revisión','success');setForm(INITIAL_FORM);setView('home');fetchEvents();
-    }).catch(err=>{showToast('Error al enviar','error');}).finally(()=>setIsSubmitting(false));
+    }).catch(()=>showToast('Error al enviar','error')).finally(()=>setIsSubmitting(false));
   }
 
-  function startEditEvent(ev){
-    setEditingEvent(ev);setSelectedEvent(null);setSelectedPendingEvent(null);
-    setEditForm({title:ev.title||'',city:ev.city||'',localidad:ev.localidad||'',address:ev.address||'',date:ev.date||'',time:ev.time?String(ev.time).slice(0,5):'21:00',category:ev.category||'MUSICA',image_url:ev.image_url||''});
-    setEditFeatured(!!ev.featured);
-  }
+  function startEditEvent(ev){setEditingEvent(ev);setSelectedEvent(null);setSelectedPendingEvent(null);clearEventURL();setEditForm({title:ev.title||'',city:ev.city||'',localidad:ev.localidad||'',address:ev.address||'',date:ev.date||'',time:ev.time?String(ev.time).slice(0,5):'21:00',category:ev.category||'MUSICA',image_url:ev.image_url||''});setEditFeatured(!!ev.featured);}
   function cancelEditEvent(){setEditingEvent(null);setEditForm(INITIAL_FORM);setEditFeatured(false);}
 
   function handleSaveEditEvent(){
@@ -230,29 +275,33 @@ export default function App() {
     }).catch(()=>showToast('Error guardando','error')).finally(()=>setIsSubmitting(false));
   }
 
-  function handleToggleFeatured(id,currentVal){
-    supabase.from('events').update({featured:!currentVal}).eq('id',id).then(res=>{
-      if(res.error){showToast('Error cambiando destacado','error');return;}
-      showToast(currentVal?'Evento ya no es destacado':'Evento marcado como destacado ⭐','success');
-      fetchEvents();
-    });
-  }
-
+  function handleToggleFeatured(id,currentVal){supabase.from('events').update({featured:!currentVal}).eq('id',id).then(res=>{if(res.error){showToast('Error','error');return;}showToast(currentVal?'Evento ya no es destacado':'Evento destacado ⭐','success');fetchEvents();});}
   function handleApproveEvent(id){supabase.from('events').update({status:'approved'}).eq('id',id).then(res=>{if(res.error){showToast('Error','error');return;}showToast('Evento aprobado','success');setSelectedPendingEvent(null);fetchEvents();});}
   function handleRejectEvent(id){supabase.from('events').update({status:'rejected'}).eq('id',id).then(res=>{if(res.error){showToast('Error','error');return;}showToast('Evento rechazado','info');setSelectedPendingEvent(null);fetchEvents();});}
   function handleDeleteEvent(id){if(!window.confirm('¿Borrar este evento?'))return;supabase.from('events').delete().eq('id',id).then(res=>{if(res.error){showToast('Error','error');return;}showToast('Evento borrado','success');setSelectedPendingEvent(null);setEditingEvent(null);fetchEvents();});}
 
   function handleLogin(){const email=prompt('Escribe tu email:');if(!email)return;supabase.auth.signInWithOtp({email,options:{emailRedirectTo:APP_URL}}).then(res=>{if(res.error){showToast('Error login','error');return;}showToast('Revisa tu email','success');});}
-  function handleLogout(){supabase.auth.signOut().then(()=>{setUserEmail('');setProfile(null);fetchEvents();setView('home');setEditingEvent(null);showToast('Sesión cerrada','success');});}
+  function handleLogout(){supabase.auth.signOut().then(()=>{setUserEmail('');setProfile(null);fetchEvents();setView('home');setEditingEvent(null);clearEventURL();showToast('Sesión cerrada','success');});}
 
   function handleCitySearch(city){const c=String(city||'').trim();if(!c){showToast('Escribe una ciudad','error');return;}fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q='+encodeURIComponent(c+', España')).then(r=>r.json()).then(data=>{if(data&&data[0]){setMapCenter([parseFloat(data[0].lat),parseFloat(data[0].lon)]);showToast('Mostrando '+c.toUpperCase(),'success');}else{showToast('Ciudad no encontrada','error');}}).catch(()=>showToast('Error buscando','error'));}
   function handleMapSearchSubmit(){handleCitySearch(mapSearch);}
   function resetMapToSpain(){setMapSearch('');setMapCenter(null);showToast('Mostrando España','info');}
 
-  function shareEvent(ev){const text='EVENTO: '+ev.title+' | '+ev.city+' | '+formatDate(ev.date)+' | '+ev.address+', '+(ev.localidad||'');if(navigator.share){navigator.share({title:ev.title,text});}else{navigator.clipboard.writeText(text).then(()=>showToast('Copiado','success'));}}
+  // ✅ COMPARTIR CON ENLACE REAL
+  function shareEvent(ev){
+    const eventUrl = APP_URL + '/?evento=' + ev.id;
+    const text = ev.title + '\n📍 ' + ev.city + ' | ' + formatDate(ev.date) + '\n🔗 ' + eventUrl;
+
+    if(navigator.share){
+      navigator.share({title:ev.title,text:text,url:eventUrl});
+    } else {
+      navigator.clipboard.writeText(text).then(()=>showToast('Enlace copiado al portapapeles','success'));
+    }
+  }
+
   function addToGoogleCalendar(ev){const day=String(ev.date).replace(/-/g,'');const p=String(ev.time||'12:00').split(':');const h=p[0]||'12',m=p[1]||'00';const st=day+'T'+h+m+'00';let eh=parseInt(h,10)+2;if(eh>=24)eh=23;const et=day+'T'+String(eh).padStart(2,'0')+m+'00';const d=ev.title+'\n'+ev.address+', '+(ev.localidad||'')+' - '+ev.city;window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(ev.title)+'&dates='+st+'/'+et+'&details='+encodeURIComponent(d)+'&location='+encodeURIComponent(ev.address+', '+(ev.localidad||'')+', '+ev.city),'_blank');}
 
-  function goHome(){setView('home');setSelectedEvent(null);setSelectedPendingEvent(null);setEditingEvent(null);setSearchQuery('');}
+  function goHome(){setView('home');setSelectedEvent(null);setSelectedPendingEvent(null);setEditingEvent(null);setSearchQuery('');clearEventURL();}
   function handleCategoryChange(cat){setSelectedCategory(cat);if(listRef.current)listRef.current.scrollTop=0;}
   function handleCityFilterChange(city){setSelectedCity(city);if(listRef.current)listRef.current.scrollTop=0;}
   function clearHomeFilters(){setSearchQuery('');setSelectedCategory('TODOS');setSelectedCity('TODAS');setDateFilter('all');if(listRef.current)listRef.current.scrollTop=0;showToast('Filtros limpiados','info');}
@@ -265,14 +314,7 @@ export default function App() {
   const searchedEvents=searchQuery?cityFilteredEvents.filter(e=>eventMatchesSearch(e,searchQuery)):cityFilteredEvents;
   const categoryEvents=searchedEvents.filter(e=>selectedCategory==='TODOS'||e.category===selectedCategory);
   const filteredEvents=categoryEvents.filter(e=>{if(dateFilter==='today')return e.date===today;if(dateFilter==='week'){const ed=new Date(e.date),n=new Date(),we=new Date(n);we.setDate(we.getDate()+7);return ed>=n&&ed<=we;}return true;});
-
-  // ✅ ORDEN: destacados primero, luego por fecha
-  const sortedEvents=[...filteredEvents].sort((a,b)=>{
-    if(a.featured&&!b.featured)return -1;
-    if(!a.featured&&b.featured)return 1;
-    return new Date(a.date)-new Date(b.date);
-  });
-
+  const sortedEvents=[...filteredEvents].sort((a,b)=>{if(a.featured&&!b.featured)return -1;if(!a.featured&&b.featured)return 1;return new Date(a.date)-new Date(b.date);});
   const favoriteEvents=publicEvents.filter(e=>favorites.indexOf(e.id)!==-1);
   const rawPendingEvents=hasAdmin?events.filter(e=>e.status==='pending'):[];
   const rawApprovedEvents=hasAdmin?events.filter(e=>e.status==='approved'):[];
@@ -308,9 +350,7 @@ export default function App() {
       `}</style>
 
       <nav style={{height:50,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0 10px',zIndex:2000,borderBottom:'1px solid rgba(128,128,128,.2)',background:isDark?'#0f172a':'#fff',flexShrink:0}}>
-        <div style={{cursor:'pointer'}} onClick={goHome}>
-          <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png" alt="Eventora" style={{height:18,width:'auto'}}/>
-        </div>
+        <div style={{cursor:'pointer'}} onClick={goHome}><img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png" alt="Eventora" style={{height:18,width:'auto'}}/></div>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           {hasAdmin&&(<button onClick={openAdminPanel} style={{position:'relative',background:'none',border:'none',cursor:'pointer',display:'flex',padding:0}}><ShieldCheck size={21} className={rawPendingEvents.length>0?'pulse-admin':''} style={{color:'#6366f1'}}/>{rawPendingEvents.length>0&&(<span style={{position:'absolute',top:-8,right:-10,background:'#ef4444',color:'white',fontSize:8,fontWeight:900,borderRadius:999,minWidth:16,height:16,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px',border:'2px solid '+(isDark?'#0f172a':'#fff')}}>{rawPendingEvents.length}</span>)}</button>)}
           {!userEmail&&(<button onClick={handleLogin} style={{background:'#4f46e5',color:'white',border:'none',borderRadius:8,padding:'4px 8px',fontSize:8,fontWeight:900,cursor:'pointer'}}>LOGIN</button>)}
@@ -367,14 +407,14 @@ export default function App() {
             <div style={{padding:'4px 12px',fontSize:9,color:'#6366f1',fontWeight:800,flexShrink:0}}>{sortedEvents.length} evento{sortedEvents.length!==1?'s':''}{selectedCity!=='TODAS'?' en '+selectedCity:''}</div>
             <div ref={listRef} className="no-scrollbar" style={{flex:1,overflowY:'auto',padding:15,paddingBottom:120}}>
               {sortedEvents.length===0&&(<div style={{textAlign:'center',marginTop:60,opacity:0.5}}><Search size={40} style={{margin:'0 auto 15px'}}/><p style={{fontWeight:900,fontSize:14}}>NO SE ENCONTRARON EVENTOS</p><p style={{fontSize:10,marginTop:8}}>Prueba con otra búsqueda, ciudad o categoría</p></div>)}
-              {sortedEvents.map(ev=>(<EventCard key={ev.id} ev={ev} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={setSelectedEvent}/>))}
+              {sortedEvents.map(ev=>(<EventCard key={ev.id} ev={ev} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={selectEvent}/>))}
             </div>
           </div>
         )}
 
         {selectedEvent&&!selectedPendingEvent&&!editingEvent&&(
           <div className="no-scrollbar" style={{height:'100%',overflow:'hidden',display:'flex',flexDirection:'column'}}>
-            <div style={{padding:'6px 10px 0',flexShrink:0}}><button onClick={()=>setSelectedEvent(null)} style={{background:'none',border:'none',color:'#6366f1',fontWeight:900,display:'flex',gap:4,cursor:'pointer',fontSize:11}}><ArrowLeft size={14}/> VOLVER</button></div>
+            <div style={{padding:'6px 10px 0',flexShrink:0}}><button onClick={deselectEvent} style={{background:'none',border:'none',color:'#6366f1',fontWeight:900,display:'flex',gap:4,cursor:'pointer',fontSize:11}}><ArrowLeft size={14}/> VOLVER</button></div>
             <div className={isDark?'card-dark':'card-light'} style={{borderRadius:'15px 15px 0 0',overflow:'hidden',padding:0,flex:1,display:'flex',flexDirection:'column',margin:'0 8px',overflowY:'auto'}}>
               <img src={selectedEvent.image_url||'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{width:'100%',height:150,objectFit:'cover',flexShrink:0}}/>
               <div style={{padding:12,flex:1}}>
@@ -487,7 +527,7 @@ export default function App() {
             {adminTab==='pending'&&pendingEvents.length===0&&(<p style={{textAlign:'center',opacity:0.7,marginTop:50,fontWeight:700}}>NO HAY EVENTOS PENDIENTES</p>)}
             {adminTab==='pending'&&pendingEvents.map(ev=>(<AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="pending" onClick={()=>setSelectedPendingEvent(ev)} onApprove={()=>handleApproveEvent(ev.id)} onReject={()=>handleRejectEvent(ev.id)} onDelete={()=>handleDeleteEvent(ev.id)}/>))}
             {adminTab==='approved'&&approvedEvents.length===0&&(<p style={{textAlign:'center',opacity:0.7,marginTop:50,fontWeight:700}}>NO HAY EVENTOS APROBADOS</p>)}
-            {adminTab==='approved'&&approvedEvents.map(ev=>(<AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="approved" onClick={()=>setSelectedEvent(ev)} onView={()=>setSelectedEvent(ev)} onEdit={()=>startEditEvent(ev)} onDelete={()=>handleDeleteEvent(ev.id)} onToggleFeatured={()=>handleToggleFeatured(ev.id,ev.featured)}/>))}
+            {adminTab==='approved'&&approvedEvents.map(ev=>(<AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="approved" onClick={()=>selectEvent(ev)} onView={()=>selectEvent(ev)} onEdit={()=>startEditEvent(ev)} onDelete={()=>handleDeleteEvent(ev.id)} onToggleFeatured={()=>handleToggleFeatured(ev.id,ev.featured)}/>))}
           </div>
         )}
 
@@ -545,9 +585,9 @@ export default function App() {
 
       <nav style={{position:'fixed',bottom:10,left:'50%',transform:'translateX(-50%)',width:'88%',maxWidth:360,height:55,borderRadius:28,display:'flex',alignItems:'center',justifyContent:'space-around',boxShadow:'0 8px 25px rgba(0,0,0,.4)',zIndex:3000,background:isDark?'rgba(15,23,42,.95)':'rgba(255,255,255,.95)'}}>
         <button onClick={goHome} style={{background:'none',border:'none',color:view==='home'?'#4f46e5':'#64748b',cursor:'pointer'}}><LayoutList size={22}/></button>
-        <button onClick={()=>{setView('favorites');setSelectedEvent(null);setSelectedPendingEvent(null);setEditingEvent(null);}} style={{background:'none',border:'none',color:view==='favorites'?'#ef4444':'#64748b',cursor:'pointer',position:'relative'}}><Heart size={22} fill={view==='favorites'?'#ef4444':'none'}/>{favoriteEvents.length>0&&(<span style={{position:'absolute',top:-4,right:-8,background:'#ef4444',color:'white',fontSize:8,fontWeight:900,borderRadius:10,padding:'1px 5px',minWidth:14,textAlign:'center'}}>{favoriteEvents.length}</span>)}</button>
-        <button onClick={()=>{setView('create');setSelectedEvent(null);setSelectedPendingEvent(null);setEditingEvent(null);}} style={{background:'none',border:'none',color:view==='create'?'#4f46e5':'#64748b',cursor:'pointer'}}><PlusCircle size={22}/></button>
-        <button onClick={()=>{setView('map');setSelectedEvent(null);setSelectedPendingEvent(null);setEditingEvent(null);}} style={{background:'none',border:'none',color:view==='map'?'#4f46e5':'#64748b',cursor:'pointer'}}><MapIcon size={22}/></button>
+        <button onClick={()=>{setView('favorites');deselectEvent();setSelectedPendingEvent(null);setEditingEvent(null);}} style={{background:'none',border:'none',color:view==='favorites'?'#ef4444':'#64748b',cursor:'pointer',position:'relative'}}><Heart size={22} fill={view==='favorites'?'#ef4444':'none'}/>{favoriteEvents.length>0&&(<span style={{position:'absolute',top:-4,right:-8,background:'#ef4444',color:'white',fontSize:8,fontWeight:900,borderRadius:10,padding:'1px 5px',minWidth:14,textAlign:'center'}}>{favoriteEvents.length}</span>)}</button>
+        <button onClick={()=>{setView('create');deselectEvent();setSelectedPendingEvent(null);setEditingEvent(null);}} style={{background:'none',border:'none',color:view==='create'?'#4f46e5':'#64748b',cursor:'pointer'}}><PlusCircle size={22}/></button>
+        <button onClick={()=>{setView('map');deselectEvent();setSelectedPendingEvent(null);setEditingEvent(null);}} style={{background:'none',border:'none',color:view==='map'?'#4f46e5':'#64748b',cursor:'pointer'}}><MapIcon size={22}/></button>
       </nav>
     </div>
   );
