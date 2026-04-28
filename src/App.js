@@ -369,13 +369,8 @@ export default function App() {
 
   useEffect(() => {
     fetchEvents();
-    applyRouteFromUrl();
-
-    function handlePopState() { applyRouteFromUrl(); }
-    window.addEventListener('popstate', handlePopState);
 
     return () => {
-      window.removeEventListener('popstate', handlePopState);
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
       if (mapSearchTimerRef.current) clearTimeout(mapSearchTimerRef.current);
     };
@@ -402,34 +397,12 @@ export default function App() {
     };
   }, []);
 
-  function applyRouteFromUrl() {
-    const path = window.location.pathname;
-    if (path.indexOf('/evento/') === 0) {
-      const id = parseInt(path.split('/')[2], 10);
-      if (!isNaN(id)) {
-        // Esperamos a que carguen los eventos
-        setTimeout(() => {
-          setEvents(prev => {
-            const found = prev.find(e => String(e.id) === String(id));
-            if (found) {
-              setSelectedEvent(found);
-              setView('home');
-            }
-            return prev;
-          });
-        }, 300);
-        return;
-      }
-    }
-  }
-
   function fetchEvents() {
     try {
       const cached = localStorage.getItem('eventora_cache_events_v1');
       if (cached) {
         const parsed = JSON.parse(cached);
         setEvents(parsed);
-        // Si veníamos de una URL /evento/X intentar abrirlo
         const path = window.location.pathname;
         if (path.indexOf('/evento/') === 0) {
           const id = parseInt(path.split('/')[2], 10);
@@ -454,7 +427,6 @@ export default function App() {
       const validIds = data.map((e) => e.id);
       setFavorites((prev) => prev.filter((id) => validIds.indexOf(id) !== -1));
 
-      // Comprobar si la URL pide un evento concreto
       const path = window.location.pathname;
       if (path.indexOf('/evento/') === 0) {
         const id = parseInt(path.split('/')[2], 10);
@@ -732,7 +704,6 @@ export default function App() {
     });
   }
 
-  // ✅ BUSCADOR LIBRE DEL MAPA
   function handleMapSearchChange(e) {
     const value = e.target.value;
     setMapSearch(value);
@@ -755,25 +726,23 @@ export default function App() {
     }, 600);
   }
 
-  // ✅ COMPARTIR ENLACE REAL
+  // ✅ COMPARTIR ENLACE LIMPIO
   function shareEvent(ev) {
-  const realLink = APP_URL + '/evento/' + ev.id;
-  const shortText = '🎉 ' + ev.title + ' (' + ev.city + ' - ' + formatDate(ev.date) + ')';
+    const realLink = APP_URL + '/evento/' + ev.id;
+    const shortText = '🎉 ' + ev.title + ' (' + ev.city + ' - ' + formatDate(ev.date) + ')';
 
-  // Si el navegador soporta compartir nativo (móviles)
-  if (navigator.share) {
-    navigator.share({
-      title: ev.title,
-      text: shortText,
-      url: realLink
-    }).catch(() => {});
-  } else {
-    // En PC: copia solo el enlace
-    navigator.clipboard.writeText(realLink).then(() => {
-      showToast('Enlace copiado al portapapeles', 'success');
-    });
+    if (navigator.share) {
+      navigator.share({
+        title: ev.title,
+        text: shortText,
+        url: realLink
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(realLink).then(() => {
+        showToast('Enlace copiado al portapapeles', 'success');
+      });
+    }
   }
-}
 
   function addToGoogleCalendar(ev) {
     const day = String(ev.date).replace(/-/g, '');
@@ -851,7 +820,6 @@ export default function App() {
   events.forEach((e) => { if (e.city && adminCitiesList.indexOf(e.city) === -1) adminCitiesList.push(e.city); });
   adminCitiesList.sort();
 
-  // Destacado real primero
   const sortedFiltered = filteredEvents.slice().sort((a, b) => {
     if (a.featured && !b.featured) return -1;
     if (!a.featured && b.featured) return 1;
@@ -1114,7 +1082,6 @@ export default function App() {
                 <input name="time" type="time" style={{ ...INPUT_STYLE, padding: 8 }} value={editForm.time} onChange={handleEditInputChange} />
               </div>
 
-              {/* ✅ CHECKBOX DESTACADO */}
               <label style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: 12,
                 background: editForm.featured ? 'rgba(34,197,94,.15)' : 'rgba(128,128,128,0.1)',
@@ -1293,10 +1260,10 @@ export default function App() {
               <h2 style={{ fontWeight: 900, marginBottom: 12, fontSize: 16 }}>SOPORTE</h2>
               {userEmail && <p style={{ fontSize: 9, opacity: 0.6, marginBottom: 8 }}>Conectado: {userEmail}</p>}
               <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                <a href="https://ko-fi.com/jacobogarver" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>
+                <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>
                   ☕ INVITAR A UN CAFÉ (KO-FI)
                 </a>
-                <a href="https://www.paypal.com/paypalme/jacobogarver" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>
+                <a href="https://paypal.me/EVENTORA" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>
                   💙 APOYAR EN PAYPAL
                 </a>
               </div>
