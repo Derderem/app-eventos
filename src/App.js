@@ -179,9 +179,7 @@ function Toast({ toast }) {
 
 function Splash({ onDone }) {
   useEffect(() => {
-    const t = setTimeout(() => {
-      if (onDone) onDone();
-    }, 1000);
+    const t = setTimeout(onDone, 1000);
     return () => clearTimeout(t);
   }, [onDone]);
 
@@ -383,7 +381,6 @@ export default function App() {
   const [adminSearch, setAdminSearch] = useState('');
   const [adminCityFilter, setAdminCityFilter] = useState('TODAS');
 
-  // Estados para zoom de foto
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
   const [photoScale, setPhotoScale] = useState(1);
   const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
@@ -391,6 +388,7 @@ export default function App() {
   const listRef = useRef(null);
   const toastTimerRef = useRef(null);
   const mapSearchTimerRef = useRef(null);
+  
   const photoTouchRef = useRef({
     initialDistance: 0,
     initialScale: 1,
@@ -424,7 +422,7 @@ export default function App() {
     function handleSession(session) {
       const user = session && session.user;
       setUserEmail(user ? user.email : '');
-      setProfile(isAdminUser(user) ? { role: 'admin', email: user.email } : null);
+      setProfile(isAdminUser(user) ? { role: 'admin' } : null);
       fetchEvents();
     }
 
@@ -442,12 +440,21 @@ export default function App() {
       if (cached) {
         const parsed = JSON.parse(cached);
         setEvents(parsed);
+        const path = window.location.pathname;
+        if (path.indexOf('/evento/') === 0) {
+          const id = parseInt(path.split('/')[2], 10);
+          if (!isNaN(id)) {
+            const found = parsed.find(e => String(e.id) === String(id));
+            if (found) setSelectedEvent(found);
+          }
+        }
       }
     } catch {}
 
     supabase.from('events').select('*').order('date', { ascending: true }).then((res) => {
       if (res.error) {
         console.error('Error cargando eventos:', res.error);
+        showToast('Error cargando eventos', 'error');
         return;
       }
       const data = res.data || [];
@@ -456,6 +463,15 @@ export default function App() {
 
       const validIds = data.map((e) => e.id);
       setFavorites((prev) => prev.filter((id) => validIds.indexOf(id) !== -1));
+
+      const path = window.location.pathname;
+      if (path.indexOf('/evento/') === 0) {
+        const id = parseInt(path.split('/')[2], 10);
+        if (!isNaN(id)) {
+          const found = data.find(e => String(e.id) === String(id));
+          if (found) setSelectedEvent(found);
+        }
+      }
     });
   }
 
@@ -767,8 +783,6 @@ export default function App() {
     setSelectedPendingEvent(null);
     setEditingEvent(null);
     setIsPhotoZoomed(false);
-    setPhotoScale(1);
-    setPhotoPos({ x: 0, y: 0 });
     setSearchQuery('');
     window.history.pushState({}, '', '/');
   }
@@ -778,7 +792,6 @@ export default function App() {
     if (listRef.current) listRef.current.scrollTop = 0;
   }
 
-  // Funciones para zoom de foto
   function enterPhotoZoom() {
     setIsPhotoZoomed(true);
     setPhotoScale(1);
@@ -791,12 +804,12 @@ export default function App() {
     setPhotoPos({ x: 0, y: 0 });
   }
 
-  function getDistance(touches) {
+  const getDistance = (touches) => {
     if (!touches || touches.length < 2) return 0;
     const dx = touches[0].clientX - touches[1].clientX;
     const dy = touches[0].clientY - touches[1].clientY;
     return Math.sqrt(dx * dx + dy * dy);
-  }
+  };
 
   function handlePhotoTouchStart(e) {
     if (e.touches.length === 2) {
@@ -820,18 +833,16 @@ export default function App() {
       const scale = dist / photoTouchRef.current.initialDistance;
       const newScale = Math.min(Math.max(photoTouchRef.current.initialScale * scale, 1), 5);
       setPhotoScale(newScale);
-    } else if (e.touches.length === 1 && photoScale > 1) {
+    } 
+    else if (e.touches.length === 1 && photoScale > 1) {
       e.preventDefault();
-
-      // Factor de lentitud: 0.55 = más lento que el natural
-      const slowFactor = 0.55;
-
-      const dx = e.touches[0].clientX - photoTouchRef.current.lastX;
-      const dy = e.touches[0].clientY - photoTouchRef.current.lastY;
-
+      const sensitivity = 0.62;
+      const dx = (e.touches[0].clientX - photoTouchRef.current.lastX) * sensitivity;
+      const dy = (e.touches[0].clientY - photoTouchRef.current.lastY) * sensitivity;
+      
       setPhotoPos(prev => ({
-        x: prev.x + (dx * slowFactor),
-        y: prev.y + (dy * slowFactor)
+        x: prev.x + dx,
+        y: prev.y + dy
       }));
 
       photoTouchRef.current.lastX = e.touches[0].clientX;
@@ -839,8 +850,8 @@ export default function App() {
     }
   }
 
-  function handlePhotoTouchEnd(e) {
-    if (photoScale <= 1.05) {
+  function handlePhotoTouchEnd() {
+    if (photoScale <= 1.08) {
       exitPhotoZoom();
     }
     photoTouchRef.current.isDragging = false;
@@ -1039,53 +1050,60 @@ export default function App() {
           </div>
         )}
 
-        {/* Detalles con zoom de foto */}
         {selectedEvent && !selectedPendingEvent && !editingEvent && (
           <>
             {isPhotoZoomed ? (
-              /* Modo Zoom fullscreen */
-              <div
+              <div 
                 style={{
-                  position: 'fixed', inset: 0, zIndex: 99999, background: '#000',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  overflow: 'hidden', touchAction: 'none'
+                  position: 'fixed',
+                  inset: 0,
+                  zIndex: 99999,
+                  background: '#000',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  touchAction: 'none'
                 }}
                 onTouchStart={handlePhotoTouchStart}
                 onTouchMove={handlePhotoTouchMove}
                 onTouchEnd={handlePhotoTouchEnd}
               >
-                <img
-                  src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
+                <img 
+                  src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} 
                   alt=""
                   draggable={false}
                   style={{
-                    width: '100%', height: '100%', objectFit: 'contain',
-                    transform: 'scale(' + photoScale + ') translate(' + photoPos.x + 'px, ' + photoPos.y + 'px)',
-                    transition: 'transform 0.1s ease-out'
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    transform: `scale(${photoScale}) translate(${photoPos.x}px, ${photoPos.y}px)`,
+                    transition: 'transform 0.08s ease-out',
+                    willChange: 'transform'
                   }}
                 />
-                <button
+                
+                <button 
                   onClick={exitPhotoZoom}
                   style={{
-                    position: 'absolute', top: 40, right: 20,
-                    background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
-                    color: 'white', border: 'none', padding: '10px 20px', borderRadius: 999,
-                    fontWeight: 900, fontSize: 12, cursor: 'pointer', zIndex: 100000,
-                    display: 'flex', alignItems: 'center', gap: 6
+                    position: 'absolute',
+                    top: 40,
+                    right: 20,
+                    background: 'rgba(0,0,0,0.7)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 18px',
+                    borderRadius: 30,
+                    fontWeight: 900,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    zIndex: 100000
                   }}
                 >
-                  <X size={16}/> CERRAR
+                  ✕ CERRAR
                 </button>
-                <div style={{
-                  position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)',
-                  color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 700,
-                  pointerEvents: 'none', textAlign: 'center'
-                }}>
-                  Usa dos dedos para zoom · Pellizca hacia afuera para volver
-                </div>
               </div>
             ) : (
-              /* Vista normal detalles */
               <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
                   <button onClick={() => setSelectedEvent(null)} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
@@ -1094,25 +1112,36 @@ export default function App() {
                 </div>
 
                 <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
-                  {/* Foto clickable */}
-                  <div
+                  
+                  <div 
                     onClick={enterPhotoZoom}
-                    style={{
-                      position: 'relative', width: '100%', height: 220, cursor: 'zoom-in',
-                      overflow: 'hidden', flexShrink: 0
+                    style={{ 
+                      position: 'relative', 
+                      width: '100%', 
+                      height: 220, 
+                      cursor: 'zoom-in',
+                      overflow: 'hidden',
+                      flexShrink: 0 
                     }}
                   >
-                    <img
-                      src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-                      alt=""
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    <img 
+                      src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} 
+                      alt="" 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} 
                     />
                     <div style={{
-                      position: 'absolute', bottom: 8, right: 8,
-                      background: 'rgba(0,0,0,0.6)', color: 'white',
-                      padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900, pointerEvents: 'none'
+                      position: 'absolute',
+                      bottom: 10,
+                      right: 10,
+                      background: 'rgba(0,0,0,0.65)',
+                      color: 'white',
+                      padding: '4px 10px',
+                      borderRadius: 8,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      pointerEvents: 'none'
                     }}>
-                      🔍 Pulsa para zoom
+                      🔍 Zoom con dos dedos
                     </div>
                   </div>
 
