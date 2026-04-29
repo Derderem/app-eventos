@@ -1340,142 +1340,140 @@ export default function App() {
 
         {/* Detalles con zoom de foto */}
         {selectedEvent && !selectedPendingEvent && !editingEvent && (
-          <>
-            {isPhotoZoomed ? (
-              <div
-                style={{
-                  position: 'fixed', inset: 0, zIndex: 99999, background: '#000',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  overflow: 'hidden', touchAction: 'none'
-                }}
-                onTouchStart={handlePhotoTouchStart}
-                onTouchMove={handlePhotoTouchMove}
-                onTouchEnd={handlePhotoTouchEnd}
-              >
-                <img
-                  src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-                  alt=""
-                  draggable={false}
-                  style={{
-                    width: '100%', height: '100%', objectFit: 'contain',
-                    transform: 'scale(' + photoScale + ') translate(' + photoPos.x + 'px, ' + photoPos.y + 'px)',
-                    transition: 'transform 0.1s ease-out'
-                  }}
-                />
-                <button
-                  onClick={exitPhotoZoom}
-                  style={{
-                    position: 'absolute', top: 40, right: 20,
-                    background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
-                    color: 'white', border: 'none', padding: '10px 20px', borderRadius: 999,
-                    fontWeight: 900, fontSize: 12, cursor: 'pointer', zIndex: 100000,
-                    display: 'flex', alignItems: 'center', gap: 6
-                  }}
-                >
-                  <X size={16}/> CERRAR
-                </button>
-                <div style={{
-                  position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)',
-                  color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 700,
-                  pointerEvents: 'none', textAlign: 'center'
-                }}>
-                  Usa dos dedos para zoom · Pellizca hacia afuera para volver
-                </div>
+  <>
+    {isPhotoZoomed ? (
+      <div
+        style={{
+          position: 'fixed', inset: 0, zIndex: 99999, background: '#000',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden', touchAction: 'none'
+        }}
+        onTouchStart={handlePhotoTouchStart}
+        onTouchMove={handlePhotoTouchMove}
+        onTouchEnd={handlePhotoTouchEnd}
+      >
+        <img
+          src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
+          alt=""
+          draggable={false}
+          style={{
+            width: '100%', height: '100%', objectFit: 'contain',
+            transform: 'scale(' + photoScale + ') translate(' + photoPos.x + 'px, ' + photoPos.y + 'px)',
+            transition: 'transform 0.1s ease-out'
+          }}
+        />
+        <button
+          onClick={exitPhotoZoom}
+          style={{
+            position: 'absolute', top: 40, right: 20,
+            background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
+            color: 'white', border: 'none', padding: '10px 20px', borderRadius: 999,
+            fontWeight: 900, fontSize: 12, cursor: 'pointer', zIndex: 100000,
+            display: 'flex', alignItems: 'center', gap: 6
+          }}
+        >
+          <X size={16}/> CERRAR
+        </button>
+        <div style={{
+          position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)',
+          color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 700,
+          pointerEvents: 'none', textAlign: 'center'
+        }}>
+          Usa dos dedos para zoom · Pellizca hacia afuera para volver
+        </div>
+      </div>
+    ) : (
+      <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
+          <button onClick={closeSelectedEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
+            <ArrowLeft size={14} /> VOLVER
+          </button>
+        </div>
+
+        <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
+          {/* Imagen con loader */}
+          <div
+            onClick={enterPhotoZoom}
+            style={{
+              position: 'relative', width: '100%', height: 220, cursor: 'zoom-in',
+              overflow: 'hidden', flexShrink: 0,
+              backgroundColor: isDark ? '#1e293b' : '#f1f5f9'
+            }}
+          >
+            {!selectedEvent.image_url || !selectedEvent.image_url.includes('http') ? (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                height: '100%', width: '100%'
+              }}>
+                <Loader2 className="animate-spin" size={32} color="#6366f1" />
               </div>
             ) : (
-              <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
-                  <button onClick={closeSelectedEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
-                    <ArrowLeft size={14} /> VOLVER
-                  </button>
+              <>
+                <img
+                  src={selectedEvent.image_url}
+                  alt={selectedEvent.title}
+                  style={{
+                    width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+                    opacity: 0, transition: 'opacity 0.3s ease'
+                  }}
+                  loading="lazy"
+                  onLoad={(e) => { e.target.style.opacity = '1'; }}
+                />
+                <div style={{
+                  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  zIndex: 1
+                }}>
+                  <Loader2 className="animate-spin" size={32} color="#6366f1" />
                 </div>
+              </>
+            )}
+            <div style={{
+              position: 'absolute', bottom: 8, right: 8,
+              background: 'rgba(0,0,0,0.6)', color: 'white',
+              padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900,
+              pointerEvents: 'none', zIndex: 2
+            }}>
+              🔍 Pulsa para zoom
+            </div>
+          </div>
 
-                <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
-                  <div
-                    <div
-  onClick={enterPhotoZoom}
-  style={{
-    position: 'relative', width: '100%', height: 220, cursor: 'zoom-in',
-    overflow: 'hidden', flexShrink: 0,
-    backgroundColor: isDark ? '#1e293b' : '#f1f5f9'
-  }}
->
-  {/* Loader mientras la imagen carga */}
-  {!selectedEvent.image_url || !selectedEvent.image_url.includes('http') ? (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      height: '100%', width: '100%'
-    }}>
-      <Loader2 className="animate-spin" size={32} color="#6366f1" />
-    </div>
-  ) : (
-    <>
-      <img
-        src={selectedEvent.image_url}
-        alt={selectedEvent.title}
-        style={{
-          width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-          opacity: 0, transition: 'opacity 0.3s ease'
-        }}
-        loading="lazy"
-        onLoad={(e) => { e.target.style.opacity = '1'; }}
-      />
-      {/* Loader temporal mientras la imagen carga */}
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 1
-      }}>
-        <Loader2 className="animate-spin" size={32} color="#6366f1" />
-      </div>
-    </>
-  )}
-  <div style={{
-    position: 'absolute', bottom: 8, right: 8,
-    background: 'rgba(0,0,0,0.6)', color: 'white',
-    padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900,
-    pointerEvents: 'none', zIndex: 2
-  }}>
-    🔍 Pulsa para zoom
-                    </div>
-                  </div>
+          <div style={{ padding: 12, flex: 1 }}>
+            <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>
+              {categoryEmojis[selectedEvent.category] || '📌'}
+            </p>
+            <h2 style={{ fontSize: 17, fontWeight: 900, marginBottom: 8 }}>{selectedEvent.title}</h2>
 
-                  <div style={{ padding: 12, flex: 1 }}>
-                    <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>
-                      {categoryEmojis[selectedEvent.category] || '📌'}
-                    </p>
-                    <h2 style={{ fontSize: 17, fontWeight: 900, marginBottom: 8 }}>{selectedEvent.title}</h2>
+            <div style={{ display: 'flex', gap: 15, marginBottom: 8 }}>
+              <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}>
+                <Calendar color="#6366f1" size={13} /> <b>{formatDate(selectedEvent.date)}</b>
+              </div>
+              <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}>
+                <Clock color="#6366f1" size={13} /> <b>{selectedEvent.time}H</b>
+              </div>
+            </div>
 
-                    <div style={{ display: 'flex', gap: 15, marginBottom: 8 }}>
-                      <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}>
-                        <Calendar color="#6366f1" size={13} /> <b>{formatDate(selectedEvent.date)}</b>
-                      </div>
-                      <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}>
-                        <Clock color="#6366f1" size={13} /> <b>{selectedEvent.time}H</b>
-                      </div>
-                    </div>
-
-                    {getDaysLabel(selectedEvent.date) && (
-                      <div style={{ display: 'inline-block', background: getDaysLabel(selectedEvent.date).bg, color: getDaysLabel(selectedEvent.date).color, padding: '3px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900, marginBottom: 8 }}>
-                        {getDaysLabel(selectedEvent.date).text}
-                      </div>
-                    )}
-
-                    <div onClick={() => window.open('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(selectedEvent.address + ' ' + (selectedEvent.localidad || '') + ' ' + selectedEvent.city))} style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 8, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1', marginBottom: 8 }}>
-                      <MapPin color="#6366f1" size={14} style={{ margin: '0 auto 2px' }} />
-                      <b style={{ fontSize: 10 }}>{selectedEvent.address}, {selectedEvent.localidad || ''} - {selectedEvent.city}</b><br />
-                      <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
-                    </div>
-
-                    <button onClick={() => shareEvent(selectedEvent)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
-                      <Share2 size={14} /> COMPARTIR EVENTO
-                    </button>
-                  </div>
-                </div>
+            {getDaysLabel(selectedEvent.date) && (
+              <div style={{ display: 'inline-block', background: getDaysLabel(selectedEvent.date).bg, color: getDaysLabel(selectedEvent.date).color, padding: '3px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900, marginBottom: 8 }}>
+                {getDaysLabel(selectedEvent.date).text}
               </div>
             )}
-          </>
-        )}
+
+            <div onClick={() => window.open('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(selectedEvent.address + ' ' + (selectedEvent.localidad || '') + ' ' + selectedEvent.city))} style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 8, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1', marginBottom: 8 }}>
+              <MapPin color="#6366f1" size={14} style={{ margin: '0 auto 2px' }} />
+              <b style={{ fontSize: 10 }}>{selectedEvent.address}, {selectedEvent.localidad || ''} - {selectedEvent.city}</b><br />
+              <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
+            </div>
+
+            <button onClick={() => shareEvent(selectedEvent)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+              <Share2 size={14} /> COMPARTIR EVENTO
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
+)}
 
         {view === 'create' && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
