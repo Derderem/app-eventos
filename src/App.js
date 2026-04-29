@@ -1228,6 +1228,8 @@ export default function App() {
   .share-btn:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
   @media (max-width: 320px) {
   .share-btn { font-size: 10px !important; padding: 12px !important; }
+  /* Loader de imagen */
+.event-image-loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 1; }
 }
 `}</style>
 
@@ -1392,23 +1394,51 @@ export default function App() {
 
                 <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
                   <div
-                    onClick={enterPhotoZoom}
-                    style={{
-                      position: 'relative', width: '100%', height: 220, cursor: 'zoom-in',
-                      overflow: 'hidden', flexShrink: 0
-                    }}
-                  >
-                    <img
-                      src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-                      alt=""
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                    <div style={{
-                      position: 'absolute', bottom: 8, right: 8,
-                      background: 'rgba(0,0,0,0.6)', color: 'white',
-                      padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900, pointerEvents: 'none'
-                    }}>
-                      🔍 Pulsa para zoom
+                    <div
+  onClick={enterPhotoZoom}
+  style={{
+    position: 'relative', width: '100%', height: 220, cursor: 'zoom-in',
+    overflow: 'hidden', flexShrink: 0,
+    backgroundColor: isDark ? '#1e293b' : '#f1f5f9'
+  }}
+>
+  {/* Loader mientras la imagen carga */}
+  {!selectedEvent.image_url || !selectedEvent.image_url.includes('http') ? (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100%', width: '100%'
+    }}>
+      <Loader2 className="animate-spin" size={32} color="#6366f1" />
+    </div>
+  ) : (
+    <>
+      <img
+        src={selectedEvent.image_url}
+        alt={selectedEvent.title}
+        style={{
+          width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+          opacity: 0, transition: 'opacity 0.3s ease'
+        }}
+        loading="lazy"
+        onLoad={(e) => { e.target.style.opacity = '1'; }}
+      />
+      {/* Loader temporal mientras la imagen carga */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 1
+      }}>
+        <Loader2 className="animate-spin" size={32} color="#6366f1" />
+      </div>
+    </>
+  )}
+  <div style={{
+    position: 'absolute', bottom: 8, right: 8,
+    background: 'rgba(0,0,0,0.6)', color: 'white',
+    padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900,
+    pointerEvents: 'none', zIndex: 2
+  }}>
+    🔍 Pulsa para zoom
                     </div>
                   </div>
 
