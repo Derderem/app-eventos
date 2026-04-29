@@ -461,19 +461,24 @@ export default function App() {
       const newScale = Math.min(Math.max(photoTouchRef.current.initialScale * scale, 1), 5);
       setPhotoScale(newScale);
     } 
-    else if (e.touches.length === 1 && photoScale > 1) {
-      e.preventDefault();
-      const sensitivity = 0.62; // ← Valor ajustado (más bajo = más lento)
-      const dx = (e.touches[0].clientX - photoTouchRef.current.lastX) * sensitivity;
-      const dy = (e.touches[0].clientY - photoTouchRef.current.lastY) * sensitivity;
-      
-      setPhotoPos(prev => ({
-        x: prev.x + dx,
-        y: prev.y + dy
-      }));
+  else if (e.touches.length === 1 && photoScale > 1) {
+  e.preventDefault();
 
-      photoTouchRef.current.lastX = e.touches[0].clientX;
-      photoTouchRef.current.lastY = e.touches[0].clientY;
+  // Cuanto más bajo sea este número, más lenta se mueve la foto.
+  // 1 = velocidad normal. 0.55 = más suave/lenta.
+  const slowFactor = 0.55;
+
+  const dx = e.touches[0].clientX - photoTouchRef.current.lastX;
+  const dy = e.touches[0].clientY - photoTouchRef.current.lastY;
+
+  setPhotoPos(prev => ({
+    x: prev.x + (dx * slowFactor),
+    y: prev.y + (dy * slowFactor)
+  }));
+
+  photoTouchRef.current.lastX = e.touches[0].clientX;
+  photoTouchRef.current.lastY = e.touches[0].clientY;
+}
     }
   }
 
