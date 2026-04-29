@@ -1226,6 +1226,9 @@ export default function App() {
   @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
   /* AÑADE ESTA LÍNEA AQUÍ */
   .share-btn:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
+  @media (max-width: 320px) {
+  .share-btn { font-size: 10px !important; padding: 12px !important; }
+}
 `}</style>
 
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
