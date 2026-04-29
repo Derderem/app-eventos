@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react'; // Added useCallback
 import { createClient } from '@supabase/supabase-js';
 import {
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, Trash2,
   Map as MapIcon, Clock, LayoutList, ShieldCheck, Sparkles,
   Loader2, ArrowLeft, Search, Share2, Star, Download,
-  CheckCircle, XCircle, Info, RefreshCw, Check, X, Edit3
+  CheckCircle, XCircle, Info, RefreshCw, Check, X, Edit3, RotateCcw // Added RotateCcw
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -18,7 +18,7 @@ const supabase = createClient(
 );
 
 const ADMIN_EMAILS = ['garverjacobo@gmail.com', 'jacobogarver@gmail.com'];
-const APP_URL = 'https://app-eventos-pro-final.vercel.app';
+const APP_URL = 'https://app-eventos-pro-final.vercel.app'; // Asegúrate de que esta URL sea correcta para tu despliegue
 
 const INITIAL_FORM = {
   title: '', city: '', localidad: '', address: '',
@@ -37,6 +37,8 @@ const redPinIcon = L.divIcon({
   html: '<div style="width:22px;height:30px;position:relative;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));"><svg viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg"><path d="M15 0C6.7 0 0 6.7 0 15c0 11.2 13.3 23.5 14 24.4.3.4.7.4 1 0C16.7 38.5 30 26.2 30 15 30 6.7 23.3 0 15 0z" fill="#ef4444"/><circle cx="15" cy="14" r="5" fill="white"/></svg></div>',
   iconSize: [22, 30], iconAnchor: [11, 30], popupAnchor: [0, -30], className: ''
 });
+
+// --- UTILIDADES ---
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
@@ -156,6 +158,13 @@ function fallbackCopyText(text, showToast) {
   document.body.removeChild(textarea);
 }
 
+// Helper functions for gesture control (new)
+function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+function getDistance(a, b) { const dx = a.x - b.x; const dy = a.y - b.y; return Math.sqrt(dx * dx + dy * dy); }
+function getMidpoint(a, b) { return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
+
+// --- COMPONENTES ---
+
 function Toast({ toast }) {
   if (!toast) return null;
   const isSuccess = toast.type === 'success';
@@ -252,9 +261,9 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
           </div>
         )}
 
-        {/* ✅ MODIFICACIÓN ÚNICA:
-            - Quitamos la etiqueta de días del overlay en la imagen (antes era absolute top/right)
-            - La mostramos al lado de la fecha en la línea de "CIUDAD | FECHA" */}
+        {/* ✅ MODIFICACIÓN 1: Quitamos la etiqueta de días del overlay en la imagen. */}
+        {/* Aquí ya no va la etiqueta de días, ahora se muestra junto a la fecha en el texto. */}
+
         <div style={{ position: 'relative', height: featured ? 200 : 160 }}>
           <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <button onClick={() => toggleFavorite(ev.id)} style={{
@@ -268,6 +277,7 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
         <div style={{ padding: 15, textAlign: 'center' }}>
           <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 5 }}>
             {categoryEmojis[ev.category] || '📌'} {ev.city} | {formatDate(ev.date)}
+            {/* ✅ MODIFICACIÓN 1: La etiqueta de días ahora aparece aquí, al lado de la fecha. */}
             {dl && (
               <span style={{
                 display: 'inline-block',
@@ -284,9 +294,8 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
               </span>
             )}
           </p>
-
           <h3 style={{ fontWeight: 900, fontSize: featured ? 17 : 15, marginBottom: 10 }}>{ev.title}</h3>
-          <button onClick={() => setSelectedEvent(ev)} style={{
+          <button onClick={() => setSelectedEvent(ev)} style={{ // Pasa el evento completo aquí
             width: '100%', padding: featured ? 12 : 11, borderRadius: 14,
             background: '#4f46e5', color: 'white', border: 'none',
             fontWeight: 900, fontSize: featured ? 11 : 10, cursor: 'pointer'
@@ -350,6 +359,217 @@ function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onV
   );
 }
 
+// ✅ NUEVO COMPONENTE: PhotoZoom
+function PhotoZoom({ src, alt, onBack, onInfo, onShare }) {
+  const [scale, setScale] = useState(1);
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  
+  const pointersRef = useRef({});
+  const gestureRef = useRef({
+    startDistance: 1,
+    startScale: 1,
+    startMid: { x: 0, y: 0 },
+    startPointer: { x: 0, y: 0 },
+    startTranslate: { x: 0, y: 0 },
+  });
+
+  // Reset zoom and position when image changes
+  useEffect(() => {
+    setScale(1);
+    setTranslate({ x: 0, y: 0 });
+    pointersRef.current = {};
+    gestureRef.current = {
+      startDistance: 1, startScale: 1, startMid: { x: 0, y: 0 },
+      startPointer: { x: 0, y: 0 }, startTranslate: { x: 0, y: 0 },
+    };
+  }, [src]);
+
+  const resetZoom = useCallback(() => {
+    setScale(1);
+    setTranslate({ x: 0, y: 0 });
+    pointersRef.current = {};
+  }, []);
+
+  const getPoints = useCallback(() => {
+    return Object.keys(pointersRef.current).map(key => pointersRef.current[key]);
+  }, []);
+
+  const handlePointerDown = useCallback((e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+
+    pointersRef.current[e.pointerId] = { x: e.clientX, y: e.clientY };
+
+    const pts = getPoints();
+    if (pts.length === 1) {
+      gestureRef.current.startPointer = { x: e.clientX, y: e.clientY };
+      gestureRef.current.startTranslate = { x: translate.x, y: translate.y };
+    } else if (pts.length >= 2) {
+      const a = pts[0];
+      const b = pts[1];
+      gestureRef.current.startDistance = getDistance(a, b) || 1;
+      gestureRef.current.startScale = scale;
+      gestureRef.current.startMid = getMidpoint(a, b);
+      gestureRef.current.startTranslate = { x: translate.x, y: translate.y };
+    }
+  }, [getPoints, scale, translate]);
+
+  const handlePointerMove = useCallback((e) => {
+    if (!pointersRef.current[e.pointerId]) return;
+    e.preventDefault();
+
+    pointersRef.current[e.pointerId] = { x: e.clientX, y: e.clientY };
+    const pts = getPoints();
+
+    if (pts.length >= 2) { // Pinch-to-zoom
+      const a = pts[0];
+      const b = pts[1];
+      const currentDistance = getDistance(a, b) || 1;
+      const currentMid = getMidpoint(a, b);
+
+      const nextScale = clamp(gestureRef.current.startScale * (currentDistance / gestureRef.current.startDistance), 1, 5);
+      const dx = currentMid.x - gestureRef.current.startMid.x;
+      const dy = currentMid.y - gestureRef.current.startMid.y;
+      
+      setScale(nextScale);
+      if (nextScale <= 1.01) {
+        setTranslate({ x: 0, y: 0 });
+      } else {
+        setTranslate({
+          x: gestureRef.current.startTranslate.x + dx,
+          y: gestureRef.current.startTranslate.y + dy,
+        });
+      }
+    } else if (pts.length === 1 && scale > 1) { // Dragging when zoomed
+      const moveDx = e.clientX - gestureRef.current.startPointer.x;
+      const moveDy = e.clientY - gestureRef.current.startPointer.y;
+      setTranslate({
+        x: gestureRef.current.startTranslate.x + moveDx,
+        y: gestureRef.current.startTranslate.y + moveDy,
+      });
+    }
+  }, [getPoints, scale, translate]);
+
+  const handlePointerUp = useCallback((e) => {
+    delete pointersRef.current[e.pointerId];
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {}
+
+    const pts = getPoints();
+    if (pts.length === 1) {
+      gestureRef.current.startPointer = { x: pts[0].x, y: pts[0].y };
+      gestureRef.current.startTranslate = { x: translate.x, y: translate.y };
+    }
+    
+    if (scale <= 1.01) resetZoom();
+  }, [getPoints, scale, translate, resetZoom]);
+
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    const nextScale = clamp(scale - e.deltaY * 0.0018, 1, 5);
+    setScale(nextScale);
+    if (nextScale <= 1.01) setTranslate({ x: 0, y: 0 });
+  }, [scale]);
+
+  const handleDoubleClick = useCallback((e) => {
+    e.preventDefault();
+    if (scale > 1) {
+      resetZoom();
+    } else {
+      setScale(2.4);
+      setTranslate({ x: 0, y: 0 });
+    }
+  }, [scale, resetZoom]);
+
+  const controlButtonStyle = {
+    border: 'none',
+    borderRadius: 999,
+    padding: '10px 13px',
+    background: 'rgba(15,23,42,0.82)',
+    color: 'white',
+    fontSize: 11,
+    fontWeight: 900,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    cursor: 'pointer',
+    backdropFilter: 'blur(10px)',
+    boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#000', overflow: 'hidden' }}>
+      <div
+        className="zoom-touch-area"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onWheel={handleWheel}
+        onDoubleClick={handleDoubleClick}
+        style={{
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          touchAction: 'none', // Critical for preventing browser gestures
+          userSelect: 'none',
+          cursor: scale > 1 ? 'grab' : 'zoom-in',
+        }}
+      >
+        <img
+          src={src}
+          alt={alt || 'Foto del evento'}
+          draggable={false}
+          style={{
+            maxWidth: '100%', maxHeight: '100%', width: '100%', height: '100%',
+            objectFit: 'contain',
+            transform: `translate3d(${translate.x}px, ${translate.y}px, 0) scale(${scale})`,
+            transformOrigin: 'center center',
+            transition: getPoints().length > 0 ? 'none' : 'transform 0.12s ease-out', // Smooth transition only when no active gesture
+            willChange: 'transform',
+            userSelect: 'none',
+            pointerEvents: 'none', // Pass pointer events to the parent div
+          }}
+        />
+      </div>
+
+      {/* Top controls */}
+      <div style={{ position: 'absolute', top: 14, left: 14, right: 14, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, pointerEvents: 'none' }}>
+        <button type="button" onClick={onBack} style={{ ...controlButtonStyle, pointerEvents: 'auto' }}>
+          <ArrowLeft size={15} /> EVENTOS
+        </button>
+        <div style={{ background: 'rgba(15,23,42,0.82)', color: 'white', borderRadius: 999, padding: '8px 12px', fontSize: 11, fontWeight: 900, backdropFilter: 'blur(10px)', pointerEvents: 'auto' }}>
+          {Math.round(scale * 100)}%
+        </div>
+      </div>
+
+      {/* Bottom controls */}
+      <div style={{ position: 'absolute', left: 12, right: 12, bottom: 18, zIndex: 20, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, flexWrap: 'wrap', pointerEvents: 'none' }}>
+        <button type="button" onClick={onInfo} style={{ ...controlButtonStyle, pointerEvents: 'auto' }}>
+          <Info size={15} /> INFO
+        </button>
+        <button type="button" onClick={resetZoom} style={{ ...controlButtonStyle, pointerEvents: 'auto' }}>
+          <RotateCcw size={15} /> RESET
+        </button>
+        <button type="button" onClick={onShare} style={{ ...controlButtonStyle, background: 'rgba(79,70,229,0.92)', pointerEvents: 'auto' }}>
+          <Share2 size={15} /> COMPARTIR
+        </button>
+      </div>
+
+      {/* Zoom hint */}
+      <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: 800, textAlign: 'center', pointerEvents: 'none', opacity: scale === 1 ? 1 : 0, transition: 'opacity 0.2s ease' }}>
+        Pellizca con dos dedos para ampliar
+        <br />
+        Doble toque para zoom rápido
+      </div>
+    </div>
+  );
+}
+
+
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [events, setEvents] = useState([]);
@@ -367,6 +587,7 @@ export default function App() {
   const [isDark, setIsDark] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('TODOS');
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [imageZoomMode, setImageZoomMode] = useState(false); // ✅ NUEVO ESTADO para controlar el zoom de la foto
   const [mapCenter, setMapCenter] = useState(null);
   const [mapSearch, setMapSearch] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -426,7 +647,7 @@ export default function App() {
     };
   }, []);
 
-  function fetchEvents() {
+  const fetchEvents = useCallback(() => { // Envuelto en useCallback
     try {
       const cached = localStorage.getItem('eventora_cache_events_v1');
       if (cached) {
@@ -465,7 +686,7 @@ export default function App() {
         }
       }
     });
-  }
+  }, [setEvents, setFavorites, showToast, setSelectedEvent]); // dependencias
 
   function handleInputChange(e) {
     const name = e.target.name;
@@ -775,6 +996,7 @@ export default function App() {
     setSelectedPendingEvent(null);
     setEditingEvent(null);
     setSearchQuery('');
+    setImageZoomMode(false); // ✅ Reiniciar modo zoom al volver a home
     window.history.pushState({}, '', '/');
   }
 
@@ -869,30 +1091,34 @@ export default function App() {
         @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
       `}</style>
 
-      <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
-        <div style={{ cursor: 'pointer' }} onClick={goHome}>
-          <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png" alt="Eventora" style={{ height: 18, width: 'auto' }} />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {hasAdmin && (
-            <button onClick={() => { setView('admin'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setAdminTab('pending'); fetchEvents(); }} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
-              <ShieldCheck size={21} className={rawPendingEvents.length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1' }} />
-              {rawPendingEvents.length > 0 && (
-                <span style={{ position: 'absolute', top: -8, right: -10, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 999, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: '2px solid ' + (isDark ? '#0f172a' : '#fff') }}>
-                  {rawPendingEvents.length}
-                </span>
-              )}
+      {/* NAVBAR */}
+      {/* ✅ MODIFICACIÓN 2: Ocultar navbar cuando esté en modo zoom de foto */}
+      {!(view === 'detail' && imageZoomMode) && (
+        <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
+          <div style={{ cursor: 'pointer' }} onClick={goHome}>
+            <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png" alt="Eventora" style={{ height: 18, width: 'auto' }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {hasAdmin && (
+              <button onClick={() => { setView('admin'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setAdminTab('pending'); fetchEvents(); }} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                <ShieldCheck size={21} className={rawPendingEvents.length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1' }} />
+                {rawPendingEvents.length > 0 && (
+                  <span style={{ position: 'absolute', top: -8, right: -10, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 999, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: '2px solid ' + (isDark ? '#0f172a' : '#fff') }}>
+                    {rawPendingEvents.length}
+                  </span>
+                )}
+              </button>
+            )}
+            {!userEmail && (
+              <button onClick={handleLogin} style={{ background: '#4f46e5', color: 'white', border: 'none', borderRadius: 8, padding: '4px 8px', fontSize: 8, fontWeight: 900, cursor: 'pointer' }}>LOGIN</button>
+            )}
+            <button onClick={() => setIsDark(!isDark)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+              {isDark ? <Sun size={18} color="#facc15" /> : <Moon size={18} color="#4f46e5" />}
             </button>
-          )}
-          {!userEmail && (
-            <button onClick={handleLogin} style={{ background: '#4f46e5', color: 'white', border: 'none', borderRadius: 8, padding: '4px 8px', fontSize: 8, fontWeight: 900, cursor: 'pointer' }}>LOGIN</button>
-          )}
-          <button onClick={() => setIsDark(!isDark)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
-            {isDark ? <Sun size={18} color="#facc15" /> : <Moon size={18} color="#4f46e5" />}
-          </button>
-          <Sparkles size={18} color="#6366f1" style={{ cursor: 'pointer' }} onClick={() => setView('profile')} />
-        </div>
-      </nav>
+            <Sparkles size={18} color="#6366f1" style={{ cursor: 'pointer' }} onClick={() => setView('profile')} />
+          </div>
+        </nav>
+      )}
 
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
 
@@ -976,49 +1202,55 @@ export default function App() {
           </div>
         )}
 
-        {selectedEvent && !selectedPendingEvent && !editingEvent && (
-          <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
-              <button onClick={() => setSelectedEvent(null)} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
-                <ArrowLeft size={14} /> VOLVER
-              </button>
-            </div>
-
-            <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
-              <img src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: '100%', height: 150, objectFit: 'cover', flexShrink: 0 }} />
-
-              <div style={{ padding: 12, flex: 1 }}>
-                <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>
-                  {categoryEmojis[selectedEvent.category] || '📌'}
-                </p>
-                <h2 style={{ fontSize: 17, fontWeight: 900, marginBottom: 8 }}>{selectedEvent.title}</h2>
-
-                <div style={{ display: 'flex', gap: 15, marginBottom: 8 }}>
-                  <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}>
-                    <Calendar color="#6366f1" size={13} /> <b>{formatDate(selectedEvent.date)}</b>
-                  </div>
-                  <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}>
-                    <Clock color="#6366f1" size={13} /> <b>{selectedEvent.time}H</b>
-                  </div>
-                </div>
-
-                {getDaysLabel(selectedEvent.date) && (
-                  <div style={{ display: 'inline-block', background: getDaysLabel(selectedEvent.date).bg, color: getDaysLabel(selectedEvent.date).color, padding: '3px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900, marginBottom: 8 }}>
-                    {getDaysLabel(selectedEvent.date).text}
-                  </div>
-                )}
-
-                <div onClick={() => window.open('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(selectedEvent.address + ' ' + (selectedEvent.localidad || '') + ' ' + selectedEvent.city))} style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 8, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1', marginBottom: 8 }}>
-                  <MapPin color="#6366f1" size={14} style={{ margin: '0 auto 2px' }} />
-                  <b style={{ fontSize: 10 }}>{selectedEvent.address}, {selectedEvent.localidad || ''} - {selectedEvent.city}</b><br />
-                  <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
-                </div>
-
-                <button onClick={() => shareEvent(selectedEvent)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
-                  <Share2 size={14} /> COMPARTIR EVENTO
+        {/* ✅ MODIFICACIÓN 2: Lógica de visualización de detalles y zoom */}
+        {view === 'detail' && selectedEvent && (
+          <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {imageZoomMode ? (
+              <PhotoZoom
+                src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
+                alt={selectedEvent.title}
+                onBack={goHome} // Vuelve a la pantalla de inicio
+                onInfo={() => setImageZoomMode(false)} // Sale del zoom para ver los detalles
+                onShare={() => shareEvent(selectedEvent)}
+              />
+            ) : (
+              // Vista de detalles (texto)
+              <div className="no-scrollbar" style={{ padding: 12, flex: 1, overflowY: 'auto', paddingBottom: 30 }}>
+                <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11, marginBottom: 12 }}>
+                  <ArrowLeft size={14} /> VOLVER A EVENTOS
                 </button>
+                
+                <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 20, overflow: 'hidden', padding: 0 }}>
+                  <button onClick={() => setImageZoomMode(true)} style={{ width: '100%', border: 'none', background: '#000', padding: 0, cursor: 'zoom-in', display: 'block' }}>
+                    <img src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: '100%', height: 220, objectFit: 'cover' }} />
+                  </button>
+
+                  <div style={{ padding: 18 }}>
+                    <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>
+                      {categoryEmojis[selectedEvent.category] || '📌'} {selectedEvent.category || 'EVENTO'}
+                    </p>
+                    <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 15 }}>{selectedEvent.title}</h2>
+
+                    <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><Calendar color="#6366f1" size={16} /><b>{formatDate(selectedEvent.date)}</b></div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><Clock color="#6366f1" size={16} /><b>{selectedEvent.time}H</b></div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><MapPin color="#6366f1" size={16} /><b>{selectedEvent.address}, {selectedEvent.localidad || ''} - {selectedEvent.city}</b></div>
+                      {selectedEvent.created_at && <div style={{ fontSize: 11, opacity: 0.65 }}>Enviado: {formatDateTime(selectedEvent.created_at)}</div>}
+                    </div>
+
+                    <div onClick={() => window.open('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(selectedEvent.address + ' ' + (selectedEvent.localidad || '') + ' ' + selectedEvent.city))} style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 8, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1', marginBottom: 8 }}>
+                      <MapPin color="#6366f1" size={14} style={{ margin: '0 auto 2px' }} />
+                      <b style={{ fontSize: 10 }}>{selectedEvent.address}, {selectedEvent.localidad || ''} - {selectedEvent.city}</b><br />
+                      <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
+                    </div>
+
+                    <button onClick={() => shareEvent(selectedEvent)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+                      <Share2 size={14} /> COMPARTIR EVENTO
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -1281,23 +1513,27 @@ export default function App() {
         )}
       </main>
 
-      <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,.4)', zIndex: 3000, background: isDark ? 'rgba(15,23,42,.95)' : 'rgba(255,255,255,.95)' }}>
-        <button onClick={goHome} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
-          <LayoutList size={22} />
-        </button>
-        <button onClick={() => { setView('favorites'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
-          <Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} />
-          {favoriteEvents.length > 0 && (
-            <span style={{ position: 'absolute', top: -4, right: -8, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px', minWidth: 14, textAlign: 'center' }}>{favoriteEvents.length}</span>
-          )}
-        </button>
-        <button onClick={() => { setView('create'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
-          <PlusCircle size={22} />
-        </button>
-        <button onClick={() => { setView('map'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
-          <MapIcon size={22} />
-        </button>
-      </nav>
+      {/* BOTTOM NAV */}
+      {/* ✅ MODIFICACIÓN 2: Ocultar bottom nav cuando esté en modo zoom de foto */}
+      {!(view === 'detail' && imageZoomMode) && (
+        <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,.4)', zIndex: 3000, background: isDark ? 'rgba(15,23,42,.95)' : 'rgba(255,255,255,.95)' }}>
+          <button onClick={goHome} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+            <LayoutList size={22} />
+          </button>
+          <button onClick={() => { setView('favorites'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
+            <Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} />
+            {favoriteEvents.length > 0 && (
+              <span style={{ position: 'absolute', top: -4, right: -8, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px', minWidth: 14, textAlign: 'center' }}>{favoriteEvents.length}</span>
+            )}
+          </button>
+          <button onClick={() => { setView('create'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+            <PlusCircle size={22} />
+          </button>
+          <button onClick={() => { setView('map'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); }} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+            <MapIcon size={22} />
+          </button>
+        </nav>
+      )}
     </div>
   );
 }
