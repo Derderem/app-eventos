@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { useLocation, useRoute } from 'wouter';
 import {
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, Trash2,
   Map as MapIcon, Clock, LayoutList, ShieldCheck, Sparkles,
@@ -137,13 +136,7 @@ async function compressImage(file, options = {}) {
     return { blob: jpegBlob, extension: 'jpg', type: 'image/jpeg', originalSize: file.size, compressedSize: jpegBlob.size };
   }
 
-  return {
-    blob: file,
-    extension: file.name.split('.').pop() || 'jpg',
-    type: file.type,
-    originalSize: file.size,
-    compressedSize: file.size
-  };
+  return { blob: file, extension: file.name.split('.').pop() || 'jpg', type: file.type, originalSize: file.size, compressedSize: file.size };
 }
 
 function fallbackCopyText(text, showToast) {
@@ -241,7 +234,7 @@ function exportToCSV(events) {
   URL.revokeObjectURL(link.href);
 }
 
-function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, openEvent }) {
+function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, setSelectedEvent }) {
   const dl = getDaysLabel(ev.date);
   const isReallyFeatured = ev.featured === true;
 
@@ -292,7 +285,7 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
           </p>
 
           <h3 style={{ fontWeight: 900, fontSize: featured ? 17 : 15, marginBottom: 10 }}>{ev.title}</h3>
-          <button onClick={() => openEvent(ev)} style={{
+          <button onClick={() => setSelectedEvent(ev)} style={{
             width: '100%', padding: featured ? 12 : 11, borderRadius: 14,
             background: '#4f46e5', color: 'white', border: 'none',
             fontWeight: 900, fontSize: featured ? 11 : 10, cursor: 'pointer'
@@ -357,9 +350,6 @@ function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onV
 }
 
 export default function App() {
-  const [location, navigate] = useLocation();
-  const [isEventRoute, eventParams] = useRoute('/evento/:id');
-
   const [showSplash, setShowSplash] = useState(true);
   const [events, setEvents] = useState([]);
   const [favorites, setFavorites] = useState(() => {
@@ -392,7 +382,15 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [adminSearch, setAdminSearch] = useState('');
   const [adminCityFilter, setAdminCityFilter] = useState('TODAS');
+  const [currentPath, setCurrentPath] = useState(() => {
+    try {
+      return window.location.pathname || '/';
+    } catch {
+      return '/';
+    }
+  });
 
+  // Estados para zoom de foto
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
   const [photoScale, setPhotoScale] = useState(1);
   const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
@@ -400,6 +398,17 @@ export default function App() {
   const listRef = useRef(null);
   const toastTimerRef = useRef(null);
   const mapSearchTimerRef = useRef(null);
+  const lastNonEventPathRef = useRef(
+    (() => {
+      try {
+        const p = window.location.pathname || '/';
+        return p.startsWith('/evento/') ? '/' : p;
+      } catch {
+        return '/';
+      }
+    })()
+  );
+  const routeEventLookupRef = useRef('');
   const photoTouchRef = useRef({
     initialDistance: 0,
     initialScale: 1,
@@ -414,6 +423,97 @@ export default function App() {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ message, type });
     toastTimerRef.current = setTimeout(() => setToast(null), 3600);
+  }
+
+  function navigateTo(path, replace = false) {
+    const target = path || '/';
+    try {
+      if (!target.startsWith('/evento/')) {
+        lastNonEventPathRef.current = target;
+      }
+
+      if (window.location.pathname !== target) {
+        if (replace) {
+          window.history.replaceState({}, '', target);
+        } else {
+          window.history.pushState({}, '', target);
+        }
+      }
+      setCurrentPath(target);
+    } catch {
+      setCurrentPath(target);
+    }
+  }
+
+  function resetDetailUi() {
+    setIsPhotoZoomed(false);
+    setPhotoScale(1);
+    setPhotoPos({ x: 0, y: 0 });
+  }
+
+  function clearSelections() {
+    setSelectedEvent(null);
+    setSelectedPendingEvent(null);
+    setEditingEvent(null);
+    resetDetailUi();
+  }
+
+  function openEvent(ev) {
+    if (!currentPath.startsWith('/evento/')) {
+      lastNonEventPathRef.current = currentPath || '/';
+    }
+    setSelectedPendingEvent(null);
+    setEditingEvent(null);
+    resetDetailUi();
+    setSelectedEvent(ev);
+    navigateTo('/evento/' + ev.id);
+  }
+
+  function closeSelectedEvent() {
+    const backPath = lastNonEventPathRef.current || '/';
+    setSelectedEvent(null);
+    resetDetailUi();
+    navigateTo(backPath);
+  }
+
+  function goHome() {
+    setView('home');
+    clearSelections();
+    setSearchQuery('');
+    navigateTo('/');
+  }
+
+  function goFavorites() {
+    setView('favorites');
+    clearSelections();
+    navigateTo('/favoritos');
+  }
+
+  function goCreate() {
+    setView('create');
+    clearSelections();
+    navigateTo('/crear');
+  }
+
+  function goMap() {
+    setView('map');
+    clearSelections();
+    navigateTo('/mapa');
+  }
+
+  function goProfile() {
+    setView('profile');
+    clearSelections();
+    navigateTo('/perfil');
+  }
+
+  function goAdmin() {
+    if (!hasAdmin) return;
+    setView('admin');
+    clearSelections();
+    setAdminTab('pending');
+    fetchEvents();
+    navigateTo('/admin');
   }
 
   useEffect(() => {
@@ -446,89 +546,136 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (isEventRoute) return;
+    function handlePopState() {
+      const path = window.location.pathname || '/';
+      setCurrentPath(path);
+      if (!path.startsWith('/evento/')) {
+        lastNonEventPathRef.current = path;
+      }
+    }
 
-    if (location === '/') {
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Rutas simples para vistas principales
+  useEffect(() => {
+    if (currentPath.startsWith('/evento/')) return;
+
+    routeEventLookupRef.current = '';
+
+    if (currentPath === '/') {
       setView('home');
       setSelectedEvent(null);
       setSelectedPendingEvent(null);
       setEditingEvent(null);
-      setIsPhotoZoomed(false);
+      resetDetailUi();
       return;
     }
 
-    if (location === '/favoritos') {
+    if (currentPath === '/favoritos') {
       setView('favorites');
       setSelectedEvent(null);
       setSelectedPendingEvent(null);
       setEditingEvent(null);
-      setIsPhotoZoomed(false);
+      resetDetailUi();
       return;
     }
 
-    if (location === '/crear') {
+    if (currentPath === '/crear') {
       setView('create');
       setSelectedEvent(null);
       setSelectedPendingEvent(null);
       setEditingEvent(null);
-      setIsPhotoZoomed(false);
+      resetDetailUi();
       return;
     }
 
-    if (location === '/mapa') {
+    if (currentPath === '/mapa') {
       setView('map');
       setSelectedEvent(null);
       setSelectedPendingEvent(null);
       setEditingEvent(null);
-      setIsPhotoZoomed(false);
+      resetDetailUi();
       return;
     }
 
-    if (location === '/perfil') {
+    if (currentPath === '/perfil') {
       setView('profile');
       setSelectedEvent(null);
       setSelectedPendingEvent(null);
       setEditingEvent(null);
-      setIsPhotoZoomed(false);
+      resetDetailUi();
       return;
     }
 
-    if (location === '/admin') {
+    if (currentPath === '/admin') {
       if (hasAdmin) {
         setView('admin');
         setSelectedEvent(null);
-        setIsPhotoZoomed(false);
+        setSelectedPendingEvent(null);
+        setEditingEvent(null);
+        resetDetailUi();
       } else {
-        navigate('/');
+        navigateTo('/', true);
       }
       return;
     }
 
-    navigate('/');
-  }, [location, isEventRoute, hasAdmin, navigate]);
+    navigateTo('/', true);
+  }, [currentPath, hasAdmin]);
 
+  // Ruta directa /evento/:id
   useEffect(() => {
-    if (!isEventRoute) return;
-    const eventId = eventParams && eventParams.id;
-    if (!eventId) return;
-    if (!events) return;
-    if (events.length === 0) return;
+    if (!currentPath.startsWith('/evento/')) return;
 
-    const foundEvent = events.find((e) =>
-      String(e.id) === String(eventId) && (e.status === 'approved' || hasAdmin)
+    const idFromUrl = currentPath.replace('/evento/', '').split('/')[0];
+    if (!idFromUrl) {
+      navigateTo('/', true);
+      return;
+    }
+
+    const foundInState = events.find((e) =>
+      String(e.id) === String(idFromUrl) && (e.status === 'approved' || hasAdmin)
     );
 
-    if (foundEvent) {
-      setView('home');
+    if (foundInState) {
       setSelectedPendingEvent(null);
       setEditingEvent(null);
-      setIsPhotoZoomed(false);
-      setSelectedEvent(foundEvent);
-    } else {
-      showToast('Evento no encontrado', 'error');
-      navigate('/');
+      resetDetailUi();
+      setSelectedEvent(foundInState);
+      routeEventLookupRef.current = idFromUrl;
+      return;
     }
-  }, [isEventRoute, eventParams, events, hasAdmin, navigate]);
+
+    if (routeEventLookupRef.current === idFromUrl) return;
+    routeEventLookupRef.current = idFromUrl;
+
+    supabase.from('events')
+      .select('*')
+      .eq('id', idFromUrl)
+      .single()
+      .then((res) => {
+        if (res.error || !res.data || (res.data.status !== 'approved' && !hasAdmin)) {
+          showToast('Evento no encontrado', 'error');
+          setSelectedEvent(null);
+          routeEventLookupRef.current = '';
+          navigateTo('/', true);
+          return;
+        }
+
+        setSelectedPendingEvent(null);
+        setEditingEvent(null);
+        resetDetailUi();
+        setSelectedEvent(res.data);
+      })
+      .catch(() => {
+        showToast('Evento no encontrado', 'error');
+        setSelectedEvent(null);
+        routeEventLookupRef.current = '';
+        navigateTo('/', true);
+      });
+  }, [currentPath, events, hasAdmin]);
 
   function fetchEvents() {
     try {
@@ -551,64 +698,6 @@ export default function App() {
       const validIds = data.map((e) => e.id);
       setFavorites((prev) => prev.filter((id) => validIds.indexOf(id) !== -1));
     });
-  }
-
-  function clearTransientState() {
-    setSelectedEvent(null);
-    setSelectedPendingEvent(null);
-    setEditingEvent(null);
-    setIsPhotoZoomed(false);
-    setPhotoScale(1);
-    setPhotoPos({ x: 0, y: 0 });
-  }
-
-  function goHome() {
-    setView('home');
-    clearTransientState();
-    setSearchQuery('');
-    navigate('/');
-  }
-
-  function goFavorites() {
-    setView('favorites');
-    clearTransientState();
-    navigate('/favoritos');
-  }
-
-  function goCreate() {
-    setView('create');
-    clearTransientState();
-    navigate('/crear');
-  }
-
-  function goMap() {
-    setView('map');
-    clearTransientState();
-    navigate('/mapa');
-  }
-
-  function goProfile() {
-    setView('profile');
-    clearTransientState();
-    navigate('/perfil');
-  }
-
-  function goAdminPanel() {
-    if (!hasAdmin) return;
-    setView('admin');
-    clearTransientState();
-    setAdminTab('pending');
-    fetchEvents();
-    navigate('/admin');
-  }
-
-  function openEvent(ev) {
-    setView('home');
-    setSelectedPendingEvent(null);
-    setEditingEvent(null);
-    setIsPhotoZoomed(false);
-    setSelectedEvent(ev);
-    navigate('/evento/' + ev.id);
   }
 
   function handleInputChange(e) {
@@ -654,11 +743,7 @@ export default function App() {
     if (upload.error) throw upload.error;
 
     const publicUrlData = supabase.storage.from('event-images').getPublicUrl(path);
-    return {
-      url: publicUrlData.data.publicUrl,
-      originalSize: optimized.originalSize,
-      compressedSize: optimized.compressedSize
-    };
+    return { url: publicUrlData.data.publicUrl, originalSize: optimized.originalSize, compressedSize: optimized.compressedSize };
   }
 
   async function handleGalleryUpload(e) {
@@ -761,8 +846,7 @@ export default function App() {
         }
         showToast('Evento enviado a revisión correctamente', 'success');
         setForm(INITIAL_FORM);
-        setView('home');
-        navigate('/');
+        goHome();
         fetchEvents();
       })
       .catch((err) => { console.error(err); showToast('Error al enviar', 'error'); })
@@ -853,20 +937,27 @@ export default function App() {
 
   function handleDeleteEvent(id) {
     if (!window.confirm('¿Seguro que quieres borrar este evento?')) return;
+    const wasSelected = selectedEvent && selectedEvent.id === id;
+
     supabase.from('events').delete().eq('id', id).then((res) => {
       if (res.error) { showToast('Error borrando', 'error'); return; }
       showToast('Evento borrado', 'success');
       setSelectedPendingEvent(null);
       setEditingEvent(null);
+      if (wasSelected) {
+        closeSelectedEvent();
+      }
       fetchEvents();
-      if (selectedEvent && selectedEvent.id === id) navigate('/');
     });
   }
 
   function handleLogin() {
     const email = prompt('Escribe tu email:');
     if (!email) return;
-    supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href || APP_URL } }).then((res) => {
+
+    const redirectUrl = APP_URL + (currentPath || '/');
+
+    supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectUrl } }).then((res) => {
       if (res.error) { console.error(res.error); showToast('Error enviando login', 'error'); return; }
       showToast('Revisa tu email y pulsa el enlace', 'success');
     });
@@ -877,9 +968,8 @@ export default function App() {
       setUserEmail('');
       setProfile(null);
       fetchEvents();
-      setView('home');
+      goHome();
       setEditingEvent(null);
-      navigate('/');
       showToast('Sesión cerrada', 'success');
     });
   }
@@ -925,6 +1015,7 @@ export default function App() {
     if (listRef.current) listRef.current.scrollTop = 0;
   }
 
+  // Funciones para zoom de foto
   function enterPhotoZoom() {
     setIsPhotoZoomed(true);
     setPhotoScale(1);
@@ -968,7 +1059,9 @@ export default function App() {
       setPhotoScale(newScale);
     } else if (e.touches.length === 1 && photoScale > 1) {
       e.preventDefault();
+
       const slowFactor = 0.55;
+
       const dx = e.touches[0].clientX - photoTouchRef.current.lastX;
       const dy = e.touches[0].clientY - photoTouchRef.current.lastY;
 
@@ -1081,7 +1174,7 @@ export default function App() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {hasAdmin && (
-            <button onClick={goAdminPanel} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+            <button onClick={goAdmin} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
               <ShieldCheck size={21} className={rawPendingEvents.length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1' }} />
               {rawPendingEvents.length > 0 && (
                 <span style={{ position: 'absolute', top: -8, right: -10, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 999, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: '2px solid ' + (isDark ? '#0f172a' : '#fff') }}>
@@ -1176,12 +1269,13 @@ export default function App() {
                 </div>
               )}
 
-              {featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} openEvent={openEvent} />}
-              {restEvents.map((ev) => <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} openEvent={openEvent} />)}
+              {featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />}
+              {restEvents.map((ev) => <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />)}
             </div>
           </div>
         )}
 
+        {/* Detalles con zoom de foto */}
         {selectedEvent && !selectedPendingEvent && !editingEvent && (
           <>
             {isPhotoZoomed ? (
@@ -1215,7 +1309,7 @@ export default function App() {
                     display: 'flex', alignItems: 'center', gap: 6
                   }}
                 >
-                  <X size={16} /> CERRAR
+                  <X size={16}/> CERRAR
                 </button>
                 <div style={{
                   position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)',
@@ -1228,7 +1322,7 @@ export default function App() {
             ) : (
               <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
-                  <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
+                  <button onClick={closeSelectedEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
                     <ArrowLeft size={14} /> VOLVER
                   </button>
                 </div>
@@ -1552,7 +1646,7 @@ export default function App() {
       </main>
 
       <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,.4)', zIndex: 3000, background: isDark ? 'rgba(15,23,42,.95)' : 'rgba(255,255,255,.95)' }}>
-        <button onClick={goHome} style={{ background: 'none', border: 'none', color: (view === 'home' || selectedEvent) ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={goHome} style={{ background: 'none', border: 'none', color: (view === 'home' || currentPath.startsWith('/evento/')) ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <LayoutList size={22} />
         </button>
         <button onClick={goFavorites} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
