@@ -436,6 +436,64 @@ export default function App() {
     };
   }, []);
 
+  // ✅ NUEVO: Leer la URL al cargar y abrir el evento directamente si hay /evento/ID
+  useEffect(() => {
+    function openEventFromUrl() {
+      const path = window.location.pathname;
+      const match = path.match(/^\/evento\/(.+)$/);
+      if (!match || !match[1]) return;
+
+      const eventId = match[1];
+
+      // Buscar primero en los eventos ya cargados en memoria
+      const found = events.find((e) => String(e.id) === String(eventId));
+      if (found && found.status === 'approved') {
+        setSelectedEvent(found);
+        setView('home');
+        return;
+      }
+
+      // Si no está en memoria todavía, ir a buscarlo directamente a Supabase
+      supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .eq('status', 'approved')
+        .single()
+        .then((res) => {
+          if (res.data) {
+            setSelectedEvent(res.data);
+            setView('home');
+          } else {
+            showToast('Evento no encontrado', 'error');
+            window.history.pushState({}, '', '/');
+          }
+        })
+        .catch(() => {
+          showToast('Error buscando el evento', 'error');
+          window.history.pushState({}, '', '/');
+        });
+    }
+
+    openEventFromUrl();
+
+    // Escuchar navegación atrás/adelante del navegador
+    function onPopState() {
+      const path = window.location.pathname;
+      const match = path.match(/^\/evento\/(.+)$/);
+      if (!match) {
+        // Vuelve a la home
+        setSelectedEvent(null);
+        setView('home');
+      } else {
+        openEventFromUrl();
+      }
+    }
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [events]);
+
   function fetchEvents() {
     try {
       const cached = localStorage.getItem('eventora_cache_events_v1');
@@ -747,8 +805,12 @@ export default function App() {
     }, 600);
   }
 
+  // ✅ MODIFICADO: shareEvent ahora también actualiza la URL del navegador
   function shareEvent(ev) {
     const realLink = APP_URL + '/evento/' + ev.id;
+
+    // Actualizar la barra del navegador con la ruta del evento
+    window.history.pushState({ eventId: ev.id }, '', '/evento/' + ev.id);
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(realLink).then(() => {
@@ -761,6 +823,7 @@ export default function App() {
     }
   }
 
+  // ✅ MODIFICADO: goHome ahora limpia la URL del navegador
   function goHome() {
     setView('home');
     setSelectedEvent(null);
@@ -823,7 +886,6 @@ export default function App() {
     } else if (e.touches.length === 1 && photoScale > 1) {
       e.preventDefault();
 
-      // Factor de lentitud: 0.55 = más lento que el natural
       const slowFactor = 0.55;
 
       const dx = e.touches[0].clientX - photoTouchRef.current.lastX;
@@ -1039,11 +1101,10 @@ export default function App() {
           </div>
         )}
 
-        {/* Detalles con zoom de foto */}
+        {/* ✅ MODIFICADO: Detalles - VOLVER ahora sincroniza la URL */}
         {selectedEvent && !selectedPendingEvent && !editingEvent && (
           <>
             {isPhotoZoomed ? (
-              /* Modo Zoom fullscreen */
               <div
                 style={{
                   position: 'fixed', inset: 0, zIndex: 99999, background: '#000',
@@ -1085,16 +1146,15 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              /* Vista normal detalles */
               <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
-                  <button onClick={() => setSelectedEvent(null)} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
+                  {/* ✅ MODIFICADO: VOLVER ahora sincroniza la URL a "/" */}
+                  <button onClick={() => { setSelectedEvent(null); window.history.pushState({}, '', '/'); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
                     <ArrowLeft size={14} /> VOLVER
                   </button>
                 </div>
 
                 <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
-                  {/* Foto clickable */}
                   <div
                     onClick={enterPhotoZoom}
                     style={{
@@ -1431,4 +1491,14 @@ export default function App() {
       </nav>
     </div>
   );
+}
+También necesitas crear vercel.json en la raíz del proyecto
+Sin esto, cuando abras app-eventos-pro-final.vercel.app/evento/123, Vercel devuelve 404 porque no existe esa ruta como archivo real:
+
+JSON
+
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
+  ]
 }
