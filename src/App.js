@@ -252,13 +252,9 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
           </div>
         )}
 
-        {dl && (
-          <div style={{
-            position: 'absolute', top: 10, right: 50, zIndex: 5, background: dl.bg,
-            color: dl.color, padding: '4px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900
-          }}>{dl.text}</div>
-        )}
-
+        {/* ✅ MODIFICACIÓN ÚNICA:
+            - Quitamos la etiqueta de días del overlay en la imagen (antes era absolute top/right)
+            - La mostramos al lado de la fecha en la línea de "CIUDAD | FECHA" */}
         <div style={{ position: 'relative', height: featured ? 200 : 160 }}>
           <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <button onClick={() => toggleFavorite(ev.id)} style={{
@@ -272,7 +268,23 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
         <div style={{ padding: 15, textAlign: 'center' }}>
           <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 5 }}>
             {categoryEmojis[ev.category] || '📌'} {ev.city} | {formatDate(ev.date)}
+            {dl && (
+              <span style={{
+                display: 'inline-block',
+                marginLeft: 8,
+                background: dl.bg,
+                color: dl.color,
+                padding: '2px 8px',
+                borderRadius: 8,
+                fontSize: 9,
+                fontWeight: 900,
+                letterSpacing: 0
+              }}>
+                {dl.text}
+              </span>
+            )}
           </p>
+
           <h3 style={{ fontWeight: 900, fontSize: featured ? 17 : 15, marginBottom: 10 }}>{ev.title}</h3>
           <button onClick={() => setSelectedEvent(ev)} style={{
             width: '100%', padding: featured ? 12 : 11, borderRadius: 14,
