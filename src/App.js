@@ -1209,22 +1209,24 @@ export default function App() {
 
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color .25s, color .25s; }
-        html, body, #root { width: 100%; height: 100%; overflow: hidden; }
-        .dark-theme { background:#020617; color:white; }
-        .light-theme { background:#f8fafc; color:#0f172a; }
-        .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
-        .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
-        .no-scrollbar::-webkit-scrollbar { display:none; }
-        .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
-        .leaflet-container img { max-width:none!important; max-height:none!important; }
-        @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-        .animate-spin { animation:spin 1s linear infinite; }
-        @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
-        .pulse-admin { animation:admin-pulse 1.4s infinite; }
-        @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
-        .heart-pop { animation:heartPop .6s ease-out; }
-        @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
-      `}</style>
+  html, body, #root { width: 100%; height: 100%; overflow: hidden; }
+  .dark-theme { background:#020617; color:white; }
+  .light-theme { background:#f8fafc; color:#0f172a; }
+  .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
+  .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
+  .no-scrollbar::-webkit-scrollbar { display:none; }
+  .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+  .leaflet-container img { max-width:none!important; max-height:none!important; }
+  @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+  .animate-spin { animation:spin 1s linear infinite; }
+  @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
+  .pulse-admin { animation:admin-pulse 1.4s infinite; }
+  @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
+  .heart-pop { animation:heartPop .6s ease-out; }
+  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  /* AÑADE ESTA LÍNEA AQUÍ */
+  .share-btn:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
+`}</style>
 
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
         <div style={{ cursor: 'pointer' }} onClick={goHome}>
