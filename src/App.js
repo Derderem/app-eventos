@@ -1226,8 +1226,6 @@ export default function App() {
   @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
   /* AÑADE ESTA LÍNEA AQUÍ */
   .share-btn:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
-  @media (max-width: 320px) {
-  .share-btn { font-size: 10px !important; padding: 12px !important; }
   /* Loader de imagen */
 .event-image-loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 1; }
 }
