@@ -132,7 +132,7 @@ async function compressImage(file, options = {}) {
   }
 
   const jpegBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
-  if (jpegBlob && jpegBlob.size > 0) {
+  if (jpegBlob && webpBlob.size > 0) {
     return { blob: jpegBlob, extension: 'jpg', type: 'image/jpeg', originalSize: file.size, compressedSize: jpegBlob.size };
   }
 
@@ -234,7 +234,7 @@ function exportToCSV(events) {
   URL.revokeObjectURL(link.href);
 }
 
-function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, setSelectedEvent }) {
+function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, setSelectedEvent, setView }) {
   const dl = getDaysLabel(ev.date);
   const isReallyFeatured = ev.featured === true;
 
@@ -284,8 +284,7 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
             )}
           </p>
 
-          <h3 style={{ fontWeight: 900, fontSize: featured ? 17 : 15, marginBottom: 10 }}>{ev.title}</h3>
-          <button onClick={() => setSelectedEvent(ev)} style={{
+          <button onClick={() => { setSelectedEvent(ev); setView('home'); }} style={{
             width: '100%', padding: featured ? 12 : 11, borderRadius: 14,
             background: '#4f46e5', color: 'white', border: 'none',
             fontWeight: 900, fontSize: featured ? 11 : 10, cursor: 'pointer'
@@ -407,6 +406,49 @@ export default function App() {
     toastTimerRef.current = setTimeout(() => setToast(null), 3600);
   }
 
+  // ✅ SISTEMA DE RUTAS — Detecta cambios en URL
+  useEffect(() => {
+    function handleRouteChange() {
+      const path = window.location.pathname;
+
+      // Evento específico
+      if (path.startsWith('/evento/')) {
+        const idFromUrl = path.replace('/evento/', '');
+        const foundEvent = events.find(e => String(e.id) === String(idFromUrl));
+        if (foundEvent) {
+          setSelectedEvent(foundEvent);
+          setView('home');
+        }
+        return;
+      }
+
+      // Vista por defecto
+      setView('home');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+    }
+
+    handleRouteChange();
+
+    window.addEventListener('popstate', handleRouteChange);
+    window.addEventListener('hashchange', handleRouteChange);
+
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+      window.removeEventListener('hashchange', handleRouteChange);
+    };
+  }, [events]);
+
+  // Función navega a ruta específica
+  function navigate(path) {
+    window.history.pushState({}, '', path);
+    const pathName = path.startsWith('/') ? path : '/' + path;
+    const triggerEvent = new HashChangeEvent('hashchange');
+    window.dispatchEvent(triggerEvent);
+  }
+
+  // Carga inicial y caché de eventos
   useEffect(() => {
     fetchEvents();
     return () => {
@@ -435,64 +477,6 @@ export default function App() {
       if (sub && sub.data && sub.data.subscription) sub.data.subscription.unsubscribe();
     };
   }, []);
-
-  // ✅ NUEVO: Leer la URL al cargar y abrir el evento directamente si hay /evento/ID
-  useEffect(() => {
-    function openEventFromUrl() {
-      const path = window.location.pathname;
-      const match = path.match(/^\/evento\/(.+)$/);
-      if (!match || !match[1]) return;
-
-      const eventId = match[1];
-
-      // Buscar primero en los eventos ya cargados en memoria
-      const found = events.find((e) => String(e.id) === String(eventId));
-      if (found && found.status === 'approved') {
-        setSelectedEvent(found);
-        setView('home');
-        return;
-      }
-
-      // Si no está en memoria todavía, ir a buscarlo directamente a Supabase
-      supabase
-        .from('events')
-        .select('*')
-        .eq('id', eventId)
-        .eq('status', 'approved')
-        .single()
-        .then((res) => {
-          if (res.data) {
-            setSelectedEvent(res.data);
-            setView('home');
-          } else {
-            showToast('Evento no encontrado', 'error');
-            window.history.pushState({}, '', '/');
-          }
-        })
-        .catch(() => {
-          showToast('Error buscando el evento', 'error');
-          window.history.pushState({}, '', '/');
-        });
-    }
-
-    openEventFromUrl();
-
-    // Escuchar navegación atrás/adelante del navegador
-    function onPopState() {
-      const path = window.location.pathname;
-      const match = path.match(/^\/evento\/(.+)$/);
-      if (!match) {
-        // Vuelve a la home
-        setSelectedEvent(null);
-        setView('home');
-      } else {
-        openEventFromUrl();
-      }
-    }
-
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, [events]);
 
   function fetchEvents() {
     try {
@@ -805,12 +789,8 @@ export default function App() {
     }, 600);
   }
 
-  // ✅ MODIFICADO: shareEvent ahora también actualiza la URL del navegador
   function shareEvent(ev) {
     const realLink = APP_URL + '/evento/' + ev.id;
-
-    // Actualizar la barra del navegador con la ruta del evento
-    window.history.pushState({ eventId: ev.id }, '', '/evento/' + ev.id);
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(realLink).then(() => {
@@ -823,7 +803,6 @@ export default function App() {
     }
   }
 
-  // ✅ MODIFICADO: goHome ahora limpia la URL del navegador
   function goHome() {
     setView('home');
     setSelectedEvent(null);
@@ -833,7 +812,7 @@ export default function App() {
     setPhotoScale(1);
     setPhotoPos({ x: 0, y: 0 });
     setSearchQuery('');
-    window.history.pushState({}, '', '/');
+    navigate('/');
   }
 
   function handleCategoryChange(cat) {
@@ -886,6 +865,7 @@ export default function App() {
     } else if (e.touches.length === 1 && photoScale > 1) {
       e.preventDefault();
 
+      // Factor de lentitud: 0.55 = más lento que el natural
       const slowFactor = 0.55;
 
       const dx = e.touches[0].clientX - photoTouchRef.current.lastX;
@@ -1095,16 +1075,17 @@ export default function App() {
                 </div>
               )}
 
-              {featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={setSelectedEvent} />}
-              {restEvents.map((ev) => <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={setSelectedEvent} />)}
+              {featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={setSelectedEvent} setView={setView} />}
+              {restEvents.map((ev) => <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={setSelectedEvent} setView={setView} />)}
             </div>
           </div>
         )}
 
-        {/* ✅ MODIFICADO: Detalles - VOLVER ahora sincroniza la URL */}
+        {/* Detalles con zoom de foto */}
         {selectedEvent && !selectedPendingEvent && !editingEvent && (
           <>
             {isPhotoZoomed ? (
+              /* Modo Zoom fullscreen */
               <div
                 style={{
                   position: 'fixed', inset: 0, zIndex: 99999, background: '#000',
@@ -1146,15 +1127,16 @@ export default function App() {
                 </div>
               </div>
             ) : (
+              /* Vista normal detalles */
               <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
-                  {/* ✅ MODIFICADO: VOLVER ahora sincroniza la URL a "/" */}
-                  <button onClick={() => { setSelectedEvent(null); window.history.pushState({}, '', '/'); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
+                  <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
                     <ArrowLeft size={14} /> VOLVER
                   </button>
                 </div>
 
                 <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
+                  {/* Foto clickable */}
                   <div
                     onClick={enterPhotoZoom}
                     style={{
@@ -1433,7 +1415,7 @@ export default function App() {
             ) : favoriteEvents.map((ev) => {
               const dl = getDaysLabel(ev.date);
               return (
-                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={() => setSelectedEvent(ev)}>
+                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={() => { setSelectedEvent(ev); setView('home'); }}>
                   <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }} />
                   <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
@@ -1473,32 +1455,22 @@ export default function App() {
       </main>
 
       <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,.4)', zIndex: 3000, background: isDark ? 'rgba(15,23,42,.95)' : 'rgba(255,255,255,.95)' }}>
-        <button onClick={goHome} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={() => { navigate('/'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); }} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <LayoutList size={22} />
         </button>
-        <button onClick={() => { setView('favorites'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); }} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
+        <button onClick={() => { navigate('/favoritos'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); }} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
           <Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} />
           {favoriteEvents.length > 0 && (
             <span style={{ position: 'absolute', top: -4, right: -8, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px', minWidth: 14, textAlign: 'center' }}>{favoriteEvents.length}</span>
           )}
         </button>
-        <button onClick={() => { setView('create'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); }} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={() => { navigate('/crear'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); }} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <PlusCircle size={22} />
         </button>
-        <button onClick={() => { setView('map'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); }} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={() => { navigate('/mapa'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); }} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <MapIcon size={22} />
         </button>
       </nav>
     </div>
   );
-}
-También necesitas crear vercel.json en la raíz del proyecto
-Sin esto, cuando abras app-eventos-pro-final.vercel.app/evento/123, Vercel devuelve 404 porque no existe esa ruta como archivo real:
-
-JSON
-
-{
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
-  ]
 }
