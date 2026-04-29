@@ -997,18 +997,76 @@ export default function App() {
   }
 
   function shareEvent(ev) {
-    const realLink = APP_URL + '/evento/' + ev.id;
+    const shareUrl = `${APP_URL}/evento/${ev.id}`;
+  const shareText = `¡No te pierdas ${ev.title}! ${shareUrl}`;
 
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(realLink).then(() => {
-        showToast('✅ Enlace copiado', 'success');
-      }).catch(() => {
-        fallbackCopyText(realLink, showToast);
-      });
-    } else {
-      fallbackCopyText(realLink, showToast);
-    }
+  const shareOptions = [
+    { name: 'WhatsApp', icon: '📱', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
+    { name: 'Facebook', icon: '📘', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
+    { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
+    { name: 'Copiar en portapapeles', icon: '📋', action: 'copy' }
+  ];
+
+  const shareModal = document.createElement('div');
+  shareModal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center;
+  `;
+
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: ${isDark ? '#0f172a' : '#fff'}; border-radius: 20px; padding: 25px; width: 90%; max-width: 360px; color: ${isDark ? '#fff' : '#0f172a'};
+  `;
+
+  modalContent.innerHTML = `
+    <h3 style="margin:0 0 20px; font-weight:900; text-align:center; font-size:16px;">Compartir evento</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+      ${shareOptions.map(opt => `
+        <button class="share-btn" data-action="${opt.action || 'link'}" data-url="${opt.url}" style="
+          padding:14px; border:none; border-radius:12px; font-weight:900; font-size:11px; cursor:pointer;
+          background: ${isDark ? '#1e293b' : '#f1f5f9'}; color: ${isDark ? '#fff' : '#0f172a'};
+          display:flex; align-items:center; justify-content:center; gap:8px;
+        ">
+          ${opt.icon} ${opt.name}
+        </button>
+      `).join('')}
+    </div>
+    <button id="close-share-modal" style="
+      width:100%; padding:12px; border:none; border-radius:12px; background:#64748b; color:white;
+      font-weight:900; font-size:12px; cursor:pointer;
+    ">CERRAR</button>
+  `;
+
+  shareModal.appendChild(modalContent);
+  document.body.appendChild(shareModal);
+
+  function closeModal() {
+    shareModal.remove();
   }
+
+  shareModal.addEventListener('click', (e) => {
+    if (e.target === shareModal) closeModal();
+  });
+
+  document.getElementById('close-share-modal').addEventListener('click', closeModal);
+
+  document.querySelectorAll('.share-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const action = e.currentTarget.dataset.action;
+      const url = e.currentTarget.dataset.url;
+
+      if (action === 'copy') {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          showToast('✅ Enlace copiado al portapapeles', 'success');
+        }).catch(() => {
+          showToast('❌ No se pudo copiar el enlace', 'error');
+        });
+      } else {
+        window.open(url, '_blank');
+      }
+      closeModal();
+    });
+  });
+}
 
   function handleCategoryChange(cat) {
     setSelectedCategory(cat);
