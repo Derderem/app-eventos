@@ -784,25 +784,94 @@ export default function App() {
     }
   }
 
-  function generateAIImage() {
-    if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
-    setIsGenerating(true);
-    showToast('Generando imagen con IA...', 'info');
-    const seed = Math.floor(Math.random() * 999999);
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + form.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
-    setForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
+ function buildSpanishPrompt(title, category) {
+  const cleanTitle = String(title || '').trim();
+
+  let categoryContext = '';
+  switch (category) {
+    case 'MUSICA':
+      categoryContext = 'concierto de música en vivo, escenario, luces de espectáculo, público, ambiente festivo';
+      break;
+    case 'GASTRONOMIA':
+      categoryContext = 'evento gastronómico, comida, tapas, platos deliciosos, ambiente culinario';
+      break;
+    case 'TAURINO':
+      categoryContext = 'evento taurino tradicional en España, plaza de toros, ambiente de feria, estilo realista';
+      break;
+    case 'FIESTAS PATRONALES':
+      categoryContext = 'fiestas patronales en un pueblo de España, desfile, luces, decoración festiva, ambiente tradicional';
+      break;
+    case 'OTROS':
+    default:
+      categoryContext = 'evento local, reunión pública, ambiente festivo y realista';
+      break;
   }
 
-  function generateAIImageEdit() {
-    if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
-    setIsGenerating(true);
-    showToast('Generando imagen con IA...', 'info');
-    const seed = Math.floor(Math.random() * 999999);
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + editForm.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
-    setEditForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
+  return `
+Fotografía profesional y realista de un evento llamado "${cleanTitle}".
+El evento debe estar claramente relacionado con: ${categoryContext}.
+La imagen debe mostrar una escena coherente con el título del evento.
+Estilo fotográfico natural, alta calidad, iluminación cinematográfica, colores vivos.
+Situado en España.
+Sin texto, sin letras, sin logotipos, sin marcas de agua.
+`.trim();
+}
+
+function generateAIImage() {
+  if (!form.title) {
+    showToast('Escribe un título primero', 'error');
+    return;
   }
+
+  setIsGenerating(true);
+  showToast('Generando imagen con IA...', 'info');
+
+  const seed = Math.floor(Math.random() * 999999);
+  const prompt = buildSpanishPrompt(form.title, form.category);
+
+  const url =
+    'https://image.pollinations.ai/prompt/' +
+    encodeURIComponent(prompt) +
+    '?width=800&height=600&seed=' +
+    seed +
+    '&nologo=true&t=' +
+    Date.now();
+
+  setForm((prev) => ({ ...prev, image_url: url }));
+
+  setTimeout(() => {
+    setIsGenerating(false);
+    showToast('Imagen generada con IA', 'success');
+  }, 1500);
+}
+
+function generateAIImageEdit() {
+  if (!editForm.title) {
+    showToast('Escribe un título primero', 'error');
+    return;
+  }
+
+  setIsGenerating(true);
+  showToast('Generando imagen con IA...', 'info');
+
+  const seed = Math.floor(Math.random() * 999999);
+  const prompt = buildSpanishPrompt(editForm.title, editForm.category);
+
+  const url =
+    'https://image.pollinations.ai/prompt/' +
+    encodeURIComponent(prompt) +
+    '?width=800&height=600&seed=' +
+    seed +
+    '&nologo=true&t=' +
+    Date.now();
+
+  setEditForm((prev) => ({ ...prev, image_url: url }));
+
+  setTimeout(() => {
+    setIsGenerating(false);
+    showToast('Imagen generada con IA', 'success');
+  }, 1500);
+}
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
