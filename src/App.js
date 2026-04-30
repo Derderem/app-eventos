@@ -234,7 +234,7 @@ function exportToCSV(events) {
   URL.revokeObjectURL(link.href);
 }
 
-function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, setSelectedEvent }) {
+function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, openEventDetails }) {
   const dl = getDaysLabel(ev.date);
   const isReallyFeatured = ev.featured === true;
 
@@ -285,7 +285,7 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
           </p>
 
           <h3 style={{ fontWeight: 900, fontSize: featured ? 17 : 15, marginBottom: 10 }}>{ev.title}</h3>
-          <button onClick={() => setSelectedEvent(ev)} style={{
+          <button onClick={() => openEventDetails(ev)} style={{
             width: '100%', padding: featured ? 12 : 11, borderRadius: 14,
             background: '#4f46e5', color: 'white', border: 'none',
             fontWeight: 900, fontSize: featured ? 11 : 10, cursor: 'pointer'
@@ -383,10 +383,11 @@ export default function App() {
   const [adminSearch, setAdminSearch] = useState('');
   const [adminCityFilter, setAdminCityFilter] = useState('TODAS');
 
-  // Estados para zoom de foto
+  // Estados extra para UX
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
   const [photoScale, setPhotoScale] = useState(1);
   const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
+  const [showShareOptions, setShowShareOptions] = useState(false);
 
   const listRef = useRef(null);
   const toastTimerRef = useRef(null);
@@ -406,6 +407,34 @@ export default function App() {
     setToast({ message, type });
     toastTimerRef.current = setTimeout(() => setToast(null), 3600);
   }
+
+  // Lógica para detectar si se entra directo a la app por un enlace /evento/123
+  useEffect(() => {
+    function checkUrlForEvent() {
+      const path = window.location.pathname;
+      if (path.startsWith('/evento/')) {
+        const idFromUrl = path.replace('/evento/', '');
+        if (!idFromUrl) return;
+
+        const found = events.find(e => String(e.id) === String(idFromUrl));
+        if (found) {
+          setSelectedEvent(found);
+          setView('home');
+        } else {
+          // Si no lo tenemos en caché, lo pedimos a Supabase
+          supabase.from('events').select('*').eq('id', idFromUrl).single().then(res => {
+            if (!res.error && res.data) {
+              setSelectedEvent(res.data);
+              setView('home');
+            }
+          });
+        }
+      }
+    }
+    if (events.length > 0) {
+      checkUrlForEvent();
+    }
+  }, [events]);
 
   useEffect(() => {
     fetchEvents();
@@ -435,42 +464,6 @@ export default function App() {
       if (sub && sub.data && sub.data.subscription) sub.data.subscription.unsubscribe();
     };
   }, []);
-
-  // ====== AQUI EMPIEZA NUEVO CODIGO PARA LEER LA URL ======
-  useEffect(() => {
-    function checkUrlForEvent() {
-      const path = window.location.pathname;
-
-      if (path.startsWith('/evento/')) {
-        const idFromUrl = path.replace('/evento/', '');
-
-        if (!idFromUrl) return;
-
-        const found = events.find(e => String(e.id) === String(idFromUrl));
-
-        if (found) {
-          setSelectedEvent(found);
-          setView('home');
-        } else {
-          supabase.from('events')
-            .select('*')
-            .eq('id', idFromUrl)
-            .single()
-            .then(res => {
-              if (!res.error && res.data) {
-                setSelectedEvent(res.data);
-                setView('home');
-              }
-            });
-        }
-      }
-    }
-
-    if (events.length > 0) {
-      checkUrlForEvent();
-    }
-  }, [events]);
-  // ====== AQUI TERMINA NUEVO CODIGO PARA LEER LA URL ======
 
   function fetchEvents() {
     try {
@@ -579,9 +572,9 @@ export default function App() {
     }
   }
 
-  // ==========================================
-  // LA MEJORA DE LA IA ESTÁ EXACTAMENTE AQUÍ
-  // ==========================================
+  // ============================================
+  // LA MEJORA DE IA EXACTAMENTE COMO LA PEDÍAS
+  // ============================================
   function generateAIImage() {
     if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
     setIsGenerating(true);
@@ -589,14 +582,19 @@ export default function App() {
 
     const seed = Math.floor(Math.random() * 999999);
     
-    // Asignamos un contexto en inglés según la categoría para que la IA lo entienda perfecto
-    let categoryContext = 'crowd people gathering outdoor festival';
-    if (form.category === 'MUSICA') categoryContext = 'live music concert stage crowd lights';
-    if (form.category === 'GASTRONOMIA') categoryContext = 'food festival delicious gourmet dishes dining';
-    if (form.category === 'TAURINO') categoryContext = 'traditional spanish bullfighting arena';
-    if (form.category === 'FIESTAS PATRONALES') categoryContext = 'traditional spanish town festival decorated streets';
+    // Traducimos tu categoría a inglés para que la IA la entienda y genere fotos perfectas
+    let catContext = 'crowd gathering festival celebration';
+    if (form.category === 'MUSICA') catContext = 'live music concert, stage, lights, band playing, crowd cheering';
+    if (form.category === 'GASTRONOMIA') catContext = 'food festival, delicious gourmet food, dining, plates';
+    if (form.category === 'TAURINO') catContext = 'traditional spanish bullfighting arena, cultural event';
+    if (form.category === 'FIESTAS PATRONALES') catContext = 'traditional spanish town patronal festival, decorations, street party';
 
-    const promptText = `professional photography of ${form.title}, ${categoryContext}, located in ${form.city || 'Spain'}, highly detailed, 4k, realistic, cinematic lighting, no text, no watermark`;
+    // Quitamos tildes para evitar errores en la URL de Pollinations
+    const cleanTitle = normalizeText(form.title);
+    const cleanCity = normalizeText(form.city || 'Spain');
+
+    // Creamos el prompt en inglés pero metiendo el título y ciudad
+    const promptText = `professional photography of event named ${cleanTitle}, ${catContext}, located in ${cleanCity}, highly detailed, 4k, realistic, cinematic lighting, no text, no watermark`;
     const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(promptText) + '?width=800&height=600&seed=' + seed + '&nologo=true';
     
     setForm((prev) => ({ ...prev, image_url: url }));
@@ -610,21 +608,22 @@ export default function App() {
 
     const seed = Math.floor(Math.random() * 999999);
     
-    let categoryContext = 'crowd people gathering outdoor festival';
-    if (editForm.category === 'MUSICA') categoryContext = 'live music concert stage crowd lights';
-    if (editForm.category === 'GASTRONOMIA') categoryContext = 'food festival delicious gourmet dishes dining';
-    if (editForm.category === 'TAURINO') categoryContext = 'traditional spanish bullfighting arena';
-    if (editForm.category === 'FIESTAS PATRONALES') categoryContext = 'traditional spanish town festival decorated streets';
+    let catContext = 'crowd gathering festival celebration';
+    if (editForm.category === 'MUSICA') catContext = 'live music concert, stage, lights, band playing, crowd cheering';
+    if (editForm.category === 'GASTRONOMIA') catContext = 'food festival, delicious gourmet food, dining, plates';
+    if (editForm.category === 'TAURINO') catContext = 'traditional spanish bullfighting arena, cultural event';
+    if (editForm.category === 'FIESTAS PATRONALES') catContext = 'traditional spanish town patronal festival, decorations, street party';
 
-    const promptText = `professional photography of ${editForm.title}, ${categoryContext}, located in ${editForm.city || 'Spain'}, highly detailed, 4k, realistic, cinematic lighting, no text, no watermark`;
+    const cleanTitle = normalizeText(editForm.title);
+    const cleanCity = normalizeText(editForm.city || 'Spain');
+
+    const promptText = `professional photography of event named ${cleanTitle}, ${catContext}, located in ${cleanCity}, highly detailed, 4k, realistic, cinematic lighting, no text, no watermark`;
     const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(promptText) + '?width=800&height=600&seed=' + seed + '&nologo=true';
     
     setEditForm((prev) => ({ ...prev, image_url: url }));
     setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
   }
-  // ==========================================
-  // FIN DE LA MEJORA DE LA IA
-  // ==========================================
+  // ============================================
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
@@ -810,18 +809,28 @@ export default function App() {
     }, 600);
   }
 
+  // === Lógica para copiar al portapapeles ===
   function shareEvent(ev) {
     const realLink = APP_URL + '/evento/' + ev.id;
-
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(realLink).then(() => {
-        showToast('✅ Enlace copiado: ' + realLink, 'success');
+        showToast('✅ Enlace copiado', 'success');
       }).catch(() => {
         fallbackCopyText(realLink, showToast);
       });
     } else {
       fallbackCopyText(realLink, showToast);
     }
+  }
+
+  // === Cierra la vista detalle y limpia todo ===
+  function closeEventDetails() {
+    setSelectedEvent(null);
+    setIsPhotoZoomed(false);
+    setPhotoScale(1);
+    setPhotoPos({ x: 0, y: 0 });
+    setShowShareOptions(false);
+    window.history.pushState({}, '', '/');
   }
 
   function goHome() {
@@ -832,8 +841,15 @@ export default function App() {
     setIsPhotoZoomed(false);
     setPhotoScale(1);
     setPhotoPos({ x: 0, y: 0 });
+    setShowShareOptions(false);
     setSearchQuery('');
     window.history.pushState({}, '', '/');
+  }
+
+  function openEventDetails(ev) {
+    setSelectedEvent(ev);
+    setShowShareOptions(false); // reseteamos menú de compartir si abren otro evento
+    window.history.pushState({}, '', '/evento/' + ev.id);
   }
 
   function handleCategoryChange(cat) {
@@ -1096,8 +1112,8 @@ export default function App() {
                 </div>
               )}
 
-              {featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={setSelectedEvent} />}
-              {restEvents.map((ev) => <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={setSelectedEvent} />)}
+              {featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEventDetails} />}
+              {restEvents.map((ev) => <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEventDetails} />)}
             </div>
           </div>
         )}
@@ -1151,7 +1167,7 @@ export default function App() {
               /* Vista normal detalles */
               <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
-                  <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
+                  <button onClick={closeEventDetails} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
                     <ArrowLeft size={14} /> VOLVER
                   </button>
                 </div>
@@ -1206,9 +1222,29 @@ export default function App() {
                       <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
                     </div>
 
-                    <button onClick={() => shareEvent(selectedEvent)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+                    <button onClick={() => { shareEvent(selectedEvent); setShowShareOptions(true); }} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
                       <Share2 size={14} /> COMPARTIR EVENTO
                     </button>
+
+                    {showShareOptions && (
+                      <div style={{ marginTop: 12 }}>
+                        <p style={{ fontSize: 9, fontWeight: 900, color: '#6366f1', textAlign: 'center', marginBottom: 8, letterSpacing: 1 }}>COMPARTIR EN</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                          <button onClick={() => window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(`¡Mira este evento en Eventora!\n${selectedEvent.title}\n\n${APP_URL}/evento/${selectedEvent.id}`), '_blank')} style={{ padding: 10, borderRadius: 10, border: 'none', background: '#25D366', color: 'white', fontWeight: 900, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                            WhatsApp
+                          </button>
+                          <button onClick={() => window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(`${APP_URL}/evento/${selectedEvent.id}`), '_blank')} style={{ padding: 10, borderRadius: 10, border: 'none', background: '#1877F2', color: 'white', fontWeight: 900, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                            Facebook
+                          </button>
+                          <button onClick={() => window.open('https://twitter.com/intent/tweet?url=' + encodeURIComponent(`${APP_URL}/evento/${selectedEvent.id}`) + '&text=' + encodeURIComponent(`¡Mira este evento! ${selectedEvent.title}`), '_blank')} style={{ padding: 10, borderRadius: 10, border: 'none', background: isDark ? '#1e293b' : '#0f172a', color: 'white', fontWeight: 900, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                            X / Twitter
+                          </button>
+                          <button onClick={() => window.open('https://t.me/share/url?url=' + encodeURIComponent(`${APP_URL}/evento/${selectedEvent.id}`) + '&text=' + encodeURIComponent(`¡Mira este evento! ${selectedEvent.title}`), '_blank')} style={{ padding: 10, borderRadius: 10, border: 'none', background: '#0088cc', color: 'white', fontWeight: 900, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                            Telegram
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1393,8 +1429,8 @@ export default function App() {
             {adminTab === 'approved' && approvedEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS APROBADOS</p>}
             {adminTab === 'approved' && approvedEvents.map((ev) => (
               <AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="approved"
-                onClick={() => setSelectedEvent(ev)}
-                onView={() => setSelectedEvent(ev)}
+                onClick={() => openEventDetails(ev)}
+                onView={() => openEventDetails(ev)}
                 onEdit={() => startEditEvent(ev)}
                 onDelete={() => handleDeleteEvent(ev.id)} />
             ))}
@@ -1436,7 +1472,7 @@ export default function App() {
             ) : favoriteEvents.map((ev) => {
               const dl = getDaysLabel(ev.date);
               return (
-                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={() => setSelectedEvent(ev)}>
+                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={() => openEventDetails(ev)}>
                   <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }} />
                   <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
@@ -1479,16 +1515,16 @@ export default function App() {
         <button onClick={goHome} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <LayoutList size={22} />
         </button>
-        <button onClick={() => { setView('favorites'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); }} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
+        <button onClick={() => { setView('favorites'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); setShowShareOptions(false); }} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
           <Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} />
           {favoriteEvents.length > 0 && (
             <span style={{ position: 'absolute', top: -4, right: -8, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px', minWidth: 14, textAlign: 'center' }}>{favoriteEvents.length}</span>
           )}
         </button>
-        <button onClick={() => { setView('create'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); }} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={() => { setView('create'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); setShowShareOptions(false); }} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <PlusCircle size={22} />
         </button>
-        <button onClick={() => { setView('map'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); }} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={() => { setView('map'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); setShowShareOptions(false); }} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <MapIcon size={22} />
         </button>
       </nav>
