@@ -784,39 +784,25 @@ export default function App() {
     }
   }
 
-  function buildImagePrompt(title, category) {
-  var t = String(title || '').trim().toLowerCase();
+  function generateAIImage() {
+    if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
+    setIsGenerating(true);
+    showToast('Generando imagen con IA...', 'info');
+    const seed = Math.floor(Math.random() * 999999);
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + form.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    setForm((prev) => ({ ...prev, image_url: url }));
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
+  }
 
-  var catWord = 'event';
-  if (category === 'MUSICA') catWord = 'live music concert with stage and lights';
-  if (category === 'GASTRONOMIA') catWord = 'food festival with delicious dishes';
-  if (category === 'TAURINO') catWord = 'spanish bullfighting arena';
-  if (category === 'FIESTAS PATRONALES') catWord = 'traditional spanish town festival with lights and decorations';
-
-  return t + ', ' + catWord + ', realistic photo, no text, no letters, no watermark';
-}
-
-function generateAIImage() {
-  if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
-  setIsGenerating(true);
-  showToast('Generando imagen con IA...', 'info');
-  var seed = Math.floor(Math.random() * 999999);
-  var prompt = buildImagePrompt(form.title, form.category);
-  var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
-  setForm(function(prev) { return Object.assign({}, prev, { image_url: url }); });
-  setTimeout(function() { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
-}
-
-function generateAIImageEdit() {
-  if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
-  setIsGenerating(true);
-  showToast('Generando imagen con IA...', 'info');
-  var seed = Math.floor(Math.random() * 999999);
-  var prompt = buildImagePrompt(editForm.title, editForm.category);
-  var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
-  setEditForm(function(prev) { return Object.assign({}, prev, { image_url: url }); });
-  setTimeout(function() { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
-}
+  function generateAIImageEdit() {
+    if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
+    setIsGenerating(true);
+    showToast('Generando imagen con IA...', 'info');
+    const seed = Math.floor(Math.random() * 999999);
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + editForm.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    setEditForm((prev) => ({ ...prev, image_url: url }));
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
+  }
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
@@ -1011,48 +997,93 @@ function generateAIImageEdit() {
   }
 
   function shareEvent(ev) {
-    const shareUrl = `${APP_URL}/evento/${ev.id}`;
-  const shareText = `¡No te pierdas ${ev.title}! ${shareUrl}`;
+  const shareUrl = APP_URL + '/evento/' + ev.id;
+  const shareText = `¡No te pierdas ${ev.title}!\n\n${shareUrl}\n\nDescubre eventos cerca de ti en Eventora`;
 
-  const shareOptions = [
-    { name: 'WhatsApp', icon: '📱', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
-    { name: 'Facebook', icon: '📘', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
-    { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
-    { name: 'Copiar en portapapeles', icon: '📋', action: 'copy' }
+  const options = [
+    { name: '📱 WhatsApp', url: 'https://wa.me/?text=' + encodeURIComponent(shareText), bg: '#25D366', color: '#fff' },
+    { name: '📘 Facebook', url: 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(shareUrl), bg: '#1877F2', color: '#fff' },
+    { name: '🐦 Twitter/X', url: 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(shareUrl) + '&text=' + encodeURIComponent(shareText), bg: isDark ? '#1e293b' : '#0f172a', color: '#fff' },
+    { name: '📋 Copiar enlace', action: 'copy', bg: '#4f46e5', color: '#fff' }
   ];
 
-  const shareModal = document.createElement('div');
-  shareModal.style.cssText = `
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center;
-  `;
+  function openShareModal() {
+    var container = document.createElement('div');
+    Object.assign(container.style, {
+      position: 'fixed', inset: 0, zIndex: 99999,
+      background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+    });
 
-  const modalContent = document.createElement('div');
-  modalContent.style.cssText = `
-    background: ${isDark ? '#0f172a' : '#fff'}; border-radius: 20px; padding: 25px; width: 90%; max-width: 360px; color: ${isDark ? '#fff' : '#0f172a'};
-  `;
+    var content = document.createElement('div');
+    Object.assign(content.style, {
+      background: isDark ? '#0f172a' : '#fff',
+      borderRadius: '20px', padding: '24px', width: '90%', maxWidth: '360px',
+      fontFamily: 'system-ui, sans-serif', color: isDark ? '#fff' : '#0f172a'
+    });
+    
+    content.innerHTML = '\n' +
+      '<div style="margin-bottom:16px; font-weight:900; text-align:center; font-size:18px; margin-top:0;">' +
+        '🔗 Compartir evento</div>' +
+      '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px">' +
+        options.map(function(opt) {
+          var btnStyle = opt.action === 'copy'
+            ? 'background:' + opt.bg + ';color:#fff;font-weight:900;cursor:pointer;border:none;padding:14px;border-radius:12px;font-size:12px;'
+            : 'background:' + opt.bg + ';color:#fff;font-weight:900;cursor:pointer;border:none;padding:14px;border-radius:12px;font-size:12px;text-decoration:none;display:block;';
+          
+          return '<button class="share-opt-btn" data-action="' + (opt.action || '') + '" data-url="' + (opt.url || '') + '" style="' + btnStyle + '">' +
+            opt.name +
+          '</button>';
+        }).join('') +
+      '</div>' +
+      '<button id="close-share-btn" style="width:100%;padding:14px;background:#64748b;color:#fff;border:none;border-radius:12px;font-weight:900;font-size:12px;cursor:pointer;">CERRAR</button>';
 
-  modalContent.innerHTML = `
-    <h3 style="margin:0 0 20px; font-weight:900; text-align:center; font-size:16px;">Compartir evento</h3>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
-      ${shareOptions.map(opt => `
-        <button class="share-btn" data-action="${opt.action || 'link'}" data-url="${opt.url}" style="
-          padding:14px; border:none; border-radius:12px; font-weight:900; font-size:11px; cursor:pointer;
-          background: ${isDark ? '#1e293b' : '#f1f5f9'}; color: ${isDark ? '#fff' : '#0f172a'};
-          display:flex; align-items:center; justify-content:center; gap:8px;
-        ">
-          ${opt.icon} ${opt.name}
-        </button>
-      `).join('')}
-    </div>
-    <button id="close-share-modal" style="
-      width:100%; padding:12px; border:none; border-radius:12px; background:#64748b; color:white;
-      font-weight:900; font-size:12px; cursor:pointer;
-    ">CERRAR</button>
-  `;
+    container.appendChild(content);
 
-  shareModal.appendChild(modalContent);
-  document.body.appendChild(shareModal);
+    container.addEventListener('click', function(e) {
+      if (e.target === container || e.target.id === 'close-share-btn') {
+        document.body.removeChild(container);
+      }
+    });
 
+    document.getElementById('close-share-btn').addEventListener('click', function() {
+      document.body.removeChild(container);
+    });
+
+    container.querySelectorAll('.share-opt-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        
+        var action = this.getAttribute('data-action');
+        var url = this.getAttribute('data-url');
+
+        if (action === 'copy') {
+          navigator.clipboard.writeText(shareUrl).then(function() {
+            showToast('✅ Enlace copiado al portapapeles', 'success');
+          }).catch(function() {
+            var tmp = document.createElement('textarea');
+            tmp.value = shareUrl;
+            document.body.appendChild(tmp);
+            tmp.select();
+            document.execCommand('copy');
+            document.body.removeChild(tmp);
+            showToast('✅ Enlace copiado', 'success');
+          });
+        } else if (url) {
+          window.open(url, '_blank', 'noreferrernoopener');
+        }
+        
+        document.body.removeChild(container);
+      });
+    });
+    
+    document.body.appendChild(container);
+  }
+
+  openShareModal();
+
+  // Copiar directo también
+  navigator.clipboard.writeText(APP_URL + '/evento/' + ev.id).catch(function() {});
+}
   function closeModal() {
     shareModal.remove();
   }
