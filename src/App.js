@@ -382,13 +382,6 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [adminSearch, setAdminSearch] = useState('');
   const [adminCityFilter, setAdminCityFilter] = useState('TODAS');
-  const [currentPath, setCurrentPath] = useState(() => {
-    try {
-      return window.location.pathname || '/';
-    } catch {
-      return '/';
-    }
-  });
 
   // Estados para zoom de foto
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
@@ -398,17 +391,6 @@ export default function App() {
   const listRef = useRef(null);
   const toastTimerRef = useRef(null);
   const mapSearchTimerRef = useRef(null);
-  const lastNonEventPathRef = useRef(
-    (() => {
-      try {
-        const p = window.location.pathname || '/';
-        return p.startsWith('/evento/') ? '/' : p;
-      } catch {
-        return '/';
-      }
-    })()
-  );
-  const routeEventLookupRef = useRef('');
   const photoTouchRef = useRef({
     initialDistance: 0,
     initialScale: 1,
@@ -423,97 +405,6 @@ export default function App() {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ message, type });
     toastTimerRef.current = setTimeout(() => setToast(null), 3600);
-  }
-
-  function navigateTo(path, replace = false) {
-    const target = path || '/';
-    try {
-      if (!target.startsWith('/evento/')) {
-        lastNonEventPathRef.current = target;
-      }
-
-      if (window.location.pathname !== target) {
-        if (replace) {
-          window.history.replaceState({}, '', target);
-        } else {
-          window.history.pushState({}, '', target);
-        }
-      }
-      setCurrentPath(target);
-    } catch {
-      setCurrentPath(target);
-    }
-  }
-
-  function resetDetailUi() {
-    setIsPhotoZoomed(false);
-    setPhotoScale(1);
-    setPhotoPos({ x: 0, y: 0 });
-  }
-
-  function clearSelections() {
-    setSelectedEvent(null);
-    setSelectedPendingEvent(null);
-    setEditingEvent(null);
-    resetDetailUi();
-  }
-
-  function openEvent(ev) {
-    if (!currentPath.startsWith('/evento/')) {
-      lastNonEventPathRef.current = currentPath || '/';
-    }
-    setSelectedPendingEvent(null);
-    setEditingEvent(null);
-    resetDetailUi();
-    setSelectedEvent(ev);
-    navigateTo('/evento/' + ev.id);
-  }
-
-  function closeSelectedEvent() {
-    const backPath = lastNonEventPathRef.current || '/';
-    setSelectedEvent(null);
-    resetDetailUi();
-    navigateTo(backPath);
-  }
-
-  function goHome() {
-    setView('home');
-    clearSelections();
-    setSearchQuery('');
-    navigateTo('/');
-  }
-
-  function goFavorites() {
-    setView('favorites');
-    clearSelections();
-    navigateTo('/favoritos');
-  }
-
-  function goCreate() {
-    setView('create');
-    clearSelections();
-    navigateTo('/crear');
-  }
-
-  function goMap() {
-    setView('map');
-    clearSelections();
-    navigateTo('/mapa');
-  }
-
-  function goProfile() {
-    setView('profile');
-    clearSelections();
-    navigateTo('/perfil');
-  }
-
-  function goAdmin() {
-    if (!hasAdmin) return;
-    setView('admin');
-    clearSelections();
-    setAdminTab('pending');
-    fetchEvents();
-    navigateTo('/admin');
   }
 
   useEffect(() => {
@@ -545,137 +436,41 @@ export default function App() {
     };
   }, []);
 
+  // ====== AQUI EMPIEZA NUEVO CODIGO PARA LEER LA URL ======
   useEffect(() => {
-    function handlePopState() {
-      const path = window.location.pathname || '/';
-      setCurrentPath(path);
-      if (!path.startsWith('/evento/')) {
-        lastNonEventPathRef.current = path;
-      }
-    }
+    function checkUrlForEvent() {
+      const path = window.location.pathname;
 
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+      if (path.startsWith('/evento/')) {
+        const idFromUrl = path.replace('/evento/', '');
 
-  // Rutas simples para vistas principales
-  useEffect(() => {
-    if (currentPath.startsWith('/evento/')) return;
+        if (!idFromUrl) return;
 
-    routeEventLookupRef.current = '';
+        const found = events.find(e => String(e.id) === String(idFromUrl));
 
-    if (currentPath === '/') {
-      setView('home');
-      setSelectedEvent(null);
-      setSelectedPendingEvent(null);
-      setEditingEvent(null);
-      resetDetailUi();
-      return;
-    }
-
-    if (currentPath === '/favoritos') {
-      setView('favorites');
-      setSelectedEvent(null);
-      setSelectedPendingEvent(null);
-      setEditingEvent(null);
-      resetDetailUi();
-      return;
-    }
-
-    if (currentPath === '/crear') {
-      setView('create');
-      setSelectedEvent(null);
-      setSelectedPendingEvent(null);
-      setEditingEvent(null);
-      resetDetailUi();
-      return;
-    }
-
-    if (currentPath === '/mapa') {
-      setView('map');
-      setSelectedEvent(null);
-      setSelectedPendingEvent(null);
-      setEditingEvent(null);
-      resetDetailUi();
-      return;
-    }
-
-    if (currentPath === '/perfil') {
-      setView('profile');
-      setSelectedEvent(null);
-      setSelectedPendingEvent(null);
-      setEditingEvent(null);
-      resetDetailUi();
-      return;
-    }
-
-    if (currentPath === '/admin') {
-      if (hasAdmin) {
-        setView('admin');
-        setSelectedEvent(null);
-        setSelectedPendingEvent(null);
-        setEditingEvent(null);
-        resetDetailUi();
-      } else {
-        navigateTo('/', true);
-      }
-      return;
-    }
-
-    navigateTo('/', true);
-  }, [currentPath, hasAdmin]);
-
-  // Ruta directa /evento/:id
-  useEffect(() => {
-    if (!currentPath.startsWith('/evento/')) return;
-
-    const idFromUrl = currentPath.replace('/evento/', '').split('/')[0];
-    if (!idFromUrl) {
-      navigateTo('/', true);
-      return;
-    }
-
-    const foundInState = events.find((e) =>
-      String(e.id) === String(idFromUrl) && (e.status === 'approved' || hasAdmin)
-    );
-
-    if (foundInState) {
-      setSelectedPendingEvent(null);
-      setEditingEvent(null);
-      resetDetailUi();
-      setSelectedEvent(foundInState);
-      routeEventLookupRef.current = idFromUrl;
-      return;
-    }
-
-    if (routeEventLookupRef.current === idFromUrl) return;
-    routeEventLookupRef.current = idFromUrl;
-
-    supabase.from('events')
-      .select('*')
-      .eq('id', idFromUrl)
-      .single()
-      .then((res) => {
-        if (res.error || !res.data || (res.data.status !== 'approved' && !hasAdmin)) {
-          showToast('Evento no encontrado', 'error');
-          setSelectedEvent(null);
-          routeEventLookupRef.current = '';
-          navigateTo('/', true);
-          return;
+        if (found) {
+          setSelectedEvent(found);
+          setView('home');
+        } else {
+          supabase.from('events')
+            .select('*')
+            .eq('id', idFromUrl)
+            .single()
+            .then(res => {
+              if (!res.error && res.data) {
+                setSelectedEvent(res.data);
+                setView('home');
+              }
+            });
         }
+      }
+    }
 
-        setSelectedPendingEvent(null);
-        setEditingEvent(null);
-        resetDetailUi();
-        setSelectedEvent(res.data);
-      })
-      .catch(() => {
-        showToast('Evento no encontrado', 'error');
-        setSelectedEvent(null);
-        routeEventLookupRef.current = '';
-        navigateTo('/', true);
-      });
-  }, [currentPath, events, hasAdmin]);
+    if (events.length > 0) {
+      checkUrlForEvent();
+    }
+  }, [events]);
+  // ====== AQUI TERMINA NUEVO CODIGO PARA LEER LA URL ======
 
   function fetchEvents() {
     try {
@@ -784,71 +579,52 @@ export default function App() {
     }
   }
 
+  // ==========================================
+  // LA MEJORA DE LA IA ESTÁ EXACTAMENTE AQUÍ
+  // ==========================================
   function generateAIImage() {
-    if (!form.title) {
-    showToast('Escribe un título primero', 'error');
-    return;
+    if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
+    setIsGenerating(true);
+    showToast('Generando imagen con IA...', 'info');
+
+    const seed = Math.floor(Math.random() * 999999);
+    
+    // Asignamos un contexto en inglés según la categoría para que la IA lo entienda perfecto
+    let categoryContext = 'crowd people gathering outdoor festival';
+    if (form.category === 'MUSICA') categoryContext = 'live music concert stage crowd lights';
+    if (form.category === 'GASTRONOMIA') categoryContext = 'food festival delicious gourmet dishes dining';
+    if (form.category === 'TAURINO') categoryContext = 'traditional spanish bullfighting arena';
+    if (form.category === 'FIESTAS PATRONALES') categoryContext = 'traditional spanish town festival decorated streets';
+
+    const promptText = `professional photography of ${form.title}, ${categoryContext}, located in ${form.city || 'Spain'}, highly detailed, 4k, realistic, cinematic lighting, no text, no watermark`;
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(promptText) + '?width=800&height=600&seed=' + seed + '&nologo=true';
+    
+    setForm((prev) => ({ ...prev, image_url: url }));
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
   }
 
-  setIsGenerating(true);
-  showToast('Generando imagen...', 'info');
+  function generateAIImageEdit() {
+    if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
+    setIsGenerating(true);
+    showToast('Generando imagen con IA...', 'info');
 
-  const seed = Math.floor(Math.random() * 999999);
+    const seed = Math.floor(Math.random() * 999999);
+    
+    let categoryContext = 'crowd people gathering outdoor festival';
+    if (editForm.category === 'MUSICA') categoryContext = 'live music concert stage crowd lights';
+    if (editForm.category === 'GASTRONOMIA') categoryContext = 'food festival delicious gourmet dishes dining';
+    if (editForm.category === 'TAURINO') categoryContext = 'traditional spanish bullfighting arena';
+    if (editForm.category === 'FIESTAS PATRONALES') categoryContext = 'traditional spanish town festival decorated streets';
 
-  const categoryContext = {
-    MUSICA: 'concierto en vivo con escenario iluminado y público',
-    GASTRONOMIA: 'evento gastronómico con comida atractiva y ambiente festivo',
-    TAURINO: 'evento taurino en plaza de toros tradicional española',
-    'FIESTAS PATRONALES': 'fiestas patronales de pueblo en España con calles decoradas y gente celebrando',
-    OTROS: 'evento social en España con personas disfrutando'
-  };
-
-  const context = categoryContext[form.category] || categoryContext.OTROS;
-
-  const prompt = `fotografía profesional realista de ${form.title} ${context} en ${form.city || 'España'} sin texto en la imagen alta calidad iluminación cinematográfica estilo realista colores vibrantes ambiente festivo`;
-
-  const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
-
-  setForm((prev) => ({ ...prev, image_url: url }));
-
-  setTimeout(() => {
-    setIsGenerating(false);
-    showToast('Imagen generada', 'success');
-  }, 1500);
-}
-
-function generateAIImageEdit() {
-  if (!editForm.title) {
-    showToast('Escribe un título primero', 'error');
-    return;
+    const promptText = `professional photography of ${editForm.title}, ${categoryContext}, located in ${editForm.city || 'Spain'}, highly detailed, 4k, realistic, cinematic lighting, no text, no watermark`;
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(promptText) + '?width=800&height=600&seed=' + seed + '&nologo=true';
+    
+    setEditForm((prev) => ({ ...prev, image_url: url }));
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
   }
-
-  setIsGenerating(true);
-  showToast('Generando imagen...', 'info');
-
-  const seed = Math.floor(Math.random() * 999999);
-
-  const categoryContext = {
-    MUSICA: 'concierto en vivo con escenario iluminado y público',
-    GASTRONOMIA: 'evento gastronómico con comida atractiva y ambiente festivo',
-    TAURINO: 'evento taurino en plaza de toros tradicional española',
-    'FIESTAS PATRONALES': 'fiestas patronales de pueblo en España con calles decoradas y gente celebrando',
-    OTROS: 'evento social en España con personas disfrutando'
-  };
-
-  const context = categoryContext[editForm.category] || categoryContext.OTROS;
-
-  const prompt = `fotografía profesional realista de ${editForm.title} ${context} en ${editForm.city || 'España'} sin texto en la imagen alta calidad iluminación cinematográfica estilo realista colores vibrantes ambiente festivo`;
-
-  const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
-
-  setEditForm((prev) => ({ ...prev, image_url: url }));
-
-  setTimeout(() => {
-    setIsGenerating(false);
-    showToast('Imagen generada', 'success');
-  }, 1500);
-}
+  // ==========================================
+  // FIN DE LA MEJORA DE LA IA
+  // ==========================================
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
@@ -892,7 +668,7 @@ function generateAIImageEdit() {
         }
         showToast('Evento enviado a revisión correctamente', 'success');
         setForm(INITIAL_FORM);
-        goHome();
+        setView('home');
         fetchEvents();
       })
       .catch((err) => { console.error(err); showToast('Error al enviar', 'error'); })
@@ -983,16 +759,11 @@ function generateAIImageEdit() {
 
   function handleDeleteEvent(id) {
     if (!window.confirm('¿Seguro que quieres borrar este evento?')) return;
-    const wasSelected = selectedEvent && selectedEvent.id === id;
-
     supabase.from('events').delete().eq('id', id).then((res) => {
       if (res.error) { showToast('Error borrando', 'error'); return; }
       showToast('Evento borrado', 'success');
       setSelectedPendingEvent(null);
       setEditingEvent(null);
-      if (wasSelected) {
-        closeSelectedEvent();
-      }
       fetchEvents();
     });
   }
@@ -1000,10 +771,7 @@ function generateAIImageEdit() {
   function handleLogin() {
     const email = prompt('Escribe tu email:');
     if (!email) return;
-
-    const redirectUrl = APP_URL + (currentPath || '/');
-
-    supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectUrl } }).then((res) => {
+    supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: APP_URL } }).then((res) => {
       if (res.error) { console.error(res.error); showToast('Error enviando login', 'error'); return; }
       showToast('Revisa tu email y pulsa el enlace', 'success');
     });
@@ -1014,7 +782,7 @@ function generateAIImageEdit() {
       setUserEmail('');
       setProfile(null);
       fetchEvents();
-      goHome();
+      setView('home');
       setEditingEvent(null);
       showToast('Sesión cerrada', 'success');
     });
@@ -1043,76 +811,30 @@ function generateAIImageEdit() {
   }
 
   function shareEvent(ev) {
-    const shareUrl = `${APP_URL}/evento/${ev.id}`;
-  const shareText = `¡No te pierdas ${ev.title}! ${shareUrl}`;
+    const realLink = APP_URL + '/evento/' + ev.id;
 
-  const shareOptions = [
-    { name: 'WhatsApp', icon: '📱', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
-    { name: 'Facebook', icon: '📘', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
-    { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
-    { name: 'Copiar en portapapeles', icon: '📋', action: 'copy' }
-  ];
-
-  const shareModal = document.createElement('div');
-  shareModal.style.cssText = `
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center;
-  `;
-
-  const modalContent = document.createElement('div');
-  modalContent.style.cssText = `
-    background: ${isDark ? '#0f172a' : '#fff'}; border-radius: 20px; padding: 25px; width: 90%; max-width: 360px; color: ${isDark ? '#fff' : '#0f172a'};
-  `;
-
-  modalContent.innerHTML = `
-    <h3 style="margin:0 0 20px; font-weight:900; text-align:center; font-size:16px;">Compartir evento</h3>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
-      ${shareOptions.map(opt => `
-        <button class="share-btn" data-action="${opt.action || 'link'}" data-url="${opt.url}" style="
-          padding:14px; border:none; border-radius:12px; font-weight:900; font-size:11px; cursor:pointer;
-          background: ${isDark ? '#1e293b' : '#f1f5f9'}; color: ${isDark ? '#fff' : '#0f172a'};
-          display:flex; align-items:center; justify-content:center; gap:8px;
-        ">
-          ${opt.icon} ${opt.name}
-        </button>
-      `).join('')}
-    </div>
-    <button id="close-share-modal" style="
-      width:100%; padding:12px; border:none; border-radius:12px; background:#64748b; color:white;
-      font-weight:900; font-size:12px; cursor:pointer;
-    ">CERRAR</button>
-  `;
-
-  shareModal.appendChild(modalContent);
-  document.body.appendChild(shareModal);
-
-  function closeModal() {
-    shareModal.remove();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(realLink).then(() => {
+        showToast('✅ Enlace copiado: ' + realLink, 'success');
+      }).catch(() => {
+        fallbackCopyText(realLink, showToast);
+      });
+    } else {
+      fallbackCopyText(realLink, showToast);
+    }
   }
 
-  shareModal.addEventListener('click', (e) => {
-    if (e.target === shareModal) closeModal();
-  });
-
-  document.getElementById('close-share-modal').addEventListener('click', closeModal);
-
-  document.querySelectorAll('.share-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const action = e.currentTarget.dataset.action;
-      const url = e.currentTarget.dataset.url;
-
-      if (action === 'copy') {
-        navigator.clipboard.writeText(shareUrl).then(() => {
-          showToast('✅ Enlace copiado al portapapeles', 'success');
-        }).catch(() => {
-          showToast('❌ No se pudo copiar el enlace', 'error');
-        });
-      } else {
-        window.open(url, '_blank');
-      }
-      closeModal();
-    });
-  });
-}
+  function goHome() {
+    setView('home');
+    setSelectedEvent(null);
+    setSelectedPendingEvent(null);
+    setEditingEvent(null);
+    setIsPhotoZoomed(false);
+    setPhotoScale(1);
+    setPhotoPos({ x: 0, y: 0 });
+    setSearchQuery('');
+    window.history.pushState({}, '', '/');
+  }
 
   function handleCategoryChange(cat) {
     setSelectedCategory(cat);
@@ -1164,6 +886,7 @@ function generateAIImageEdit() {
     } else if (e.touches.length === 1 && photoScale > 1) {
       e.preventDefault();
 
+      // Factor de lentitud: 0.55 = más lento que el natural
       const slowFactor = 0.55;
 
       const dx = e.touches[0].clientX - photoTouchRef.current.lastX;
@@ -1179,7 +902,7 @@ function generateAIImageEdit() {
     }
   }
 
-  function handlePhotoTouchEnd() {
+  function handlePhotoTouchEnd(e) {
     if (photoScale <= 1.05) {
       exitPhotoZoom();
     }
@@ -1255,27 +978,22 @@ function generateAIImageEdit() {
 
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color .25s, color .25s; }
-  html, body, #root { width: 100%; height: 100%; overflow: hidden; }
-  .dark-theme { background:#020617; color:white; }
-  .light-theme { background:#f8fafc; color:#0f172a; }
-  .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
-  .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
-  .no-scrollbar::-webkit-scrollbar { display:none; }
-  .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
-  .leaflet-container img { max-width:none!important; max-height:none!important; }
-  @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-  .animate-spin { animation:spin 1s linear infinite; }
-  @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
-  .pulse-admin { animation:admin-pulse 1.4s infinite; }
-  @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
-  .heart-pop { animation:heartPop .6s ease-out; }
-  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
-  /* AÑADE ESTA LÍNEA AQUÍ */
-  .share-btn:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
-  @media (max-width: 320px) {
-  .share-btn { font-size: 10px !important; padding: 12px !important; }
-}
-`}</style>
+        html, body, #root { width: 100%; height: 100%; overflow: hidden; }
+        .dark-theme { background:#020617; color:white; }
+        .light-theme { background:#f8fafc; color:#0f172a; }
+        .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
+        .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
+        .no-scrollbar::-webkit-scrollbar { display:none; }
+        .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+        .leaflet-container img { max-width:none!important; max-height:none!important; }
+        @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+        .animate-spin { animation:spin 1s linear infinite; }
+        @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
+        .pulse-admin { animation:admin-pulse 1.4s infinite; }
+        @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
+        .heart-pop { animation:heartPop .6s ease-out; }
+        @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+      `}</style>
 
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
         <div style={{ cursor: 'pointer' }} onClick={goHome}>
@@ -1283,7 +1001,7 @@ function generateAIImageEdit() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {hasAdmin && (
-            <button onClick={goAdmin} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+            <button onClick={() => { setView('admin'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setAdminTab('pending'); fetchEvents(); }} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
               <ShieldCheck size={21} className={rawPendingEvents.length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1' }} />
               {rawPendingEvents.length > 0 && (
                 <span style={{ position: 'absolute', top: -8, right: -10, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 999, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: '2px solid ' + (isDark ? '#0f172a' : '#fff') }}>
@@ -1298,7 +1016,7 @@ function generateAIImageEdit() {
           <button onClick={() => setIsDark(!isDark)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
             {isDark ? <Sun size={18} color="#facc15" /> : <Moon size={18} color="#4f46e5" />}
           </button>
-          <Sparkles size={18} color="#6366f1" style={{ cursor: 'pointer' }} onClick={goProfile} />
+          <Sparkles size={18} color="#6366f1" style={{ cursor: 'pointer' }} onClick={() => setView('profile')} />
         </div>
       </nav>
 
@@ -1378,8 +1096,8 @@ function generateAIImageEdit() {
                 </div>
               )}
 
-              {featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />}
-              {restEvents.map((ev) => <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />)}
+              {featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={setSelectedEvent} />}
+              {restEvents.map((ev) => <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={setSelectedEvent} />)}
             </div>
           </div>
         )}
@@ -1388,6 +1106,7 @@ function generateAIImageEdit() {
         {selectedEvent && !selectedPendingEvent && !editingEvent && (
           <>
             {isPhotoZoomed ? (
+              /* Modo Zoom fullscreen */
               <div
                 style={{
                   position: 'fixed', inset: 0, zIndex: 99999, background: '#000',
@@ -1429,14 +1148,16 @@ function generateAIImageEdit() {
                 </div>
               </div>
             ) : (
+              /* Vista normal detalles */
               <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
-                  <button onClick={closeSelectedEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
+                  <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
                     <ArrowLeft size={14} /> VOLVER
                   </button>
                 </div>
 
                 <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
+                  {/* Foto clickable */}
                   <div
                     onClick={enterPhotoZoom}
                     style={{
@@ -1603,7 +1324,7 @@ function generateAIImageEdit() {
 
         {view === 'admin' && !selectedPendingEvent && !editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
-            <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
+            <button onClick={() => setView('home')} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
               <ArrowLeft size={16} /> VOLVER
             </button>
 
@@ -1672,8 +1393,8 @@ function generateAIImageEdit() {
             {adminTab === 'approved' && approvedEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS APROBADOS</p>}
             {adminTab === 'approved' && approvedEvents.map((ev) => (
               <AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="approved"
-                onClick={() => openEvent(ev)}
-                onView={() => openEvent(ev)}
+                onClick={() => setSelectedEvent(ev)}
+                onView={() => setSelectedEvent(ev)}
                 onEdit={() => startEditEvent(ev)}
                 onDelete={() => handleDeleteEvent(ev.id)} />
             ))}
@@ -1715,7 +1436,7 @@ function generateAIImageEdit() {
             ) : favoriteEvents.map((ev) => {
               const dl = getDaysLabel(ev.date);
               return (
-                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={() => openEvent(ev)}>
+                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={() => setSelectedEvent(ev)}>
                   <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }} />
                   <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
@@ -1755,23 +1476,22 @@ function generateAIImageEdit() {
       </main>
 
       <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,.4)', zIndex: 3000, background: isDark ? 'rgba(15,23,42,.95)' : 'rgba(255,255,255,.95)' }}>
-        <button onClick={goHome} style={{ background: 'none', border: 'none', color: (view === 'home' || currentPath.startsWith('/evento/')) ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={goHome} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <LayoutList size={22} />
         </button>
-        <button onClick={goFavorites} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
+        <button onClick={() => { setView('favorites'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); }} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
           <Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} />
           {favoriteEvents.length > 0 && (
             <span style={{ position: 'absolute', top: -4, right: -8, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px', minWidth: 14, textAlign: 'center' }}>{favoriteEvents.length}</span>
           )}
         </button>
-        <button onClick={goCreate} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={() => { setView('create'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); }} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <PlusCircle size={22} />
         </button>
-        <button onClick={goMap} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={() => { setView('map'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); }} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <MapIcon size={22} />
         </button>
       </nav>
     </div>
   );
 }
-
