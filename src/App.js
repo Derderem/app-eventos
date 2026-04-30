@@ -789,9 +789,18 @@ export default function App() {
     setIsGenerating(true);
     showToast('Generando imagen con IA...', 'info');
     const seed = Math.floor(Math.random() * 999999);
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + form.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    const categoryMap = {
+      MUSICA: 'live music concert with crowd and stage lights',
+      GASTRONOMIA: 'gourmet food event with tables and atmosphere',
+      TAURINO: 'bullfighting festival in a Spanish arena',
+      'FIESTAS PATRONALES': 'traditional Spanish town patron festival with decorations',
+      OTROS: 'local community event with people gathering'
+    };
+    const catDesc = categoryMap[form.category] || categoryMap.OTROS;
+    const prompt = catDesc + ', ' + form.title + ', ' + (form.city || '') + ', Spain, cinematic photo, realistic, warm lighting, vibrant atmosphere, high quality, 4k';
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
     setForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
   }
 
   function generateAIImageEdit() {
@@ -799,9 +808,18 @@ export default function App() {
     setIsGenerating(true);
     showToast('Generando imagen con IA...', 'info');
     const seed = Math.floor(Math.random() * 999999);
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + editForm.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    const categoryMap = {
+      MUSICA: 'live music concert with crowd and stage lights',
+      GASTRONOMIA: 'gourmet food event with tables and atmosphere',
+      TAURINO: 'bullfighting festival in a Spanish arena',
+      'FIESTAS PATRONALES': 'traditional Spanish town patron festival with decorations',
+      OTROS: 'local community event with people gathering'
+    };
+    const catDesc = categoryMap[editForm.category] || categoryMap.OTROS;
+    const prompt = catDesc + ', ' + editForm.title + ', ' + (editForm.city || '') + ', Spain, cinematic photo, realistic, warm lighting, vibrant atmosphere, high quality, 4k';
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
     setEditForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
   }
 
   function geocodeAddress(address, localidad, city) {
