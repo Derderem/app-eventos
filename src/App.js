@@ -53,7 +53,9 @@ function formatDateTime(dateStr) {
       day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit'
     });
-  } catch { return ''; }
+  } catch {
+    return '';
+  }
 }
 
 function normalizeText(value) {
@@ -137,7 +139,7 @@ async function compressImage(file, options = {}) {
   return { blob: file, extension: file.name.split('.').pop() || 'jpg', type: file.type, originalSize: file.size, compressedSize: file.size };
 }
 
-function fallbackCopyText(text, showToastFn) {
+function fallbackCopyText(text, showToast) {
   const textarea = document.createElement('textarea');
   textarea.value = text;
   textarea.style.position = 'fixed';
@@ -147,9 +149,9 @@ function fallbackCopyText(text, showToastFn) {
   textarea.select();
   try {
     document.execCommand('copy');
-    showToastFn('✅ Enlace copiado', 'success');
+    showToast('✅ Enlace copiado', 'success');
   } catch (err) {
-    showToastFn('No se pudo copiar', 'error');
+    showToast('No se pudo copiar', 'error');
   }
   document.body.removeChild(textarea);
 }
@@ -380,13 +382,6 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [adminSearch, setAdminSearch] = useState('');
   const [adminCityFilter, setAdminCityFilter] = useState('TODAS');
-  const [currentPath, setCurrentPath] = useState(() => {
-    try {
-      return window.location.pathname || '/';
-    } catch {
-      return '/';
-    }
-  });
 
   // Estados para zoom de foto
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
@@ -396,17 +391,6 @@ export default function App() {
   const listRef = useRef(null);
   const toastTimerRef = useRef(null);
   const mapSearchTimerRef = useRef(null);
-  const lastNonEventPathRef = useRef(
-    (() => {
-      try {
-        const p = window.location.pathname || '/';
-        return p.startsWith('/evento/') ? '/' : p;
-      } catch {
-        return '/';
-      }
-    })()
-  );
-  const routeEventLookupRef = useRef('');
   const photoTouchRef = useRef({
     initialDistance: 0,
     initialScale: 1,
@@ -421,97 +405,6 @@ export default function App() {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ message, type });
     toastTimerRef.current = setTimeout(() => setToast(null), 3600);
-  }
-
-  function navigateTo(path, replace = false) {
-    const target = path || '/';
-    try {
-      if (!target.startsWith('/evento/')) {
-        lastNonEventPathRef.current = target;
-      }
-
-      if (window.location.pathname !== target) {
-        if (replace) {
-          window.history.replaceState({}, '', target);
-        } else {
-          window.history.pushState({}, '', target);
-        }
-      }
-      setCurrentPath(target);
-    } catch {
-      setCurrentPath(target);
-    }
-  }
-
-  function resetDetailUi() {
-    setIsPhotoZoomed(false);
-    setPhotoScale(1);
-    setPhotoPos({ x: 0, y: 0 });
-  }
-
-  function clearSelections() {
-    setSelectedEvent(null);
-    setSelectedPendingEvent(null);
-    setEditingEvent(null);
-    resetDetailUi();
-  }
-
-  function openEvent(ev) {
-    if (!currentPath.startsWith('/evento/')) {
-      lastNonEventPathRef.current = currentPath || '/';
-    }
-    setSelectedPendingEvent(null);
-    setEditingEvent(null);
-    resetDetailUi();
-    setSelectedEvent(ev);
-    navigateTo('/evento/' + ev.id);
-  }
-
-  function closeSelectedEvent() {
-    const backPath = lastNonEventPathRef.current || '/';
-    setSelectedEvent(null);
-    resetDetailUi();
-    navigateTo(backPath);
-  }
-
-  function goHome() {
-    setView('home');
-    clearSelections();
-    setSearchQuery('');
-    navigateTo('/');
-  }
-
-  function goFavorites() {
-    setView('favorites');
-    clearSelections();
-    navigateTo('/favoritos');
-  }
-
-  function goCreate() {
-    setView('create');
-    clearSelections();
-    navigateTo('/crear');
-  }
-
-  function goMap() {
-    setView('map');
-    clearSelections();
-    navigateTo('/mapa');
-  }
-
-  function goProfile() {
-    setView('profile');
-    clearSelections();
-    navigateTo('/perfil');
-  }
-
-  function goAdmin() {
-    if (!hasAdmin) return;
-    setView('admin');
-    clearSelections();
-    setAdminTab('pending');
-    fetchEvents();
-    navigateTo('/admin');
   }
 
   useEffect(() => {
@@ -542,138 +435,6 @@ export default function App() {
       if (sub && sub.data && sub.data.subscription) sub.data.subscription.unsubscribe();
     };
   }, []);
-
-  useEffect(() => {
-    function handlePopState() {
-      const path = window.location.pathname || '/';
-      setCurrentPath(path);
-      if (!path.startsWith('/evento/')) {
-        lastNonEventPathRef.current = path;
-      }
-    }
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  useEffect(() => {
-    if (currentPath.startsWith('/evento/')) return;
-
-    routeEventLookupRef.current = '';
-
-    if (currentPath === '/') {
-      setView('home');
-      setSelectedEvent(null);
-      setSelectedPendingEvent(null);
-      setEditingEvent(null);
-      resetDetailUi();
-      return;
-    }
-
-    if (currentPath === '/favoritos') {
-      setView('favorites');
-      setSelectedEvent(null);
-      setSelectedPendingEvent(null);
-      setEditingEvent(null);
-      resetDetailUi();
-      return;
-    }
-
-    if (currentPath === '/crear') {
-      setView('create');
-      setSelectedEvent(null);
-      setSelectedPendingEvent(null);
-      setEditingEvent(null);
-      resetDetailUi();
-      return;
-    }
-
-    if (currentPath === '/mapa') {
-      setView('map');
-      setSelectedEvent(null);
-      setSelectedPendingEvent(null);
-      setEditingEvent(null);
-      resetDetailUi();
-      return;
-    }
-
-    if (currentPath === '/perfil') {
-      setView('profile');
-      setSelectedEvent(null);
-      setSelectedPendingEvent(null);
-      setEditingEvent(null);
-      resetDetailUi();
-      return;
-    }
-
-    if (currentPath === '/admin') {
-      if (hasAdmin) {
-        setView('admin');
-        setSelectedEvent(null);
-        setSelectedPendingEvent(null);
-        setEditingEvent(null);
-        resetDetailUi();
-      } else {
-        navigateTo('/', true);
-      }
-      return;
-    }
-
-    navigateTo('/', true);
-  }, [currentPath, hasAdmin]);
-
-  useEffect(() => {
-    if (!currentPath.startsWith('/evento/')) return;
-
-    const idFromUrl = currentPath.replace('/evento/', '').split('/')[0];
-    if (!idFromUrl) {
-      navigateTo('/', true);
-      return;
-    }
-
-    const foundInState = events.find((e) =>
-      String(e.id) === String(idFromUrl) && (e.status === 'approved' || hasAdmin)
-    );
-
-    if (foundInState) {
-      setView('home');
-      setSelectedPendingEvent(null);
-      setEditingEvent(null);
-      resetDetailUi();
-      setSelectedEvent(foundInState);
-      routeEventLookupRef.current = idFromUrl;
-      return;
-    }
-
-    if (routeEventLookupRef.current === idFromUrl) return;
-    routeEventLookupRef.current = idFromUrl;
-
-    supabase.from('events')
-      .select('*')
-      .eq('id', idFromUrl)
-      .single()
-      .then((res) => {
-        if (res.error || !res.data || (res.data.status !== 'approved' && !hasAdmin)) {
-          showToast('Evento no encontrado', 'error');
-          setSelectedEvent(null);
-          routeEventLookupRef.current = '';
-          navigateTo('/', true);
-          return;
-        }
-
-        setView('home');
-        setSelectedPendingEvent(null);
-        setEditingEvent(null);
-        resetDetailUi();
-        setSelectedEvent(res.data);
-      })
-      .catch(() => {
-        showToast('Evento no encontrado', 'error');
-        setSelectedEvent(null);
-        routeEventLookupRef.current = '';
-        navigateTo('/', true);
-      });
-  }, [currentPath, events, hasAdmin]);
 
   function fetchEvents() {
     try {
@@ -782,30 +543,128 @@ export default function App() {
     }
   }
 
-  // =======================================================
-  // IA GENERADA CON PROMPT MEJORADO PARA RESULTADOS REALES
-  // =======================================================
+  // ========================================================================
+  // SISTEMA DEFINITIVO DE IA: Traduce títulos españoles a prompts en inglés
+  // ========================================================================
+  function buildAIPrompt(title, category, city) {
+    const t = normalizeText(title);
+    
+    // Diccionario de palabras clave españolas -> descripciones visuales en inglés
+    const keywordMap = {
+      // Taurinos
+      'toro': 'bulls',
+      'toros': 'bulls running',
+      'taurino': 'bullfighting festival',
+      'taurina': 'bullfighting festival',
+      'encierro': 'running of the bulls',
+      'encierros': 'running of the bulls',
+      'vaquilla': 'young bull festival',
+      'novillada': 'young bull fight',
+      'rejoneo': 'horseback bullfighting',
+      'corrida': 'bullfight arena',
+      'capote': 'bullfighter cape',
+      
+      // Gastronomía
+      'tapa': 'spanish tapas',
+      'tapas': 'spanish tapas competition',
+      'pincho': 'spanish pinchos',
+      'pinchos': 'spanish pinchos bar',
+      'gastronomica': 'gastronomic festival',
+      'gastronomico': 'gastronomic event',
+      'comida': 'delicious food festival',
+      'chef': 'chef cooking',
+      'cocina': 'traditional cooking',
+      'paella': 'paella cooking',
+      'jamon': 'spanish ham',
+      'queso': 'cheese tasting',
+      'vino': 'wine tasting',
+      'cerveza': 'beer festival',
+      'degustacion': 'food tasting event',
+      'cata': 'wine and food tasting',
+      'concurso': 'competition contest',
+      'jornada': 'festival day',
+      
+      // Música
+      'concierto': 'live music concert',
+      'conciertos': 'music festival',
+      'rock': 'rock concert',
+      'pop': 'pop concert',
+      'dance': 'dance music festival',
+      'electronica': 'electronic music festival',
+      'dj': 'dj party',
+      'orquesta': 'orchestra live',
+      'banda': 'live band',
+      'flamenco': 'flamenco dance show',
+      'verbena': 'outdoor dance party',
+      'baile': 'dance party',
+      'fiesta': 'party celebration',
+      'fest': 'festival',
+      'festival': 'music festival',
+      
+      // Tradicionales
+      'romeria': 'spanish pilgrimage romeria',
+      'romería': 'spanish pilgrimage romeria',
+      'procesion': 'religious procession',
+      'procesión': 'religious procession',
+      'virgen': 'virgin mary procession',
+      'santo': 'saint festival',
+      'san ': 'saint patron',
+      'santa ': 'saint patron',
+      'patronal': 'patron saint festival',
+      'patronales': 'patron saint festival',
+      'feria': 'fair festival',
+      'mercado': 'market',
+      'mercadillo': 'street market',
+      'artesania': 'crafts market',
+      'exposicion': 'art exhibition',
+      
+      // Deportes/otros
+      'carrera': 'running race',
+      'maraton': 'marathon',
+      'futbol': 'football soccer',
+      'ciclismo': 'cycling race',
+      'deporte': 'sports event',
+      'torneo': 'tournament',
+      'campeonato': 'championship'
+    };
+
+    // Detectamos qué palabras del título coinciden con nuestro diccionario
+    let matchedKeywords = [];
+    for (const [esWord, enDesc] of Object.entries(keywordMap)) {
+      if (t.includes(esWord)) {
+        matchedKeywords.push(enDesc);
+      }
+    }
+
+    // Si no detectamos nada específico, usamos la categoría como fallback
+    let visualContext = '';
+    if (matchedKeywords.length > 0) {
+      visualContext = matchedKeywords.join(', ');
+    } else {
+      const catMap = {
+        'MUSICA': 'live music concert stage lights crowd',
+        'GASTRONOMIA': 'food festival delicious plates dining',
+        'TAURINO': 'spanish bullfighting arena tradition',
+        'FIESTAS PATRONALES': 'spanish village festival decorated streets fireworks',
+        'OTROS': 'spanish local event crowd celebration'
+      };
+      visualContext = catMap[category] || 'spanish event festival';
+    }
+
+    // Construimos el prompt final en inglés (la IA lo entiende perfecto)
+    const cleanCity = city ? city.trim() : 'Spain';
+    const prompt = `professional photography of ${title}, ${visualContext}, in ${cleanCity}, highly detailed, 4k, realistic, cinematic lighting, vibrant colors, no text, no watermark`;
+
+    return prompt;
+  }
+
   function generateAIImage() {
     if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
     setIsGenerating(true);
     showToast('Generando imagen con IA...', 'info');
     const seed = Math.floor(Math.random() * 999999);
-    
-    const categoryContexts = {
-      'MUSICA': 'live music concert stage with band playing instruments crowd cheering professional concert photography bright stage lighting dynamic atmosphere',
-      'GASTRONOMIA': 'gourmet food festival table filled with delicious dishes people dining elegant restaurant atmosphere culinary presentation beautiful food photography',
-      'TAURINO': 'traditional spanish bullfighting plaza de toros arena bull matador dramatic scene cultural event spanish culture vivid colors',
-      'FIESTAS PATRONALES': 'spanish village street festival colorful decorations parade people celebrating traditional Spanish town celebration fireworks atmosphere festive',
-      'OTROS': 'community event gathering people outdoors celebration local event cheerful atmosphere social gathering festive occasion'
-    };
-    
-    const basePrompt = categoryContexts[form.category] || categoryContexts['OTROS'];
-    const location = form.city ? `, ${form.city}, Spain` : ', Spain';
-    
-    const prompt = `professional high-quality photograph of ${form.title}${location}, ${basePrompt}, sharp focus, natural lighting, 8k resolution, realistic, authentic event photography, no text, no watermarks`;
-
-    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&nologo=true&t=${Date.now()}`;
-    
+    const prompt = buildAIPrompt(form.title, form.category, form.city);
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true';
     setForm((prev) => ({ ...prev, image_url: url }));
     setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
   }
@@ -815,25 +674,12 @@ export default function App() {
     setIsGenerating(true);
     showToast('Generando imagen con IA...', 'info');
     const seed = Math.floor(Math.random() * 999999);
-    
-    const categoryContexts = {
-      'MUSICA': 'live music concert stage with band playing instruments crowd cheering professional concert photography bright stage lighting dynamic atmosphere',
-      'GASTRONOMIA': 'gourmet food festival table filled with delicious dishes people dining elegant restaurant atmosphere culinary presentation beautiful food photography',
-      'TAURINO': 'traditional spanish bullfighting plaza de toros arena bull matador dramatic scene cultural event spanish culture vivid colors',
-      'FIESTAS PATRONALES': 'spanish village street festival colorful decorations parade people celebrating traditional Spanish town celebration fireworks atmosphere festive',
-      'OTROS': 'community event gathering people outdoors celebration local event cheerful atmosphere social gathering festive occasion'
-    };
-    
-    const basePrompt = categoryContexts[editForm.category] || categoryContexts['OTROS'];
-    const location = editForm.city ? `, ${editForm.city}, Spain` : ', Spain';
-    
-    const prompt = `professional high-quality photograph of ${editForm.title}${location}, ${basePrompt}, sharp focus, natural lighting, 8k resolution, realistic, authentic event photography, no text, no watermarks`;
-
-    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&nologo=true&t=${Date.now()}`;
-    
+    const prompt = buildAIPrompt(editForm.title, editForm.category, editForm.city);
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true';
     setEditForm((prev) => ({ ...prev, image_url: url }));
     setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
   }
+  // ========================================================================
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
@@ -877,7 +723,7 @@ export default function App() {
         }
         showToast('Evento enviado a revisión correctamente', 'success');
         setForm(INITIAL_FORM);
-        goHome();
+        setView('home');
         fetchEvents();
       })
       .catch((err) => { console.error(err); showToast('Error al enviar', 'error'); })
