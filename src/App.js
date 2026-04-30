@@ -784,60 +784,39 @@ export default function App() {
     }
   }
 
- function buildSpanishPrompt(title, category) {
-  const cleanTitle = String(title || '').trim();
+  function buildImagePrompt(title, category) {
+  var t = String(title || '').trim().toLowerCase();
 
-  let categoryContext = '';
-  switch (category) {
-    case 'MUSICA':
-      categoryContext = 'concierto de música en vivo, escenario, luces de espectáculo, público, ambiente festivo';
-      break;
-    case 'GASTRONOMIA':
-      categoryContext = 'evento gastronómico, comida, tapas, platos deliciosos, ambiente culinario';
-      break;
-    case 'TAURINO':
-      categoryContext = 'evento taurino tradicional en España, plaza de toros, ambiente de feria, estilo realista';
-      break;
-    case 'FIESTAS PATRONALES':
-      categoryContext = 'fiestas patronales en un pueblo de España, desfile, luces, decoración festiva, ambiente tradicional';
-      break;
-    case 'OTROS':
-    default:
-      categoryContext = 'evento local, reunión pública, ambiente festivo y realista';
-      break;
-  }
+  var catWord = 'event';
+  if (category === 'MUSICA') catWord = 'live music concert with stage and lights';
+  if (category === 'GASTRONOMIA') catWord = 'food festival with delicious dishes';
+  if (category === 'TAURINO') catWord = 'spanish bullfighting arena';
+  if (category === 'FIESTAS PATRONALES') catWord = 'traditional spanish town festival with lights and decorations';
 
-  return `
-Fotografía profesional y realista de un evento llamado "${cleanTitle}".
-El evento debe estar claramente relacionado con: ${categoryContext}.
-La imagen debe mostrar una escena coherente con el título del evento.
-Estilo fotográfico natural, alta calidad, iluminación cinematográfica, colores vivos.
-Situado en España.
-Sin texto, sin letras, sin logotipos, sin marcas de agua.
-`.trim();
+  return t + ', ' + catWord + ', realistic photo, no text, no letters, no watermark';
 }
 
 function generateAIImage() {
   if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
-    setIsGenerating(true);
-    showToast('Generando imagen con IA...', 'info');
-    const seed = Math.floor(Math.random() * 999999);
-    const prompt = buildAIPrompt(form.title, form.category, form.city);
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
-    setForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
-  }
-  
+  setIsGenerating(true);
+  showToast('Generando imagen con IA...', 'info');
+  var seed = Math.floor(Math.random() * 999999);
+  var prompt = buildImagePrompt(form.title, form.category);
+  var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+  setForm(function(prev) { return Object.assign({}, prev, { image_url: url }); });
+  setTimeout(function() { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
+}
+
 function generateAIImageEdit() {
   if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
-    setIsGenerating(true);
-    showToast('Generando imagen con IA...', 'info');
-    const seed = Math.floor(Math.random() * 999999);
-    const prompt = buildAIPrompt(editForm.title, editForm.category, editForm.city);
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
-    setEditForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
-  }
+  setIsGenerating(true);
+  showToast('Generando imagen con IA...', 'info');
+  var seed = Math.floor(Math.random() * 999999);
+  var prompt = buildImagePrompt(editForm.title, editForm.category);
+  var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+  setEditForm(function(prev) { return Object.assign({}, prev, { image_url: url }); });
+  setTimeout(function() { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
+}
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
