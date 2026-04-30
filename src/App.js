@@ -785,14 +785,53 @@ export default function App() {
   }
 
   function generateAIImage() {
-    if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
-    setIsGenerating(true);
-    showToast('Generando imagen con IA...', 'info');
-    const seed = Math.floor(Math.random() * 999999);
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + form.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
-    setForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
+    if (!form.title) { 
+    showToast('Escribe un título primero', 'error'); 
+    return; 
   }
+
+  setIsGenerating(true);
+  showToast('Generando imagen...', 'info');
+
+  const seed = Math.floor(Math.random() * 999999);
+
+  const categoryContext = {
+    MUSICA: 'concierto en vivo con escenario iluminado y público',
+    GASTRONOMIA: 'evento gastronómico con comida atractiva y ambiente festivo',
+    TAURINO: 'evento taurino en plaza de toros tradicional española',
+    'FIESTAS PATRONALES': 'fiestas patronales de pueblo en España con calles decoradas y gente celebrando',
+    OTROS: 'evento social en España con personas disfrutando'
+  };
+
+  const context = categoryContext[form.category] || categoryContext.OTROS;
+
+  const prompt = `
+    fotografía profesional realista de ${form.title} 
+    ${context} 
+    en ${form.city || 'España'} 
+    sin texto en la imagen 
+    alta calidad 
+    iluminación cinematográfica 
+    estilo realista 
+    colores vibrantes 
+    ambiente festivo
+  `;
+
+  const url = 
+    'https://image.pollinations.ai/prompt/' +
+    encodeURIComponent(prompt) +
+    '?width=800&height=600&seed=' +
+    seed +
+    '&nologo=true&t=' +
+    Date.now();
+
+  setForm((prev) => ({ ...prev, image_url: url }));
+
+  setTimeout(() => {
+    setIsGenerating(false);
+    showToast('Imagen generada', 'success');
+  }, 1500);
+}
 
   function generateAIImageEdit() {
     if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
