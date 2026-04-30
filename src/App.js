@@ -390,11 +390,10 @@ export default function App() {
     }
   });
 
+  // Estados para zoom de foto
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
   const [photoScale, setPhotoScale] = useState(1);
   const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
-  const [eventImageLoaded, setEventImageLoaded] = useState(false);
-  const [showShareOptions, setShowShareOptions] = useState(false);
 
   const listRef = useRef(null);
   const toastTimerRef = useRef(null);
@@ -450,8 +449,6 @@ export default function App() {
     setIsPhotoZoomed(false);
     setPhotoScale(1);
     setPhotoPos({ x: 0, y: 0 });
-    setEventImageLoaded(false);
-    setShowShareOptions(false);
   }
 
   function clearSelections() {
@@ -561,6 +558,7 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // Rutas simples para vistas principales
   useEffect(() => {
     if (currentPath.startsWith('/evento/')) return;
 
@@ -627,6 +625,7 @@ export default function App() {
     navigateTo('/', true);
   }, [currentPath, hasAdmin]);
 
+  // Ruta directa /evento/:id
   useEffect(() => {
     if (!currentPath.startsWith('/evento/')) return;
 
@@ -641,7 +640,6 @@ export default function App() {
     );
 
     if (foundInState) {
-      setView('home');
       setSelectedPendingEvent(null);
       setEditingEvent(null);
       resetDetailUi();
@@ -666,7 +664,6 @@ export default function App() {
           return;
         }
 
-        setView('home');
         setSelectedPendingEvent(null);
         setEditingEvent(null);
         resetDetailUi();
@@ -792,8 +789,7 @@ export default function App() {
     setIsGenerating(true);
     showToast('Generando imagen con IA...', 'info');
     const seed = Math.floor(Math.random() * 999999);
-    const prompt = 'professional event photography, ' + form.title + ', crowd, festival, high quality, 4k, detailed';
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + form.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
     setForm((prev) => ({ ...prev, image_url: url }));
     setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
   }
@@ -803,8 +799,7 @@ export default function App() {
     setIsGenerating(true);
     showToast('Generando imagen con IA...', 'info');
     const seed = Math.floor(Math.random() * 999999);
-    const prompt = 'professional event photography, ' + editForm.title + ', crowd, festival, high quality, 4k, detailed';
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + editForm.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
     setEditForm((prev) => ({ ...prev, image_url: url }));
     setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
   }
@@ -960,7 +955,7 @@ export default function App() {
     const email = prompt('Escribe tu email:');
     if (!email) return;
 
-    const redirectUrl = APP_URL + (window.location.pathname || '/');
+    const redirectUrl = APP_URL + (currentPath || '/');
 
     supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectUrl } }).then((res) => {
       if (res.error) { console.error(res.error); showToast('Error enviando login', 'error'); return; }
@@ -1002,37 +997,83 @@ export default function App() {
   }
 
   function shareEvent(ev) {
-    const realLink = APP_URL + '/evento/' + ev.id;
+    const shareUrl = `${APP_URL}/evento/${ev.id}`;
+  const shareText = `¡No te pierdas ${ev.title}! ${shareUrl}`;
 
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(realLink).then(() => {
-        showToast('✅ Enlace copiado', 'success');
-      }).catch(() => {
-        fallbackCopyText(realLink, showToast);
-      });
-    } else {
-      fallbackCopyText(realLink, showToast);
-    }
+  const shareOptions = [
+    { name: 'WhatsApp', icon: '📱', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
+    { name: 'Facebook', icon: '📘', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
+    { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
+    { name: 'Copiar en portapapeles', icon: '📋', action: 'copy' }
+  ];
+
+  const shareModal = document.createElement('div');
+  shareModal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center;
+  `;
+
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: ${isDark ? '#0f172a' : '#fff'}; border-radius: 20px; padding: 25px; width: 90%; max-width: 360px; color: ${isDark ? '#fff' : '#0f172a'};
+  `;
+
+  modalContent.innerHTML = `
+    <h3 style="margin:0 0 20px; font-weight:900; text-align:center; font-size:16px;">Compartir evento</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+      ${shareOptions.map(opt => `
+        <button class="share-btn" data-action="${opt.action || 'link'}" data-url="${opt.url}" style="
+          padding:14px; border:none; border-radius:12px; font-weight:900; font-size:11px; cursor:pointer;
+          background: ${isDark ? '#1e293b' : '#f1f5f9'}; color: ${isDark ? '#fff' : '#0f172a'};
+          display:flex; align-items:center; justify-content:center; gap:8px;
+        ">
+          ${opt.icon} ${opt.name}
+        </button>
+      `).join('')}
+    </div>
+    <button id="close-share-modal" style="
+      width:100%; padding:12px; border:none; border-radius:12px; background:#64748b; color:white;
+      font-weight:900; font-size:12px; cursor:pointer;
+    ">CERRAR</button>
+  `;
+
+  shareModal.appendChild(modalContent);
+  document.body.appendChild(shareModal);
+
+  function closeModal() {
+    shareModal.remove();
   }
 
-  function getShareData(ev) {
-    const url = APP_URL + '/evento/' + ev.id;
-    const text = '¡Mira este evento en Eventora! 🎉 ' + ev.title + ' 📍 ' + ev.city + ' 📅 ' + formatDate(ev.date);
-    return {
-      url,
-      text,
-      whatsapp: 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text + '\n\n' + url),
-      facebook: 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url),
-      twitter: 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url),
-      telegram: 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text)
-    };
-  }
+  shareModal.addEventListener('click', (e) => {
+    if (e.target === shareModal) closeModal();
+  });
+
+  document.getElementById('close-share-modal').addEventListener('click', closeModal);
+
+  document.querySelectorAll('.share-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const action = e.currentTarget.dataset.action;
+      const url = e.currentTarget.dataset.url;
+
+      if (action === 'copy') {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          showToast('✅ Enlace copiado al portapapeles', 'success');
+        }).catch(() => {
+          showToast('❌ No se pudo copiar el enlace', 'error');
+        });
+      } else {
+        window.open(url, '_blank');
+      }
+      closeModal();
+    });
+  });
+}
 
   function handleCategoryChange(cat) {
     setSelectedCategory(cat);
     if (listRef.current) listRef.current.scrollTop = 0;
   }
 
+  // Funciones para zoom de foto
   function enterPhotoZoom() {
     setIsPhotoZoomed(true);
     setPhotoScale(1);
@@ -1078,6 +1119,7 @@ export default function App() {
       e.preventDefault();
 
       const slowFactor = 0.55;
+
       const dx = e.touches[0].clientX - photoTouchRef.current.lastX;
       const dy = e.touches[0].clientY - photoTouchRef.current.lastY;
 
@@ -1167,22 +1209,27 @@ export default function App() {
 
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color .25s, color .25s; }
-        html, body, #root { width: 100%; height: 100%; overflow: hidden; }
-        .dark-theme { background:#020617; color:white; }
-        .light-theme { background:#f8fafc; color:#0f172a; }
-        .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
-        .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
-        .no-scrollbar::-webkit-scrollbar { display:none; }
-        .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
-        .leaflet-container img { max-width:none!important; max-height:none!important; }
-        @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-        .animate-spin { animation:spin 1s linear infinite; }
-        @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
-        .pulse-admin { animation:admin-pulse 1.4s infinite; }
-        @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
-        .heart-pop { animation:heartPop .6s ease-out; }
-        @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
-      `}</style>
+  html, body, #root { width: 100%; height: 100%; overflow: hidden; }
+  .dark-theme { background:#020617; color:white; }
+  .light-theme { background:#f8fafc; color:#0f172a; }
+  .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
+  .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
+  .no-scrollbar::-webkit-scrollbar { display:none; }
+  .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+  .leaflet-container img { max-width:none!important; max-height:none!important; }
+  @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+  .animate-spin { animation:spin 1s linear infinite; }
+  @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
+  .pulse-admin { animation:admin-pulse 1.4s infinite; }
+  @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
+  .heart-pop { animation:heartPop .6s ease-out; }
+  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  /* AÑADE ESTA LÍNEA AQUÍ */
+  .share-btn:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
+  @media (max-width: 320px) {
+  .share-btn { font-size: 10px !important; padding: 12px !important; }
+}
+`}</style>
 
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
         <div style={{ cursor: 'pointer' }} onClick={goHome}>
@@ -1291,6 +1338,7 @@ export default function App() {
           </div>
         )}
 
+        {/* Detalles con zoom de foto */}
         {selectedEvent && !selectedPendingEvent && !editingEvent && (
           <>
             {isPhotoZoomed ? (
@@ -1350,30 +1398,13 @@ export default function App() {
                       overflow: 'hidden', flexShrink: 0
                     }}
                   >
-                    {!eventImageLoaded && (
-                      <div style={{
-                        position: 'absolute', inset: 0, zIndex: 2,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: isDark ? '#0f172a' : '#f1f5f9'
-                      }}>
-                        <Loader2 className="animate-spin" size={32} color="#4f46e5" />
-                      </div>
-                    )}
-
                     <img
-                      key={selectedEvent.id}
                       src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
                       alt=""
-                      onLoad={() => setEventImageLoaded(true)}
-                      onError={() => setEventImageLoaded(true)}
-                      style={{
-                        width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-                        opacity: eventImageLoaded ? 1 : 0,
-                        transition: 'opacity 0.3s ease'
-                      }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                     />
                     <div style={{
-                      position: 'absolute', bottom: 8, right: 8, zIndex: 3,
+                      position: 'absolute', bottom: 8, right: 8,
                       background: 'rgba(0,0,0,0.6)', color: 'white',
                       padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900, pointerEvents: 'none'
                     }}>
@@ -1408,12 +1439,293 @@ export default function App() {
                       <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
                     </div>
 
-                    <button onClick={() => { shareEvent(selectedEvent); setShowShareOptions(true); }} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+                    <button onClick={() => shareEvent(selectedEvent)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
                       <Share2 size={14} /> COMPARTIR EVENTO
                     </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
-                    {showShareOptions && (
-                      <div style={{ marginTop: 8 }}>
-                        <p style={{ fontSize: 9, fontWeight: 900, color: '#6366f1', textAlign: 'center', marginBottom: 6, letterSpacing: 1 }}>COMPARTIR EN</p>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                          <button onClick={() => window.open(getShareData(selectedEvent).whatsapp, '_blank')} style={{ padding: 10, borderRadius: 10
+        {view === 'create' && (
+          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
+            <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 15, borderRadius: 20, gap: 8, display: 'flex', flexDirection: 'column' }}>
+              <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 14 }}>AÑADIR EVENTO</h2>
+              <input name="title" placeholder="TÍTULO" style={INPUT_STYLE} value={form.title} onChange={handleInputChange} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 6 }}>
+                <input name="city" placeholder="CIUDAD" style={INPUT_STYLE} value={form.city} onChange={handleInputChange} />
+                <select name="category" style={INPUT_STYLE} value={form.category} onChange={handleInputChange}>
+                  <option value="MUSICA">MUSICA</option>
+                  <option value="GASTRONOMIA">GASTRONOMIA</option>
+                  <option value="TAURINO">TAURINO</option>
+                  <option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option>
+                  <option value="OTROS">OTROS</option>
+                </select>
+              </div>
+              <input name="localidad" placeholder="LOCALIDAD" style={INPUT_STYLE} value={form.localidad} onChange={handleInputChange} />
+              <input name="address" placeholder="DIRECCIÓN" style={INPUT_STYLE} value={form.address} onChange={handleInputChange} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <input name="date" type="date" style={{ ...INPUT_STYLE, padding: 8 }} value={form.date} onChange={handleInputChange} />
+                <input name="time" type="time" style={{ ...INPUT_STYLE, padding: 8 }} value={form.time} onChange={handleInputChange} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <button onClick={generateAIImage} disabled={isGenerating} style={{ padding: 10, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}>
+                  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />} IA FOTO
+                </button>
+                <label style={{ padding: 10, background: '#1e293b', color: 'white', textAlign: 'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>
+                  GALERÍA
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleGalleryUpload} />
+                </label>
+              </div>
+              {form.image_url && <img src={form.image_url} alt="" style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 10 }} />}
+              <button onClick={handleSubmitEvent} disabled={isSubmitting} style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
+                {isSubmitting ? 'Enviando...' : 'ENVIAR REVISIÓN'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {view === 'admin' && editingEvent && (
+          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
+            <button onClick={cancelEditEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
+              <ArrowLeft size={16} /> CANCELAR EDICIÓN
+            </button>
+
+            <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 15, borderRadius: 20, gap: 8, display: 'flex', flexDirection: 'column' }}>
+              <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 15 }}>EDITAR EVENTO</h2>
+              <input name="title" placeholder="TÍTULO" style={INPUT_STYLE} value={editForm.title} onChange={handleEditInputChange} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 6 }}>
+                <input name="city" placeholder="CIUDAD" style={INPUT_STYLE} value={editForm.city} onChange={handleEditInputChange} />
+                <select name="category" style={INPUT_STYLE} value={editForm.category} onChange={handleEditInputChange}>
+                  <option value="MUSICA">MUSICA</option>
+                  <option value="GASTRONOMIA">GASTRONOMIA</option>
+                  <option value="TAURINO">TAURINO</option>
+                  <option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option>
+                  <option value="OTROS">OTROS</option>
+                </select>
+              </div>
+              <input name="localidad" placeholder="LOCALIDAD" style={INPUT_STYLE} value={editForm.localidad} onChange={handleEditInputChange} />
+              <input name="address" placeholder="DIRECCIÓN" style={INPUT_STYLE} value={editForm.address} onChange={handleEditInputChange} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <input name="date" type="date" style={{ ...INPUT_STYLE, padding: 8 }} value={editForm.date} onChange={handleEditInputChange} />
+                <input name="time" type="time" style={{ ...INPUT_STYLE, padding: 8 }} value={editForm.time} onChange={handleEditInputChange} />
+              </div>
+
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: 12,
+                background: editForm.featured ? 'rgba(34,197,94,.15)' : 'rgba(128,128,128,0.1)',
+                borderRadius: 10, cursor: 'pointer',
+                border: editForm.featured ? '2px solid #22c55e' : '2px solid transparent'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={editForm.featured === true}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, featured: e.target.checked }))}
+                  style={{ width: 18, height: 18, cursor: 'pointer' }}
+                />
+                <Star size={16} fill={editForm.featured ? '#22c55e' : 'none'} color={editForm.featured ? '#22c55e' : '#6366f1'} />
+                <span style={{ fontSize: 12, fontWeight: 900, color: editForm.featured ? '#22c55e' : 'inherit' }}>
+                  MARCAR COMO DESTACADO
+                </span>
+              </label>
+
+              <input name="image_url" placeholder="URL DE IMAGEN" style={INPUT_STYLE} value={editForm.image_url} onChange={handleEditInputChange} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <button onClick={generateAIImageEdit} disabled={isGenerating} style={{ padding: 10, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}>
+                  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />} NUEVA IA
+                </button>
+                <label style={{ padding: 10, background: '#1e293b', color: 'white', textAlign: 'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>
+                  NUEVA GALERÍA
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleEditGalleryUpload} />
+                </label>
+              </div>
+              {editForm.image_url && <img src={editForm.image_url} alt="" style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 12 }} />}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
+                <button onClick={cancelEditEvent} disabled={isSubmitting} style={{ width: '100%', background: '#64748b', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
+                  CANCELAR
+                </button>
+                <button onClick={handleSaveEditEvent} disabled={isSubmitting} style={{ width: '100%', background: '#22c55e', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
+                  {isSubmitting ? 'Guardando...' : 'GUARDAR'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view === 'admin' && !selectedPendingEvent && !editingEvent && (
+          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
+            <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
+              <ArrowLeft size={16} /> VOLVER
+            </button>
+
+            <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 18, padding: 12, marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <div>
+                  <p style={{ fontSize: 15, fontWeight: 900 }}>PANEL ADMIN</p>
+                  <p style={{ fontSize: 9, opacity: 0.65 }}>{userEmail || 'No conectado'}</p>
+                </div>
+                <button onClick={() => { fetchEvents(); showToast('Eventos actualizados', 'success'); }} style={{ width: 36, height: 36, borderRadius: 12, border: 'none', background: 'rgba(99,102,241,.15)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <RefreshCw size={16} />
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                <div style={{ background: 'rgba(239,68,68,.12)', color: '#ef4444', borderRadius: 14, padding: 10, textAlign: 'center', fontWeight: 900, fontSize: 11 }}>
+                  {rawPendingEvents.length}<br /><span style={{ fontSize: 8 }}>PENDIENTES</span>
+                </div>
+                <div style={{ background: 'rgba(34,197,94,.12)', color: '#22c55e', borderRadius: 14, padding: 10, textAlign: 'center', fontWeight: 900, fontSize: 11 }}>
+                  {rawApprovedEvents.length}<br /><span style={{ fontSize: 8 }}>APROBADOS</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 12, padding: '6px 10px', marginBottom: 8 }}>
+                <Search size={15} color="#6366f1" />
+                <input value={adminSearch} onChange={(e) => setAdminSearch(e.target.value)} placeholder="Buscar por título, ciudad, dirección..." style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', color: 'inherit', fontWeight: 800, fontSize: 10 }} />
+                {adminSearch && <button onClick={() => setAdminSearch('')} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontWeight: 900 }}>X</button>}
+              </div>
+
+              <select value={adminCityFilter} onChange={(e) => setAdminCityFilter(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 12, border: 'none', outline: 'none', background: isDark ? '#1e293b' : '#e2e8f0', color: 'inherit', fontWeight: 900, fontSize: 10 }}>
+                <option value="TODAS">TODAS LAS CIUDADES</option>
+                {adminCitiesList.map((city) => <option key={city} value={city}>{city}</option>)}
+              </select>
+
+              {adminFiltersActive && (
+                <button onClick={() => { setAdminSearch(''); setAdminCityFilter('TODAS'); }} style={{ width: '100%', marginTop: 8, padding: 8, borderRadius: 10, border: 'none', background: 'rgba(99,102,241,.12)', color: '#6366f1', fontWeight: 900, fontSize: 9, cursor: 'pointer' }}>
+                  LIMPIAR FILTROS
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+              <button onClick={() => { setAdminTab('pending'); fetchEvents(); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'pending' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'pending' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+                PENDIENTES ({pendingEvents.length}{adminFiltersActive ? '/' + rawPendingEvents.length : ''})
+              </button>
+              <button onClick={() => { setAdminTab('approved'); fetchEvents(); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'approved' ? '#22c55e' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'approved' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+                APROBADOS ({approvedEvents.length}{adminFiltersActive ? '/' + rawApprovedEvents.length : ''})
+              </button>
+            </div>
+
+            {adminTab === 'approved' && approvedEvents.length > 0 && (
+              <button onClick={() => exportToCSV(approvedEvents)} style={{ width: '100%', padding: 10, borderRadius: 10, border: 'none', background: 'rgba(99,102,241,.1)', color: '#6366f1', fontWeight: 900, fontSize: 10, cursor: 'pointer', marginBottom: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <Download size={14} /> EXPORTAR RESULTADOS A CSV
+              </button>
+            )}
+
+            {adminTab === 'pending' && pendingEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS PENDIENTES</p>}
+            {adminTab === 'pending' && pendingEvents.map((ev) => (
+              <AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="pending"
+                onClick={() => setSelectedPendingEvent(ev)}
+                onApprove={() => handleApproveEvent(ev.id)}
+                onReject={() => handleRejectEvent(ev.id)}
+                onDelete={() => handleDeleteEvent(ev.id)} />
+            ))}
+
+            {adminTab === 'approved' && approvedEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS APROBADOS</p>}
+            {adminTab === 'approved' && approvedEvents.map((ev) => (
+              <AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="approved"
+                onClick={() => openEvent(ev)}
+                onView={() => openEvent(ev)}
+                onEdit={() => startEditEvent(ev)}
+                onDelete={() => handleDeleteEvent(ev.id)} />
+            ))}
+          </div>
+        )}
+
+        {view === 'admin' && selectedPendingEvent && !editingEvent && (
+          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
+            <button onClick={() => setSelectedPendingEvent(null)} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
+              <ArrowLeft size={16} /> VOLVER A LISTA
+            </button>
+
+            <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 20, overflow: 'hidden', padding: 0 }}>
+              <img src={selectedPendingEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: '100%', height: 220, objectFit: 'cover' }} />
+              <div style={{ padding: 18 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 15 }}>{selectedPendingEvent.title}</h2>
+                <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><Calendar color="#6366f1" size={16} /><b>{formatDate(selectedPendingEvent.date)}</b></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><Clock color="#6366f1" size={16} /><b>{selectedPendingEvent.time}H</b></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><MapPin color="#6366f1" size={16} /><b>{selectedPendingEvent.address}, {selectedPendingEvent.localidad || ''} - {selectedPendingEvent.city}</b></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><span style={{ fontWeight: 900, color: '#6366f1' }}>CAT:</span><b>{selectedPendingEvent.category}</b></div>
+                  {selectedPendingEvent.created_at && <div style={{ fontSize: 11, opacity: 0.65 }}>Enviado: {formatDateTime(selectedPendingEvent.created_at)}</div>}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  <button onClick={() => handleApproveEvent(selectedPendingEvent.id)} style={{ padding: 12, background: '#22c55e', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>APROBAR</button>
+                  <button onClick={() => handleRejectEvent(selectedPendingEvent.id)} style={{ padding: 12, background: '#f59e0b', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>RECHAZAR</button>
+                  <button onClick={() => handleDeleteEvent(selectedPendingEvent.id)} style={{ padding: 12, background: '#ef4444', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>BORRAR</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view === 'favorites' && (
+          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
+            <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16 }}>MIS GUARDADOS ({favoriteEvents.length})</h2>
+            {favoriteEvents.length === 0 ? (
+              <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS GUARDADOS</p>
+            ) : favoriteEvents.map((ev) => {
+              const dl = getDaysLabel(ev.date);
+              return (
+                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={() => openEvent(ev)}>
+                  <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
+                    <p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city}</p>
+                    {dl && <span style={{ fontSize: 8, color: dl.color, fontWeight: 900, background: dl.bg, padding: '2px 6px', borderRadius: 6 }}>{dl.text}</span>}
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {view === 'profile' && (
+          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 22, borderRadius: 35, width: '100%', maxWidth: 300, textAlign: 'center' }}>
+              <h2 style={{ fontWeight: 900, marginBottom: 12, fontSize: 16 }}>SOPORTE</h2>
+              {userEmail && <p style={{ fontSize: 9, opacity: 0.6, marginBottom: 8 }}>Conectado: {userEmail}</p>}
+              <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+                <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>
+                  ☕ INVITAR A UN CAFÉ (KO-FI)
+                </a>
+                <a href="https://paypal.me/EVENTORA" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>
+                  💙 APOYAR EN PAYPAL
+                </a>
+              </div>
+              {!userEmail ? (
+                <button onClick={handleLogin} style={{ background: '#4f46e5', color: 'white', fontSize: 10, padding: '8px 15px', borderRadius: 8, border: 'none', fontWeight: 900, cursor: 'pointer' }}>LOGIN</button>
+              ) : (
+                <button onClick={handleLogout} style={{ background: '#ef4444', color: 'white', fontSize: 10, padding: '8px 15px', borderRadius: 8, border: 'none', fontWeight: 900, cursor: 'pointer' }}>CERRAR SESIÓN</button>
+              )}
+            </div>
+          </div>
+        )}
+      </main>
+
+      <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,.4)', zIndex: 3000, background: isDark ? 'rgba(15,23,42,.95)' : 'rgba(255,255,255,.95)' }}>
+        <button onClick={goHome} style={{ background: 'none', border: 'none', color: (view === 'home' || currentPath.startsWith('/evento/')) ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+          <LayoutList size={22} />
+        </button>
+        <button onClick={goFavorites} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
+          <Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} />
+          {favoriteEvents.length > 0 && (
+            <span style={{ position: 'absolute', top: -4, right: -8, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px', minWidth: 14, textAlign: 'center' }}>{favoriteEvents.length}</span>
+          )}
+        </button>
+        <button onClick={goCreate} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+          <PlusCircle size={22} />
+        </button>
+        <button onClick={goMap} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+          <MapIcon size={22} />
+        </button>
+      </nav>
+    </div>
+  );
+}
+
