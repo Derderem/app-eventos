@@ -818,60 +818,26 @@ Sin texto, sin letras, sin logotipos, sin marcas de agua.
 }
 
 function generateAIImage() {
-  if (!form.title) {
-    showToast('Escribe un título primero', 'error');
-    return;
+  if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
+    setIsGenerating(true);
+    showToast('Generando imagen con IA...', 'info');
+    const seed = Math.floor(Math.random() * 999999);
+    const prompt = buildAIPrompt(form.title, form.category, form.city);
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    setForm((prev) => ({ ...prev, image_url: url }));
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
   }
-
-  setIsGenerating(true);
-  showToast('Generando imagen con IA...', 'info');
-
-  const seed = Math.floor(Math.random() * 999999);
-  const prompt = buildSpanishPrompt(form.title, form.category);
-
-  const url =
-    'https://image.pollinations.ai/prompt/' +
-    encodeURIComponent(prompt) +
-    '?width=800&height=600&seed=' +
-    seed +
-    '&nologo=true&t=' +
-    Date.now();
-
-  setForm((prev) => ({ ...prev, image_url: url }));
-
-  setTimeout(() => {
-    setIsGenerating(false);
-    showToast('Imagen generada con IA', 'success');
-  }, 1500);
-}
-
+  
 function generateAIImageEdit() {
-  if (!editForm.title) {
-    showToast('Escribe un título primero', 'error');
-    return;
+  if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
+    setIsGenerating(true);
+    showToast('Generando imagen con IA...', 'info');
+    const seed = Math.floor(Math.random() * 999999);
+    const prompt = buildAIPrompt(editForm.title, editForm.category, editForm.city);
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    setEditForm((prev) => ({ ...prev, image_url: url }));
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
   }
-
-  setIsGenerating(true);
-  showToast('Generando imagen con IA...', 'info');
-
-  const seed = Math.floor(Math.random() * 999999);
-  const prompt = buildSpanishPrompt(editForm.title, editForm.category);
-
-  const url =
-    'https://image.pollinations.ai/prompt/' +
-    encodeURIComponent(prompt) +
-    '?width=800&height=600&seed=' +
-    seed +
-    '&nologo=true&t=' +
-    Date.now();
-
-  setEditForm((prev) => ({ ...prev, image_url: url }));
-
-  setTimeout(() => {
-    setIsGenerating(false);
-    showToast('Imagen generada con IA', 'success');
-  }, 1500);
-}
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
