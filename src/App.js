@@ -787,13 +787,15 @@ export default function App() {
 
   function generateAIImage() {
     if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
-    setIsGenerating(true);
-    showToast('Generando imagen con IA...', 'info');
-    const seed = Math.floor(Math.random() * 999999);
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + form.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
-    setForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
-  }
+  setIsGenerating(true);
+  showToast('Generando imagen con IA...', 'info');
+  const seed = Math.floor(Math.random() * 999999);
+  // Mejor prompt para eventos: incluye contexto de evento + categoría
+  const prompt = `professional event photography of ${form.title}, high quality, 8k, vibrant colors, event atmosphere, ${form.category === 'MUSICA' ? 'live music concert stage' : form.category === 'GASTRONOMIA' ? 'restaurant food presentation' : form.category === 'TAURINO' ? 'bullfighting arena' : form.category === 'FIESTAS PATRONALES' ? 'festive parade with decorations' : 'community event'}`;
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&nologo=true&t=${Date.now()}`;
+  setForm((prev) => ({ ...prev, image_url: url }));
+  setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
+}
 
   function generateAIImageEdit() {
     if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
@@ -1342,38 +1344,40 @@ export default function App() {
                   <div
                     onClick={enterPhotoZoom}
                     style={{
-                      position: 'relative', width: '100%', height: 220, cursor: 'zoom-in',
-                      overflow: 'hidden', flexShrink: 0
-                    }}
-                  >
-                    {!eventImageLoaded && (
-                      <div style={{
-                        position: 'absolute', inset: 0, zIndex: 2,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: isDark ? '#0f172a' : '#f1f5f9'
-                      }}>
-                        <Loader2 className="animate-spin" size={32} color="#4f46e5" />
-                      </div>
-                    )}
-
-                    <img
-                      src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-                      alt=""
-                      onLoad={() => setEventImageLoaded(true)}
-                      style={{
-                        width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-                        opacity: eventImageLoaded ? 1 : 0,
-                        transition: 'opacity 0.3s ease'
-                      }}
-                    />
-                    <div style={{
-                      position: 'absolute', bottom: 8, right: 8, zIndex: 3,
-                      background: 'rgba(0,0,0,0.6)', color: 'white',
-                      padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900, pointerEvents: 'none'
-                    }}>
-                      🔍 Pulsa para zoom
-                    </div>
-                  </div>
+    position: 'relative', width: '100%', height: 220, cursor: 'zoom-in',
+    overflow: 'hidden', flexShrink: 0,
+    backgroundColor: isDark ? '#1e293b' : '#f1f5f9'
+  }}
+>
+  {!selectedEvent.image_url || !selectedEvent.image_url.includes('http') ? (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100%', width: '100%'
+    }}>
+      <Loader2 className="animate-spin" size={32} color="#6366f1" />
+    </div>
+  ) : (
+    <>
+      <img
+        src={selectedEvent.image_url}
+        alt={selectedEvent.title}
+        style={{
+          width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+          opacity: 0, transition: 'opacity 0.3s ease'
+        }}
+        loading="lazy"
+        onLoad={(e) => { e.target.style.opacity = '1'; }}
+      />
+    </>
+  )}
+  <div style={{
+    position: 'absolute', bottom: 8, right: 8,
+    background: 'rgba(0,0,0,0.6)', color: 'white',
+    padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900, pointerEvents: 'none'
+  }}>
+    🔍 Pulsa para zoom
+  </div>
+</div>
 
                   <div style={{ padding: 12, flex: 1 }}>
                     <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>
