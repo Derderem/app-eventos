@@ -785,81 +785,63 @@ export default function App() {
   }
 
   function traducirTitulo(titulo) {
-    const t = ' ' + titulo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') + ' ';
-    
-    // TAUROMAQUIA
-    if (t.includes('encierro') && t.includes('campero')) return 'spanish countryside bull running event, bulls running through field, riders on horseback, traditional spanish countryside';
-    if (t.includes('encierro')) return 'running of the bulls in spanish town, bulls charging through narrow streets, runners in white clothing red scarves, San Fermin style';
-    if (t.includes('vaquilla')) return 'young bulls festival in spanish village square, people running, traditional event';
-    if (t.includes('novillada')) return 'young bull fight in spanish bullring, matador with cape, sand arena';
-    if (t.includes('rejone')) return 'horseback bullfighting, rider on horse with bull in spanish arena';
-    if (t.includes('corrida')) return 'professional bullfight in spanish bullring, matador with red cape, bull, sand arena, crowd';
-    if (t.includes('toro') || t.includes('taurin')) return 'spanish bullfighting festival, bulls in arena, traditional spanish event';
-    
-    // GASTRONOMIA
-    if (t.includes('tapa')) return 'spanish tapas competition, variety of small dishes on bar, jamon, olives, croquettes, plates';
-    if (t.includes('pincho')) return 'spanish pinchos on bread, basque tapas on bar counter, variety of toppings';
-    if (t.includes('paella')) return 'huge paella pan with rice seafood, spanish cooking event, outdoor';
-    if (t.includes('jamon')) return 'spanish ham cutting event, jamon iberico, master cutter';
-    if (t.includes('vino') || t.includes('cata')) return 'wine tasting event, glasses of red wine, vineyards background, sommeliers';
-    if (t.includes('cerveza')) return 'beer festival outdoor, beer mugs, people celebrating';
-    if (t.includes('queso')) return 'cheese tasting event, variety of spanish cheeses';
-    if (t.includes('gastronom') || t.includes('degust')) return 'spanish gastronomy festival, gourmet food, chef cooking, plates of food';
-    if (t.includes('concurso') && (t.includes('comid') || t.includes('cocin'))) return 'cooking competition, chefs working, food contest';
-    
-    // MUSICA
-    if (t.includes('rock')) return 'rock concert, electric guitars, stage lights, crowd jumping, drums';
-    if (t.includes('flamenco')) return 'flamenco show, dancer in red dress, guitarist, traditional spanish dance';
-    if (t.includes('reggaeton')) return 'reggaeton concert party, urban music, lights, dancing crowd';
-    if (t.includes('dance') || t.includes('electron') || t.includes('techno') || t.includes('dj')) return 'electronic dance music festival, dj on stage, laser lights, crowd dancing, neon colors';
-    if (t.includes('jazz')) return 'jazz concert, saxophone player, intimate stage, blue lights';
-    if (t.includes('orquesta')) return 'symphony orchestra concert, musicians, conductor, elegant venue';
-    if (t.includes('verbena')) return 'spanish outdoor street party at night, lights strung overhead, people dancing, summer';
-    if (t.includes('concierto') || t.includes('musica') || t.includes('festival')) return 'live music concert, stage with lights, crowd cheering, band playing instruments';
-    
-    // RELIGIOSO Y TRADICIONAL
-    if (t.includes('romeria') || t.includes('romería')) return 'spanish romeria pilgrimage, people in traditional dress, decorated carts with flowers, oxen, countryside, religious procession';
-    if (t.includes('procesion') || t.includes('procesión')) return 'spanish religious procession, people carrying religious float, traditional clothing, candles, narrow streets';
-    if (t.includes('semana santa')) return 'spanish holy week procession, hooded penitents, religious float Virgin Mary, candles at night';
-    if (t.includes('virgen')) return 'virgin mary religious procession, decorated float with flowers, devotees';
-    if (t.includes('san ') || t.includes('santo') || t.includes('santa ')) return 'spanish patron saint festival, religious procession, decorated streets, traditional celebration';
-    if (t.includes('patronal')) return 'spanish village patron saint festival, decorated streets, people celebrating, traditional event';
-    
-    // OTROS
-    if (t.includes('feria')) return 'spanish fair festival, attractions, food stalls, people enjoying, lights, family event';
-    if (t.includes('mercad')) return 'spanish street market, stalls, fresh produce, people shopping, traditional';
-    if (t.includes('carnaval')) return 'spanish carnival parade, colorful costumes, masks, music, dancing in streets';
-    if (t.includes('hoguera') || t.includes('san juan')) return 'San Juan night bonfire on beach, fire flames, people celebrating, summer night';
-    if (t.includes('fuego') || t.includes('pirotecnia')) return 'fireworks display night sky, colorful explosions, celebration';
-    if (t.includes('cabalgata')) return 'three kings parade, decorated floats, candy thrown to children, lights';
-    
-    // FALLBACK
-    return 'spanish town festival celebration, decorated streets, people gathering, traditional event';
-  }
+  var t = ' ' + titulo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') + ' ';
+  if (t.indexOf('encierro campero') !== -1) return 'spanish countryside bull running, bulls in field, riders on horseback, rural spain';
+  if (t.indexOf('encierro') !== -1) return 'running of the bulls, bulls in narrow street, runners white clothes red scarves, spain';
+  if (t.indexOf('vaquilla') !== -1) return 'young bulls festival, spanish village square, people running, traditional';
+  if (t.indexOf('novillada') !== -1) return 'young bull fight, spanish bullring, matador with cape, sand arena';
+  if (t.indexOf('corrida') !== -1) return 'bullfight, matador red cape, bull, spanish arena, crowd watching';
+  if (t.indexOf('toro') !== -1 || t.indexOf('taurin') !== -1) return 'spanish bull event, bulls, traditional spanish festival';
+  if (t.indexOf('pincho') !== -1) return 'spanish pinchos, pintxos on bread, basque tapas bar counter';
+  if (t.indexOf('tapa') !== -1) return 'spanish tapas competition, small dishes, jamon, croquettes, plates';
+  if (t.indexOf('paella') !== -1) return 'huge paella pan cooking, rice seafood, outdoor event';
+  if (t.indexOf('jamon') !== -1) return 'spanish ham cutting, jamon iberico display';
+  if (t.indexOf('vino') !== -1 || t.indexOf('cata') !== -1) return 'wine tasting, glasses red wine, vineyard, sommelier';
+  if (t.indexOf('cerveza') !== -1) return 'beer festival, beer mugs, outdoor celebration';
+  if (t.indexOf('gastronom') !== -1 || t.indexOf('degust') !== -1) return 'spanish gastronomy festival, gourmet food, chef cooking';
+  if (t.indexOf('rock') !== -1) return 'rock concert, electric guitars, stage lights, crowd jumping';
+  if (t.indexOf('flamenco') !== -1) return 'flamenco dance show, dancer red dress, guitarist, spanish';
+  if (t.indexOf('dance') !== -1 || t.indexOf('electron') !== -1 || t.indexOf('dj') !== -1) return 'electronic dance festival, dj stage, laser lights, crowd dancing';
+  if (t.indexOf('verbena') !== -1) return 'spanish outdoor street party night, lights overhead, people dancing';
+  if (t.indexOf('concierto') !== -1 || t.indexOf('musica') !== -1 || t.indexOf('festival') !== -1) return 'live music concert, stage lights, crowd cheering, band';
+  if (t.indexOf('romeria') !== -1 || t.indexOf('romeria') !== -1) return 'spanish romeria pilgrimage, decorated carts flowers, oxen, traditional dress, countryside';
+  if (t.indexOf('procesion') !== -1) return 'religious procession, people carrying float, traditional clothing, candles';
+  if (t.indexOf('semana santa') !== -1) return 'holy week procession, hooded penitents, religious float, candles night';
+  if (t.indexOf('patronal') !== -1) return 'spanish village patron festival, decorated streets, people celebrating';
+  if (t.indexOf('san ') !== -1 || t.indexOf('santo') !== -1) return 'saint patron festival, religious procession, decorated streets';
+  if (t.indexOf('feria') !== -1) return 'spanish fair, attractions, food stalls, lights, family';
+  if (t.indexOf('carnaval') !== -1) return 'carnival parade, colorful costumes, masks, dancing streets';
+  if (t.indexOf('san juan') !== -1 || t.indexOf('hoguera') !== -1) return 'bonfire night beach, fire flames, summer celebration';
+  if (t.indexOf('fuego') !== -1) return 'fireworks night sky, colorful explosions, celebration';
+  if (t.indexOf('cabalgata') !== -1) return 'three kings parade, decorated floats, lights, candy';
+  if (t.indexOf('concurso') !== -1) return 'competition contest event, people participating, festive atmosphere';
+  if (t.indexOf('jornada') !== -1) return 'event day festival, activities, people gathering';
+  return 'spanish town festival celebration, decorated streets, people gathering, tradition';
+}
 
-  function generateAIImage() {
-    if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
-    setIsGenerating(true);
-    showToast('Generando imagen con IA...', 'info');
-    const seed = Math.floor(Math.random() * 999999);
-    const visualPrompt = traducirTitulo(form.title);
-    const fullPrompt = visualPrompt + ', professional photography, high quality, 4k, cinematic, realistic, vibrant, no text, no watermark, no letters';
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(fullPrompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
-    setForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
-  }
+function generateAIImage() {
+  if (!form.title) { showToast('Escribe un titulo primero', 'error'); return; }
+  setIsGenerating(true);
+  showToast('Generando imagen con IA...', 'info');
+  var seed = Math.floor(Math.random() * 999999);
+  var visual = traducirTitulo(form.title);
+  var prompt = visual + ', professional photography, high quality, 4k, cinematic, realistic, vibrant colors, no text, no watermark';
+  var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+  setForm(function(prev) { return Object.assign({}, prev, { image_url: url }); });
+  setTimeout(function() { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
+}
 
-  function generateAIImageEdit() {
-    if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
-    setIsGenerating(true);
-    showToast('Generando imagen con IA...', 'info');
-    const seed = Math.floor(Math.random() * 999999);
-    const visualPrompt = traducirTitulo(editForm.title);
-    const fullPrompt = visualPrompt + ', professional photography, high quality, 4k, cinematic, realistic, vibrant, no text, no watermark, no letters';
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(fullPrompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
-    setEditForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
-  }
+function generateAIImageEdit() {
+  if (!editForm.title) { showToast('Escribe un titulo primero', 'error'); return; }
+  setIsGenerating(true);
+  showToast('Generando imagen con IA...', 'info');
+  var seed = Math.floor(Math.random() * 999999);
+  var visual = traducirTitulo(editForm.title);
+  var prompt = visual + ', professional photography, high quality, 4k, cinematic, realistic, vibrant colors, no text, no watermark';
+  var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+  setEditForm(function(prev) { return Object.assign({}, prev, { image_url: url }); });
+  setTimeout(function() { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
+}
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
