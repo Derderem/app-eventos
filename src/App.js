@@ -390,10 +390,10 @@ export default function App() {
     }
   });
 
-  // Estados para zoom de foto
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
   const [photoScale, setPhotoScale] = useState(1);
   const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
+  const [eventImageLoaded, setEventImageLoaded] = useState(false);
 
   const listRef = useRef(null);
   const toastTimerRef = useRef(null);
@@ -449,6 +449,7 @@ export default function App() {
     setIsPhotoZoomed(false);
     setPhotoScale(1);
     setPhotoPos({ x: 0, y: 0 });
+    setEventImageLoaded(false);
   }
 
   function clearSelections() {
@@ -558,7 +559,6 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Rutas simples para vistas principales
   useEffect(() => {
     if (currentPath.startsWith('/evento/')) return;
 
@@ -625,7 +625,6 @@ export default function App() {
     navigateTo('/', true);
   }, [currentPath, hasAdmin]);
 
-  // Ruta directa /evento/:id
   useEffect(() => {
     if (!currentPath.startsWith('/evento/')) return;
 
@@ -640,6 +639,7 @@ export default function App() {
     );
 
     if (foundInState) {
+      setView('home');
       setSelectedPendingEvent(null);
       setEditingEvent(null);
       resetDetailUi();
@@ -664,6 +664,7 @@ export default function App() {
           return;
         }
 
+        setView('home');
         setSelectedPendingEvent(null);
         setEditingEvent(null);
         resetDetailUi();
@@ -955,7 +956,7 @@ export default function App() {
     const email = prompt('Escribe tu email:');
     if (!email) return;
 
-    const redirectUrl = APP_URL + (currentPath || '/');
+    const redirectUrl = APP_URL + (window.location.pathname || '/');
 
     supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectUrl } }).then((res) => {
       if (res.error) { console.error(res.error); showToast('Error enviando login', 'error'); return; }
@@ -997,83 +998,37 @@ export default function App() {
   }
 
   function shareEvent(ev) {
-    const shareUrl = `${APP_URL}/evento/${ev.id}`;
-  const shareText = `¡No te pierdas ${ev.title}! ${shareUrl}`;
+    const realLink = APP_URL + '/evento/' + ev.id;
 
-  const shareOptions = [
-    { name: 'WhatsApp', icon: '📱', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
-    { name: 'Facebook', icon: '📘', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
-    { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
-    { name: 'Copiar en portapapeles', icon: '📋', action: 'copy' }
-  ];
-
-  const shareModal = document.createElement('div');
-  shareModal.style.cssText = `
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center;
-  `;
-
-  const modalContent = document.createElement('div');
-  modalContent.style.cssText = `
-    background: ${isDark ? '#0f172a' : '#fff'}; border-radius: 20px; padding: 25px; width: 90%; max-width: 360px; color: ${isDark ? '#fff' : '#0f172a'};
-  `;
-
-  modalContent.innerHTML = `
-    <h3 style="margin:0 0 20px; font-weight:900; text-align:center; font-size:16px;">Compartir evento</h3>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
-      ${shareOptions.map(opt => `
-        <button class="share-btn" data-action="${opt.action || 'link'}" data-url="${opt.url}" style="
-          padding:14px; border:none; border-radius:12px; font-weight:900; font-size:11px; cursor:pointer;
-          background: ${isDark ? '#1e293b' : '#f1f5f9'}; color: ${isDark ? '#fff' : '#0f172a'};
-          display:flex; align-items:center; justify-content:center; gap:8px;
-        ">
-          ${opt.icon} ${opt.name}
-        </button>
-      `).join('')}
-    </div>
-    <button id="close-share-modal" style="
-      width:100%; padding:12px; border:none; border-radius:12px; background:#64748b; color:white;
-      font-weight:900; font-size:12px; cursor:pointer;
-    ">CERRAR</button>
-  `;
-
-  shareModal.appendChild(modalContent);
-  document.body.appendChild(shareModal);
-
-  function closeModal() {
-    shareModal.remove();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(realLink).then(() => {
+        showToast('✅ Enlace copiado', 'success');
+      }).catch(() => {
+        fallbackCopyText(realLink, showToast);
+      });
+    } else {
+      fallbackCopyText(realLink, showToast);
+    }
   }
 
-  shareModal.addEventListener('click', (e) => {
-    if (e.target === shareModal) closeModal();
-  });
-
-  document.getElementById('close-share-modal').addEventListener('click', closeModal);
-
-  document.querySelectorAll('.share-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const action = e.currentTarget.dataset.action;
-      const url = e.currentTarget.dataset.url;
-
-      if (action === 'copy') {
-        navigator.clipboard.writeText(shareUrl).then(() => {
-          showToast('✅ Enlace copiado al portapapeles', 'success');
-        }).catch(() => {
-          showToast('❌ No se pudo copiar el enlace', 'error');
-        });
-      } else {
-        window.open(url, '_blank');
-      }
-      closeModal();
-    });
-  });
-}
+  function getShareData(ev) {
+    const url = APP_URL + '/evento/' + ev.id;
+    const text = '¡Mira este evento en Eventora! 🎉 ' + ev.title + ' 📍 ' + ev.city + ' 📅 ' + formatDate(ev.date);
+    return {
+      url,
+      text,
+      whatsapp: 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text + '\n\n' + url),
+      facebook: 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url),
+      twitter: 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url),
+      telegram: 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text)
+    };
+  }
 
   function handleCategoryChange(cat) {
     setSelectedCategory(cat);
     if (listRef.current) listRef.current.scrollTop = 0;
   }
 
-  // Funciones para zoom de foto
   function enterPhotoZoom() {
     setIsPhotoZoomed(true);
     setPhotoScale(1);
@@ -1119,7 +1074,6 @@ export default function App() {
       e.preventDefault();
 
       const slowFactor = 0.55;
-
       const dx = e.touches[0].clientX - photoTouchRef.current.lastX;
       const dy = e.touches[0].clientY - photoTouchRef.current.lastY;
 
@@ -1209,27 +1163,22 @@ export default function App() {
 
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color .25s, color .25s; }
-  html, body, #root { width: 100%; height: 100%; overflow: hidden; }
-  .dark-theme { background:#020617; color:white; }
-  .light-theme { background:#f8fafc; color:#0f172a; }
-  .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
-  .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
-  .no-scrollbar::-webkit-scrollbar { display:none; }
-  .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
-  .leaflet-container img { max-width:none!important; max-height:none!important; }
-  @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-  .animate-spin { animation:spin 1s linear infinite; }
-  @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
-  .pulse-admin { animation:admin-pulse 1.4s infinite; }
-  @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
-  .heart-pop { animation:heartPop .6s ease-out; }
-  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
-  /* AÑADE ESTA LÍNEA AQUÍ */
-  .share-btn:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
-  @media (max-width: 320px) {
-  .share-btn { font-size: 10px !important; padding: 12px !important; }
-}
-`}</style>
+        html, body, #root { width: 100%; height: 100%; overflow: hidden; }
+        .dark-theme { background:#020617; color:white; }
+        .light-theme { background:#f8fafc; color:#0f172a; }
+        .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
+        .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
+        .no-scrollbar::-webkit-scrollbar { display:none; }
+        .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+        .leaflet-container img { max-width:none!important; max-height:none!important; }
+        @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+        .animate-spin { animation:spin 1s linear infinite; }
+        @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
+        .pulse-admin { animation:admin-pulse 1.4s infinite; }
+        @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
+        .heart-pop { animation:heartPop .6s ease-out; }
+        @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+      `}</style>
 
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
         <div style={{ cursor: 'pointer' }} onClick={goHome}>
@@ -1338,142 +1287,146 @@ export default function App() {
           </div>
         )}
 
-        {/* Detalles con zoom de foto */}
         {selectedEvent && !selectedPendingEvent && !editingEvent && (
           <>
-    {isPhotoZoomed ? (
-      <div
-        style={{
-          position: 'fixed', inset: 0, zIndex: 99999, background: '#000',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          overflow: 'hidden', touchAction: 'none'
-        }}
-        onTouchStart={handlePhotoTouchStart}
-        onTouchMove={handlePhotoTouchMove}
-        onTouchEnd={handlePhotoTouchEnd}
-      >
-        <img
-          src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-          alt=""
-          draggable={false}
-          style={{
-            width: '100%', height: '100%', objectFit: 'contain',
-            transform: 'scale(' + photoScale + ') translate(' + photoPos.x + 'px, ' + photoPos.y + 'px)',
-            transition: 'transform 0.1s ease-out'
-          }}
-        />
-        <button
-          onClick={exitPhotoZoom}
-          style={{
-            position: 'absolute', top: 40, right: 20,
-            background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
-            color: 'white', border: 'none', padding: '10px 20px', borderRadius: 999,
-            fontWeight: 900, fontSize: 12, cursor: 'pointer', zIndex: 100000,
-            display: 'flex', alignItems: 'center', gap: 6
-          }}
-        >
-          <X size={16}/> CERRAR
-        </button>
-        <div style={{
-          position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)',
-          color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 700,
-          pointerEvents: 'none', textAlign: 'center'
-        }}>
-          Usa dos dedos para zoom · Pellizca hacia afuera para volver
-        </div>
-      </div>
-    ) : (
-      <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
-          <button onClick={closeSelectedEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
-            <ArrowLeft size={14} /> VOLVER
-          </button>
-        </div>
-
-        <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
-          {/* Imagen con loader */}
-          <div
-            onClick={enterPhotoZoom}
-            style={{
-              position: 'relative', width: '100%', height: 220, cursor: 'zoom-in',
-              overflow: 'hidden', flexShrink: 0,
-              backgroundColor: isDark ? '#1e293b' : '#f1f5f9'
-            }}
-          >
-            {!selectedEvent.image_url || !selectedEvent.image_url.includes('http') ? (
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                height: '100%', width: '100%'
-              }}>
-                <Loader2 className="animate-spin" size={32} color="#6366f1" />
+            {isPhotoZoomed ? (
+              <div
+                style={{
+                  position: 'fixed', inset: 0, zIndex: 99999, background: '#000',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  overflow: 'hidden', touchAction: 'none'
+                }}
+                onTouchStart={handlePhotoTouchStart}
+                onTouchMove={handlePhotoTouchMove}
+                onTouchEnd={handlePhotoTouchEnd}
+              >
+                <img
+                  src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
+                  alt=""
+                  draggable={false}
+                  style={{
+                    width: '100%', height: '100%', objectFit: 'contain',
+                    transform: 'scale(' + photoScale + ') translate(' + photoPos.x + 'px, ' + photoPos.y + 'px)',
+                    transition: 'transform 0.1s ease-out'
+                  }}
+                />
+                <button
+                  onClick={exitPhotoZoom}
+                  style={{
+                    position: 'absolute', top: 40, right: 20,
+                    background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
+                    color: 'white', border: 'none', padding: '10px 20px', borderRadius: 999,
+                    fontWeight: 900, fontSize: 12, cursor: 'pointer', zIndex: 100000,
+                    display: 'flex', alignItems: 'center', gap: 6
+                  }}
+                >
+                  <X size={16}/> CERRAR
+                </button>
+                <div style={{
+                  position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)',
+                  color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 700,
+                  pointerEvents: 'none', textAlign: 'center'
+                }}>
+                  Usa dos dedos para zoom · Pellizca hacia afuera para volver
+                </div>
               </div>
             ) : (
-              <>
-                <img
-                  src={selectedEvent.image_url}
-                  alt={selectedEvent.title}
-                  style={{
-                    width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-                    opacity: 0, transition: 'opacity 0.3s ease'
-                  }}
-                  loading="lazy"
-                  onLoad={(e) => { e.target.style.opacity = '1'; }}
-                />
-                <div style={{
-                  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  zIndex: 1
-                }}>
-                  <Loader2 className="animate-spin" size={32} color="#6366f1" />
+              <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
+                  <button onClick={closeSelectedEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
+                    <ArrowLeft size={14} /> VOLVER
+                  </button>
                 </div>
-              </>
+
+                <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
+                  <div
+                    onClick={enterPhotoZoom}
+                    style={{
+                      position: 'relative', width: '100%', height: 220, cursor: 'zoom-in',
+                      overflow: 'hidden', flexShrink: 0
+                    }}
+                  >
+                    {!eventImageLoaded && (
+                      <div style={{
+                        position: 'absolute', inset: 0, zIndex: 2,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: isDark ? '#0f172a' : '#f1f5f9'
+                      }}>
+                        <Loader2 className="animate-spin" size={32} color="#4f46e5" />
+                      </div>
+                    )}
+
+                    <img
+                      src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
+                      alt=""
+                      onLoad={() => setEventImageLoaded(true)}
+                      style={{
+                        width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+                        opacity: eventImageLoaded ? 1 : 0,
+                        transition: 'opacity 0.3s ease'
+                      }}
+                    />
+                    <div style={{
+                      position: 'absolute', bottom: 8, right: 8, zIndex: 3,
+                      background: 'rgba(0,0,0,0.6)', color: 'white',
+                      padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900, pointerEvents: 'none'
+                    }}>
+                      🔍 Pulsa para zoom
+                    </div>
+                  </div>
+
+                  <div style={{ padding: 12, flex: 1 }}>
+                    <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>
+                      {categoryEmojis[selectedEvent.category] || '📌'}
+                    </p>
+                    <h2 style={{ fontSize: 17, fontWeight: 900, marginBottom: 8 }}>{selectedEvent.title}</h2>
+
+                    <div style={{ display: 'flex', gap: 15, marginBottom: 8 }}>
+                      <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}>
+                        <Calendar color="#6366f1" size={13} /> <b>{formatDate(selectedEvent.date)}</b>
+                      </div>
+                      <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}>
+                        <Clock color="#6366f1" size={13} /> <b>{selectedEvent.time}H</b>
+                      </div>
+                    </div>
+
+                    {getDaysLabel(selectedEvent.date) && (
+                      <div style={{ display: 'inline-block', background: getDaysLabel(selectedEvent.date).bg, color: getDaysLabel(selectedEvent.date).color, padding: '3px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900, marginBottom: 8 }}>
+                        {getDaysLabel(selectedEvent.date).text}
+                      </div>
+                    )}
+
+                    <div onClick={() => window.open('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(selectedEvent.address + ' ' + (selectedEvent.localidad || '') + ' ' + selectedEvent.city))} style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 8, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1', marginBottom: 8 }}>
+                      <MapPin color="#6366f1" size={14} style={{ margin: '0 auto 2px' }} />
+                      <b style={{ fontSize: 10 }}>{selectedEvent.address}, {selectedEvent.localidad || ''} - {selectedEvent.city}</b><br />
+                      <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
+                    </div>
+
+                    <button onClick={() => shareEvent(selectedEvent)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer', marginBottom: 8 }}>
+                      <Share2 size={14} /> COPIAR ENLACE
+                    </button>
+
+                    <p style={{ fontSize: 9, fontWeight: 900, color: '#6366f1', textAlign: 'center', marginBottom: 6, letterSpacing: 1 }}>COMPARTIR EN</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                      <button onClick={() => window.open(getShareData(selectedEvent).whatsapp, '_blank')} style={{ padding: 10, borderRadius: 10, border: 'none', background: '#25D366', color: 'white', fontWeight: 900, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                        💬 WhatsApp
+                      </button>
+                      <button onClick={() => window.open(getShareData(selectedEvent).facebook, '_blank')} style={{ padding: 10, borderRadius: 10, border: 'none', background: '#1877F2', color: 'white', fontWeight: 900, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                        📘 Facebook
+                      </button>
+                      <button onClick={() => window.open(getShareData(selectedEvent).twitter, '_blank')} style={{ padding: 10, borderRadius: 10, border: 'none', background: isDark ? '#1e293b' : '#0f172a', color: 'white', fontWeight: 900, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                        ❌ X / Twitter
+                      </button>
+                      <button onClick={() => window.open(getShareData(selectedEvent).telegram, '_blank')} style={{ padding: 10, borderRadius: 10, border: 'none', background: '#0088cc', color: 'white', fontWeight: 900, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                        ✈️ Telegram
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
-            <div style={{
-              position: 'absolute', bottom: 8, right: 8,
-              background: 'rgba(0,0,0,0.6)', color: 'white',
-              padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900,
-              pointerEvents: 'none', zIndex: 2
-            }}>
-              🔍 Pulsa para zoom
-            </div>
-          </div>
-
-          <div style={{ padding: 12, flex: 1 }}>
-            <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>
-              {categoryEmojis[selectedEvent.category] || '📌'}
-            </p>
-            <h2 style={{ fontSize: 17, fontWeight: 900, marginBottom: 8 }}>{selectedEvent.title}</h2>
-
-            <div style={{ display: 'flex', gap: 15, marginBottom: 8 }}>
-              <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}>
-                <Calendar color="#6366f1" size={13} /> <b>{formatDate(selectedEvent.date)}</b>
-              </div>
-              <div style={{ display: 'flex', gap: 4, fontSize: 11, alignItems: 'center' }}>
-                <Clock color="#6366f1" size={13} /> <b>{selectedEvent.time}H</b>
-              </div>
-            </div>
-
-            {getDaysLabel(selectedEvent.date) && (
-              <div style={{ display: 'inline-block', background: getDaysLabel(selectedEvent.date).bg, color: getDaysLabel(selectedEvent.date).color, padding: '3px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900, marginBottom: 8 }}>
-                {getDaysLabel(selectedEvent.date).text}
-              </div>
-            )}
-
-            <div onClick={() => window.open('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(selectedEvent.address + ' ' + (selectedEvent.localidad || '') + ' ' + selectedEvent.city))} style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 8, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1', marginBottom: 8 }}>
-              <MapPin color="#6366f1" size={14} style={{ margin: '0 auto 2px' }} />
-              <b style={{ fontSize: 10 }}>{selectedEvent.address}, {selectedEvent.localidad || ''} - {selectedEvent.city}</b><br />
-              <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
-            </div>
-
-            <button onClick={() => shareEvent(selectedEvent)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
-              <Share2 size={14} /> COMPARTIR EVENTO
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-  </>
-)}
+          </>
+        )}
 
         {view === 'create' && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
@@ -1581,7 +1534,7 @@ export default function App() {
           </div>
         )}
 
-        {view === 'admin' && !selectedPendingEvent && !editingEvent && (
+        {view === 'admin' && !selectedPendingEvent && !editingEvent && !selectedEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
               <ArrowLeft size={16} /> VOLVER
