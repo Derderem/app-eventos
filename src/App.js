@@ -61,98 +61,6 @@ function formatDateTime(dateStr) {
 function normalizeText(value) {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
-function detectVisualKeywords(title, category) {
-  const t = normalizeText(title);
-
-  // Defaults
-  let ai = 'spanish festival, crowd, celebration, realistic photo';
-  let photo = 'spain,festival,celebration';
-
-  // TAURINO / ENCIERROS
-  if (t.includes('encierro') && t.includes('campero')) {
-    ai = 'rural bull run, countryside festival, bulls running, horses and riders, spain, realistic documentary photo';
-    photo = 'spain,countryside,horse,festival';
-    return { ai, photo };
-  }
-  if (t.includes('encierro')) {
-    ai = 'running of the bulls, spanish street festival, bulls running in the street, runners, crowd behind barriers, pamplona style, realistic documentary photo';
-    photo = 'pamplona,running-of-the-bulls,spain';
-    return { ai, photo };
-  }
-  if (t.includes('toros') || t.includes('toro') || t.includes('taurin')) {
-    // evitamos "bullfight" para reducir bloqueos
-    ai = 'spanish bull festival, bullring, traditional fiesta, crowd, spain, realistic documentary photo';
-    photo = 'bullring,spain,festival';
-    return { ai, photo };
-  }
-
-  // ROMERÍA / PATRONALES
-  if (t.includes('romeria') || t.includes('peregrin')) {
-    ai = 'spanish romeria pilgrimage festival, traditional dresses, horses, carriages, countryside, spain, realistic documentary photo';
-    photo = 'spain,romeria,horse,festival';
-    return { ai, photo };
-  }
-  if (t.includes('patronal') || t.includes('fiesta patronal') || t.includes('fiestas')) {
-    ai = 'spanish village festival, street decorations, bunting flags, people celebrating, fireworks, spain, realistic photo';
-    photo = 'spain,village,festival,fireworks';
-    return { ai, photo };
-  }
-
-  // GASTRONOMÍA
-  if (t.includes('tapas')) {
-    ai = 'tapas contest, spanish tapas, plates on bar counter, people tasting food, restaurant bar atmosphere, realistic food photography';
-    photo = 'tapas,spain,bar,food';
-    return { ai, photo };
-  }
-  if (t.includes('pinchos')) {
-    ai = 'pinchos contest, basque tapas, small gourmet bites, bar counter, people tasting, realistic food photography';
-    photo = 'pinchos,tapas,spain,bar';
-    return { ai, photo };
-  }
-  if (t.includes('jornada') && (t.includes('gastronom') || t.includes('degust'))) {
-    ai = 'food festival in spain, gastronomy event, tapas, people eating, chefs cooking, realistic food photography';
-    photo = 'food-festival,spain,tapas';
-    return { ai, photo };
-  }
-
-  // MÚSICA
-  if (t.includes('concierto') || t.includes('festival') || t.includes('orquesta')) {
-    ai = 'live concert, stage lights, crowd cheering, night concert, realistic concert photography';
-    photo = 'concert,stage,lights';
-    return { ai, photo };
-  }
-  if (t.includes('dance') || t.includes('dj') || t.includes('electro') || t.includes('techno')) {
-    ai = 'electronic dance music concert, dj on stage, lasers, crowd dancing, nightlife, realistic concert photo';
-    photo = 'dj,concert,laser,festival';
-    return { ai, photo };
-  }
-
-  // Fallback por categoría si el título no contiene palabras clave
-  if (category === 'TAURINO') {
-    ai = 'spanish bull festival, traditional fiesta, crowd, spain, realistic documentary photo';
-    photo = 'bullring,spain,festival';
-  } else if (category === 'GASTRONOMIA') {
-    ai = 'food festival in spain, tapas, people eating, realistic food photography';
-    photo = 'tapas,spain,food';
-  } else if (category === 'MUSICA') {
-    ai = 'live concert, stage lights, crowd, realistic concert photography';
-    photo = 'concert,stage,lights';
-  } else if (category === 'FIESTAS PATRONALES') {
-    ai = 'spanish village festival, street decorations, fireworks, realistic photo';
-    photo = 'spain,village,festival';
-  }
-
-  return { ai, photo };
-}
-
-function preloadImage(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(url);
-    img.onerror = () => reject(new Error('Image failed'));
-    img.src = url;
-  });
-}
 
 function getDaysLeft(dateStr) {
   if (!dateStr) return null;
@@ -877,79 +785,24 @@ export default function App() {
   }
 
   function generateAIImage() {
-  if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
+    if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
+    setIsGenerating(true);
+    showToast('Generando imagen con IA...', 'info');
+    const seed = Math.floor(Math.random() * 999999);
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + form.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    setForm((prev) => ({ ...prev, image_url: url }));
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
+  }
 
-  setIsGenerating(true);
-  showToast('Generando imagen con IA...', 'info');
-
-  const seed = Math.floor(Math.random() * 999999);
-  const kw = detectVisualKeywords(form.title, form.category);
-
-  const place = form.city ? (form.city + ', Spain') : 'Spain';
-  const prompt =
-    'photorealistic documentary event photo, ' +
-    'title: ' + form.title + ', ' +
-    kw.ai + ', location: ' + place + ', ' +
-    'high quality, natural light, 35mm, no text, no logo, no watermark';
-
-  const aiUrl =
-    'https://image.pollinations.ai/prompt/' +
-    encodeURIComponent(prompt) +
-    '?width=800&height=600&seed=' + seed +
-    '&model=flux' +
-    '&nologo=true&t=' + Date.now();
-
-  // Fallback a foto real si la IA falla / no carga
-  const fallbackUrl = 'https://source.unsplash.com/800x600/?' + encodeURIComponent(kw.photo);
-
-  preloadImage(aiUrl)
-    .then(() => {
-      setForm((prev) => ({ ...prev, image_url: aiUrl }));
-      showToast('Imagen generada', 'success');
-    })
-    .catch(() => {
-      setForm((prev) => ({ ...prev, image_url: fallbackUrl }));
-      showToast('La IA no devolvió imagen, usando foto relacionada', 'info');
-    })
-    .finally(() => setIsGenerating(false));
-}
-
-function generateAIImageEdit() {
-  if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
-
-  setIsGenerating(true);
-  showToast('Generando imagen con IA...', 'info');
-
-  const seed = Math.floor(Math.random() * 999999);
-  const kw = detectVisualKeywords(editForm.title, editForm.category);
-
-  const place = editForm.city ? (editForm.city + ', Spain') : 'Spain';
-  const prompt =
-    'photorealistic documentary event photo, ' +
-    'title: ' + editForm.title + ', ' +
-    kw.ai + ', location: ' + place + ', ' +
-    'high quality, natural light, 35mm, no text, no logo, no watermark';
-
-  const aiUrl =
-    'https://image.pollinations.ai/prompt/' +
-    encodeURIComponent(prompt) +
-    '?width=800&height=600&seed=' + seed +
-    '&model=flux' +
-    '&nologo=true&t=' + Date.now();
-
-  const fallbackUrl = 'https://source.unsplash.com/800x600/?' + encodeURIComponent(kw.photo);
-
-  preloadImage(aiUrl)
-    .then(() => {
-      setEditForm((prev) => ({ ...prev, image_url: aiUrl }));
-      showToast('Imagen generada', 'success');
-    })
-    .catch(() => {
-      setEditForm((prev) => ({ ...prev, image_url: fallbackUrl }));
-      showToast('La IA no devolvió imagen, usando foto relacionada', 'info');
-    })
-    .finally(() => setIsGenerating(false));
-}
+  function generateAIImageEdit() {
+    if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
+    setIsGenerating(true);
+    showToast('Generando imagen con IA...', 'info');
+    const seed = Math.floor(Math.random() * 999999);
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + editForm.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    setEditForm((prev) => ({ ...prev, image_url: url }));
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
+  }
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
