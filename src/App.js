@@ -349,6 +349,73 @@ function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onV
   );
 }
 
+function getSmartEventImage(title, category) {
+  const t = normalizeText(title);
+
+  // TAURINO
+  if (t.includes('encierro')) {
+    return 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1200&auto=format&fit=crop';
+  }
+  if (t.includes('toros') || t.includes('toro') || t.includes('taurino')) {
+    return 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1200&auto=format&fit=crop';
+  }
+  if (t.includes('campero')) {
+    return 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&auto=format&fit=crop';
+  }
+
+  // ROMERÍA / FIESTAS
+  if (t.includes('romeria') || t.includes('romería')) {
+    return 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=1200&auto=format&fit=crop';
+  }
+  if (t.includes('fiesta patronal') || t.includes('fiestas patronales') || t.includes('verbena')) {
+    return 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1200&auto=format&fit=crop';
+  }
+
+  // GASTRONOMÍA
+  if (t.includes('tapas')) {
+    return 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&auto=format&fit=crop';
+  }
+  if (t.includes('pinchos')) {
+    return 'https://images.unsplash.com/photo-1544025162-d76694265947?w=1200&auto=format&fit=crop';
+  }
+  if (t.includes('gastronomic') || t.includes('gastronomica') || t.includes('gastronómica')) {
+    return 'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=1200&auto=format&fit=crop';
+  }
+  if (t.includes('paella')) {
+    return 'https://images.unsplash.com/photo-1515443961218-a51367888e4b?w=1200&auto=format&fit=crop';
+  }
+
+  // MÚSICA
+  if (t.includes('concierto')) {
+    return 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=1200&auto=format&fit=crop';
+  }
+  if (t.includes('dance') || t.includes('dj') || t.includes('electro')) {
+    return 'https://images.unsplash.com/photo-1571266028243-d220c9c3dc70?w=1200&auto=format&fit=crop';
+  }
+  if (t.includes('rock')) {
+    return 'https://images.unsplash.com/photo-1501612780327-45045538702b?w=1200&auto=format&fit=crop';
+  }
+  if (t.includes('flamenco')) {
+    return 'https://images.unsplash.com/photo-1504609813442-a8924e83f76e?w=1200&auto=format&fit=crop';
+  }
+
+  // FALLBACK POR CATEGORÍA
+  if (category === 'TAURINO') {
+    return 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1200&auto=format&fit=crop';
+  }
+  if (category === 'GASTRONOMIA') {
+    return 'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=1200&auto=format&fit=crop';
+  }
+  if (category === 'MUSICA') {
+    return 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=1200&auto=format&fit=crop';
+  }
+  if (category === 'FIESTAS PATRONALES') {
+    return 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1200&auto=format&fit=crop';
+  }
+
+  return 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1200&auto=format&fit=crop';
+}
+
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [events, setEvents] = useState([]);
@@ -382,6 +449,13 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [adminSearch, setAdminSearch] = useState('');
   const [adminCityFilter, setAdminCityFilter] = useState('TODAS');
+  const [currentPath, setCurrentPath] = useState(() => {
+    try {
+      return window.location.pathname || '/';
+    } catch {
+      return '/';
+    }
+  });
 
   // Estados para zoom de foto
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
@@ -391,6 +465,17 @@ export default function App() {
   const listRef = useRef(null);
   const toastTimerRef = useRef(null);
   const mapSearchTimerRef = useRef(null);
+  const lastNonEventPathRef = useRef(
+    (() => {
+      try {
+        const p = window.location.pathname || '/';
+        return p.startsWith('/evento/') ? '/' : p;
+      } catch {
+        return '/';
+      }
+    })()
+  );
+  const routeEventLookupRef = useRef('');
   const photoTouchRef = useRef({
     initialDistance: 0,
     initialScale: 1,
@@ -405,6 +490,97 @@ export default function App() {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ message, type });
     toastTimerRef.current = setTimeout(() => setToast(null), 3600);
+  }
+
+  function navigateTo(path, replace = false) {
+    const target = path || '/';
+    try {
+      if (!target.startsWith('/evento/')) {
+        lastNonEventPathRef.current = target;
+      }
+
+      if (window.location.pathname !== target) {
+        if (replace) {
+          window.history.replaceState({}, '', target);
+        } else {
+          window.history.pushState({}, '', target);
+        }
+      }
+      setCurrentPath(target);
+    } catch {
+      setCurrentPath(target);
+    }
+  }
+
+  function resetDetailUi() {
+    setIsPhotoZoomed(false);
+    setPhotoScale(1);
+    setPhotoPos({ x: 0, y: 0 });
+  }
+
+  function clearSelections() {
+    setSelectedEvent(null);
+    setSelectedPendingEvent(null);
+    setEditingEvent(null);
+    resetDetailUi();
+  }
+
+  function openEvent(ev) {
+    if (!currentPath.startsWith('/evento/')) {
+      lastNonEventPathRef.current = currentPath || '/';
+    }
+    setSelectedPendingEvent(null);
+    setEditingEvent(null);
+    resetDetailUi();
+    setSelectedEvent(ev);
+    navigateTo('/evento/' + ev.id);
+  }
+
+  function closeSelectedEvent() {
+    const backPath = lastNonEventPathRef.current || '/';
+    setSelectedEvent(null);
+    resetDetailUi();
+    navigateTo(backPath);
+  }
+
+  function goHome() {
+    setView('home');
+    clearSelections();
+    setSearchQuery('');
+    navigateTo('/');
+  }
+
+  function goFavorites() {
+    setView('favorites');
+    clearSelections();
+    navigateTo('/favoritos');
+  }
+
+  function goCreate() {
+    setView('create');
+    clearSelections();
+    navigateTo('/crear');
+  }
+
+  function goMap() {
+    setView('map');
+    clearSelections();
+    navigateTo('/mapa');
+  }
+
+  function goProfile() {
+    setView('profile');
+    clearSelections();
+    navigateTo('/perfil');
+  }
+
+  function goAdmin() {
+    if (!hasAdmin) return;
+    setView('admin');
+    clearSelections();
+    setAdminTab('pending');
+    fetchEvents();
+    navigateTo('/admin');
   }
 
   useEffect(() => {
@@ -435,6 +611,138 @@ export default function App() {
       if (sub && sub.data && sub.data.subscription) sub.data.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    function handlePopState() {
+      const path = window.location.pathname || '/';
+      setCurrentPath(path);
+      if (!path.startsWith('/evento/')) {
+        lastNonEventPathRef.current = path;
+      }
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Rutas simples para vistas principales
+  useEffect(() => {
+    if (currentPath.startsWith('/evento/')) return;
+
+    routeEventLookupRef.current = '';
+
+    if (currentPath === '/') {
+      setView('home');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/favoritos') {
+      setView('favorites');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/crear') {
+      setView('create');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/mapa') {
+      setView('map');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/perfil') {
+      setView('profile');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/admin') {
+      if (hasAdmin) {
+        setView('admin');
+        setSelectedEvent(null);
+        setSelectedPendingEvent(null);
+        setEditingEvent(null);
+        resetDetailUi();
+      } else {
+        navigateTo('/', true);
+      }
+      return;
+    }
+
+    navigateTo('/', true);
+  }, [currentPath, hasAdmin]);
+
+  // Ruta directa /evento/:id
+  useEffect(() => {
+    if (!currentPath.startsWith('/evento/')) return;
+
+    const idFromUrl = currentPath.replace('/evento/', '').split('/')[0];
+    if (!idFromUrl) {
+      navigateTo('/', true);
+      return;
+    }
+
+    const foundInState = events.find((e) =>
+      String(e.id) === String(idFromUrl) && (e.status === 'approved' || hasAdmin)
+    );
+
+    if (foundInState) {
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      setSelectedEvent(foundInState);
+      routeEventLookupRef.current = idFromUrl;
+      return;
+    }
+
+    if (routeEventLookupRef.current === idFromUrl) return;
+    routeEventLookupRef.current = idFromUrl;
+
+    supabase.from('events')
+      .select('*')
+      .eq('id', idFromUrl)
+      .single()
+      .then((res) => {
+        if (res.error || !res.data || (res.data.status !== 'approved' && !hasAdmin)) {
+          showToast('Evento no encontrado', 'error');
+          setSelectedEvent(null);
+          routeEventLookupRef.current = '';
+          navigateTo('/', true);
+          return;
+        }
+
+        setSelectedPendingEvent(null);
+        setEditingEvent(null);
+        resetDetailUi();
+        setSelectedEvent(res.data);
+      })
+      .catch(() => {
+        showToast('Evento no encontrado', 'error');
+        setSelectedEvent(null);
+        routeEventLookupRef.current = '';
+        navigateTo('/', true);
+      });
+  }, [currentPath, events, hasAdmin]);
 
   function fetchEvents() {
     try {
@@ -543,143 +851,41 @@ export default function App() {
     }
   }
 
-  // ========================================================================
-  // SISTEMA DEFINITIVO DE IA: Traduce títulos españoles a prompts en inglés
-  // ========================================================================
-  function buildAIPrompt(title, category, city) {
-    const t = normalizeText(title);
-    
-    // Diccionario de palabras clave españolas -> descripciones visuales en inglés
-    const keywordMap = {
-      // Taurinos
-      'toro': 'bulls',
-      'toros': 'bulls running',
-      'taurino': 'bullfighting festival',
-      'taurina': 'bullfighting festival',
-      'encierro': 'running of the bulls',
-      'encierros': 'running of the bulls',
-      'vaquilla': 'young bull festival',
-      'novillada': 'young bull fight',
-      'rejoneo': 'horseback bullfighting',
-      'corrida': 'bullfight arena',
-      'capote': 'bullfighter cape',
-      
-      // Gastronomía
-      'tapa': 'spanish tapas',
-      'tapas': 'spanish tapas competition',
-      'pincho': 'spanish pinchos',
-      'pinchos': 'spanish pinchos bar',
-      'gastronomica': 'gastronomic festival',
-      'gastronomico': 'gastronomic event',
-      'comida': 'delicious food festival',
-      'chef': 'chef cooking',
-      'cocina': 'traditional cooking',
-      'paella': 'paella cooking',
-      'jamon': 'spanish ham',
-      'queso': 'cheese tasting',
-      'vino': 'wine tasting',
-      'cerveza': 'beer festival',
-      'degustacion': 'food tasting event',
-      'cata': 'wine and food tasting',
-      'concurso': 'competition contest',
-      'jornada': 'festival day',
-      
-      // Música
-      'concierto': 'live music concert',
-      'conciertos': 'music festival',
-      'rock': 'rock concert',
-      'pop': 'pop concert',
-      'dance': 'dance music festival',
-      'electronica': 'electronic music festival',
-      'dj': 'dj party',
-      'orquesta': 'orchestra live',
-      'banda': 'live band',
-      'flamenco': 'flamenco dance show',
-      'verbena': 'outdoor dance party',
-      'baile': 'dance party',
-      'fiesta': 'party celebration',
-      'fest': 'festival',
-      'festival': 'music festival',
-      
-      // Tradicionales
-      'romeria': 'spanish pilgrimage romeria',
-      'romería': 'spanish pilgrimage romeria',
-      'procesion': 'religious procession',
-      'procesión': 'religious procession',
-      'virgen': 'virgin mary procession',
-      'santo': 'saint festival',
-      'san ': 'saint patron',
-      'santa ': 'saint patron',
-      'patronal': 'patron saint festival',
-      'patronales': 'patron saint festival',
-      'feria': 'fair festival',
-      'mercado': 'market',
-      'mercadillo': 'street market',
-      'artesania': 'crafts market',
-      'exposicion': 'art exhibition',
-      
-      // Deportes/otros
-      'carrera': 'running race',
-      'maraton': 'marathon',
-      'futbol': 'football soccer',
-      'ciclismo': 'cycling race',
-      'deporte': 'sports event',
-      'torneo': 'tournament',
-      'campeonato': 'championship'
-    };
-
-    // Detectamos qué palabras del título coinciden con nuestro diccionario
-    let matchedKeywords = [];
-    for (const [esWord, enDesc] of Object.entries(keywordMap)) {
-      if (t.includes(esWord)) {
-        matchedKeywords.push(enDesc);
-      }
-    }
-
-    // Si no detectamos nada específico, usamos la categoría como fallback
-    let visualContext = '';
-    if (matchedKeywords.length > 0) {
-      visualContext = matchedKeywords.join(', ');
-    } else {
-      const catMap = {
-        'MUSICA': 'live music concert stage lights crowd',
-        'GASTRONOMIA': 'food festival delicious plates dining',
-        'TAURINO': 'spanish bullfighting arena tradition',
-        'FIESTAS PATRONALES': 'spanish village festival decorated streets fireworks',
-        'OTROS': 'spanish local event crowd celebration'
-      };
-      visualContext = catMap[category] || 'spanish event festival';
-    }
-
-    // Construimos el prompt final en inglés (la IA lo entiende perfecto)
-    const cleanCity = city ? city.trim() : 'Spain';
-    const prompt = `professional photography of ${title}, ${visualContext}, in ${cleanCity}, highly detailed, 4k, realistic, cinematic lighting, vibrant colors, no text, no watermark`;
-
-    return prompt;
-  }
-
   function generateAIImage() {
-    if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
-    setIsGenerating(true);
-    showToast('Generando imagen con IA...', 'info');
-    const seed = Math.floor(Math.random() * 999999);
-    const prompt = buildAIPrompt(form.title, form.category, form.city);
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true';
-    setForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
+    if (!form.title) {
+    showToast('Escribe un título primero', 'error');
+    return;
   }
+
+  setIsGenerating(true);
+  showToast('Buscando imagen adecuada...', 'info');
+
+  const imageUrl = getSmartEventImage(form.title, form.category);
+
+  setTimeout(() => {
+    setForm((prev) => ({ ...prev, image_url: imageUrl }));
+    setIsGenerating(false);
+    showToast('Imagen asignada correctamente', 'success');
+  }, 700);
+}
 
   function generateAIImageEdit() {
-    if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
-    setIsGenerating(true);
-    showToast('Generando imagen con IA...', 'info');
-    const seed = Math.floor(Math.random() * 999999);
-    const prompt = buildAIPrompt(editForm.title, editForm.category, editForm.city);
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true';
-    setEditForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
+    if (!editForm.title) {
+    showToast('Escribe un título primero', 'error');
+    return;
   }
-  // ========================================================================
+
+  setIsGenerating(true);
+  showToast('Buscando imagen adecuada...', 'info');
+
+  const imageUrl = getSmartEventImage(editForm.title, editForm.category);
+
+  setTimeout(() => {
+    setEditForm((prev) => ({ ...prev, image_url: imageUrl }));
+    setIsGenerating(false);
+    showToast('Imagen asignada correctamente', 'success');
+  }, 700);
+}
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
@@ -723,7 +929,7 @@ export default function App() {
         }
         showToast('Evento enviado a revisión correctamente', 'success');
         setForm(INITIAL_FORM);
-        setView('home');
+        goHome();
         fetchEvents();
       })
       .catch((err) => { console.error(err); showToast('Error al enviar', 'error'); })
@@ -875,87 +1081,82 @@ export default function App() {
 
   function shareEvent(ev) {
     const shareUrl = `${APP_URL}/evento/${ev.id}`;
-    const shareText = `¡No te pierdas ${ev.title}! ${shareUrl}`;
+  const shareText = `¡No te pierdas ${ev.title}! ${shareUrl}`;
 
-    const shareOptions = [
-      { name: 'WhatsApp', icon: '📱', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
-      { name: 'Facebook', icon: '📘', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
-      { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
-      { name: 'Copiar', icon: '📋', action: 'copy' }
-    ];
+  const shareOptions = [
+    { name: 'WhatsApp', icon: '📱', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
+    { name: 'Facebook', icon: '📘', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
+    { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
+    { name: 'Copiar en portapapeles', icon: '📋', action: 'copy' }
+  ];
 
-    const shareModal = document.createElement('div');
-    shareModal.style.cssText = `
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; 
-      display: flex; align-items: center; justify-content: center;
-    `;
+  const shareModal = document.createElement('div');
+  shareModal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center;
+  `;
 
-    const modalContent = document.createElement('div');
-    modalContent.style.cssText = `
-      background: ${isDark ? '#0f172a' : '#fff'}; border-radius: 20px; padding: 25px; width: 90%; max-width: 360px; 
-      color: ${isDark ? '#fff' : '#0f172a'}; font-family: system-ui, sans-serif;
-    `;
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: ${isDark ? '#0f172a' : '#fff'}; border-radius: 20px; padding: 25px; width: 90%; max-width: 360px; color: ${isDark ? '#fff' : '#0f172a'};
+  `;
 
-    modalContent.innerHTML = `
-      <h3 style="margin:0 0 20px; font-weight:900; text-align:center; font-size:16px;">🔗 Compartir evento</h3>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
-        ${shareOptions.map(opt => `
-          <button class="share-btn-item" data-action="${opt.action || 'link'}" data-url="${opt.url}" style="
-            padding:14px; border:none; border-radius:12px; font-weight:900; font-size:11px; cursor:pointer;
-            background: ${isDark ? '#1e293b' : '#f1f5f9'}; color: ${isDark ? '#fff' : '#0f172a'};
-            display:flex; align-items:center; justify-content:center; gap:8px;
-          ">${opt.icon} ${opt.name}</button>
-        `).join('')}
-      </div>
-      <button id="close-share-modal-btn" style="
-        width:100%; padding:12px; border:none; border-radius:12px; background:#64748b; color:white;
-        font-weight:900; font-size:12px; cursor:pointer;
-      ">CERRAR</button>
-    `;
+  modalContent.innerHTML = `
+    <h3 style="margin:0 0 20px; font-weight:900; text-align:center; font-size:16px;">Compartir evento</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+      ${shareOptions.map(opt => `
+        <button class="share-btn" data-action="${opt.action || 'link'}" data-url="${opt.url}" style="
+          padding:14px; border:none; border-radius:12px; font-weight:900; font-size:11px; cursor:pointer;
+          background: ${isDark ? '#1e293b' : '#f1f5f9'}; color: ${isDark ? '#fff' : '#0f172a'};
+          display:flex; align-items:center; justify-content:center; gap:8px;
+        ">
+          ${opt.icon} ${opt.name}
+        </button>
+      `).join('')}
+    </div>
+    <button id="close-share-modal" style="
+      width:100%; padding:12px; border:none; border-radius:12px; background:#64748b; color:white;
+      font-weight:900; font-size:12px; cursor:pointer;
+    ">CERRAR</button>
+  `;
 
-    shareModal.appendChild(modalContent);
-    document.body.appendChild(shareModal);
+  shareModal.appendChild(modalContent);
+  document.body.appendChild(shareModal);
 
-    function closeModal() { if (shareModal.parentNode) shareModal.parentNode.removeChild(shareModal); }
-
-    shareModal.addEventListener('click', (e) => {
-      if (e.target === shareModal) closeModal();
-    });
-
-    const closeBtn = document.getElementById('close-share-modal-btn');
-    if (closeBtn) closeBtn.addEventListener('click', closeModal);
-
-    const btns = shareModal.querySelectorAll('.share-btn-item');
-    btns.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const action = btn.getAttribute('data-action');
-        const url = btn.getAttribute('data-url');
-
-        if (action === 'copy') {
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(shareUrl).then(() => {
-              showToast('✅ Enlace copiado', 'success');
-            }).catch(() => {
-              fallbackCopyText(shareUrl, showToast);
-            });
-          } else {
-            fallbackCopyText(shareUrl, showToast);
-          }
-        } else if (url) {
-          window.open(url, '_blank', 'noopener,noreferrer');
-        }
-
-        closeModal();
-      });
-    });
+  function closeModal() {
+    shareModal.remove();
   }
+
+  shareModal.addEventListener('click', (e) => {
+    if (e.target === shareModal) closeModal();
+  });
+
+  document.getElementById('close-share-modal').addEventListener('click', closeModal);
+
+  document.querySelectorAll('.share-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const action = e.currentTarget.dataset.action;
+      const url = e.currentTarget.dataset.url;
+
+      if (action === 'copy') {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          showToast('✅ Enlace copiado al portapapeles', 'success');
+        }).catch(() => {
+          showToast('❌ No se pudo copiar el enlace', 'error');
+        });
+      } else {
+        window.open(url, '_blank');
+      }
+      closeModal();
+    });
+  });
+}
 
   function handleCategoryChange(cat) {
     setSelectedCategory(cat);
     if (listRef.current) listRef.current.scrollTop = 0;
   }
 
+  // Funciones para zoom de foto
   function enterPhotoZoom() {
     setIsPhotoZoomed(true);
     setPhotoScale(1);
@@ -1091,24 +1292,27 @@ export default function App() {
 
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color .25s, color .25s; }
-        html, body, #root { width: 100%; height: 100%; overflow: hidden; }
-        .dark-theme { background:#020617; color:white; }
-        .light-theme { background:#f8fafc; color:#0f172a; }
-        .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
-        .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
-        .no-scrollbar::-webkit-scrollbar { display:none; }
-        .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
-        .leaflet-container img { max-width:none!important; max-height:none!important; }
-        @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-        .animate-spin { animation:spin 1s linear infinite; }
-        @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
-        .pulse-admin { animation:admin-pulse 1.4s infinite; }
-        @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
-        .heart-pop { animation:heartPop .6s ease-out; }
-        @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
-        .share-btn-item:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
-        @media (max-width: 320px) { .share-btn-item { font-size: 10px !important; padding: 12px !important; } }
-      `}</style>
+  html, body, #root { width: 100%; height: 100%; overflow: hidden; }
+  .dark-theme { background:#020617; color:white; }
+  .light-theme { background:#f8fafc; color:#0f172a; }
+  .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
+  .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
+  .no-scrollbar::-webkit-scrollbar { display:none; }
+  .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+  .leaflet-container img { max-width:none!important; max-height:none!important; }
+  @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+  .animate-spin { animation:spin 1s linear infinite; }
+  @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
+  .pulse-admin { animation:admin-pulse 1.4s infinite; }
+  @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
+  .heart-pop { animation:heartPop .6s ease-out; }
+  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  /* AÑADE ESTA LÍNEA AQUÍ */
+  .share-btn:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
+  @media (max-width: 320px) {
+  .share-btn { font-size: 10px !important; padding: 12px !important; }
+}
+`}</style>
 
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
         <div style={{ cursor: 'pointer' }} onClick={goHome}>
@@ -1217,6 +1421,7 @@ export default function App() {
           </div>
         )}
 
+        {/* Detalles con zoom de foto */}
         {selectedEvent && !selectedPendingEvent && !editingEvent && (
           <>
             {isPhotoZoomed ? (
@@ -1273,29 +1478,14 @@ export default function App() {
                     onClick={enterPhotoZoom}
                     style={{
                       position: 'relative', width: '100%', height: 220, cursor: 'zoom-in',
-                      overflow: 'hidden', flexShrink: 0,
-                      backgroundColor: isDark ? '#1e293b' : '#f1f5f9'
+                      overflow: 'hidden', flexShrink: 0
                     }}
                   >
-                    {!selectedEvent.image_url || !selectedEvent.image_url.includes('http') ? (
-                      <div style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        height: '100%', width: '100%'
-                      }}>
-                        <Loader2 className="animate-spin" size={32} color="#6366f1" />
-                      </div>
-                    ) : (
-                      <img
-                        src={selectedEvent.image_url}
-                        alt={selectedEvent.title}
-                        style={{
-                          width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-                          opacity: 0, transition: 'opacity 0.3s ease'
-                        }}
-                        loading="lazy"
-                        onLoad={(e) => { e.target.style.opacity = '1'; }}
-                      />
-                    )}
+                    <img
+                      src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
+                      alt=""
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
                     <div style={{
                       position: 'absolute', bottom: 8, right: 8,
                       background: 'rgba(0,0,0,0.6)', color: 'white',
