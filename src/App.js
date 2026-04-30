@@ -53,9 +53,7 @@ function formatDateTime(dateStr) {
       day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit'
     });
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 }
 
 function normalizeText(value) {
@@ -139,7 +137,7 @@ async function compressImage(file, options = {}) {
   return { blob: file, extension: file.name.split('.').pop() || 'jpg', type: file.type, originalSize: file.size, compressedSize: file.size };
 }
 
-function fallbackCopyText(text, showToast) {
+function fallbackCopyText(text, showToastFn) {
   const textarea = document.createElement('textarea');
   textarea.value = text;
   textarea.style.position = 'fixed';
@@ -149,9 +147,9 @@ function fallbackCopyText(text, showToast) {
   textarea.select();
   try {
     document.execCommand('copy');
-    showToast('✅ Enlace copiado', 'success');
+    showToastFn('✅ Enlace copiado', 'success');
   } catch (err) {
-    showToast('No se pudo copiar', 'error');
+    showToastFn('No se pudo copiar', 'error');
   }
   document.body.removeChild(textarea);
 }
@@ -234,7 +232,7 @@ function exportToCSV(events) {
   URL.revokeObjectURL(link.href);
 }
 
-function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, openEventDetails }) {
+function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, setSelectedEvent }) {
   const dl = getDaysLabel(ev.date);
   const isReallyFeatured = ev.featured === true;
 
@@ -285,7 +283,7 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
           </p>
 
           <h3 style={{ fontWeight: 900, fontSize: featured ? 17 : 15, marginBottom: 10 }}>{ev.title}</h3>
-          <button onClick={() => openEventDetails(ev)} style={{
+          <button onClick={() => setSelectedEvent(ev)} style={{
             width: '100%', padding: featured ? 12 : 11, borderRadius: 14,
             background: '#4f46e5', color: 'white', border: 'none',
             fontWeight: 900, fontSize: featured ? 11 : 10, cursor: 'pointer'
@@ -382,16 +380,33 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [adminSearch, setAdminSearch] = useState('');
   const [adminCityFilter, setAdminCityFilter] = useState('TODAS');
+  const [currentPath, setCurrentPath] = useState(() => {
+    try {
+      return window.location.pathname || '/';
+    } catch {
+      return '/';
+    }
+  });
 
-  // Estados extra para UX
+  // Estados para zoom de foto
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
   const [photoScale, setPhotoScale] = useState(1);
   const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
-  const [showShareOptions, setShowShareOptions] = useState(false);
 
   const listRef = useRef(null);
   const toastTimerRef = useRef(null);
   const mapSearchTimerRef = useRef(null);
+  const lastNonEventPathRef = useRef(
+    (() => {
+      try {
+        const p = window.location.pathname || '/';
+        return p.startsWith('/evento/') ? '/' : p;
+      } catch {
+        return '/';
+      }
+    })()
+  );
+  const routeEventLookupRef = useRef('');
   const photoTouchRef = useRef({
     initialDistance: 0,
     initialScale: 1,
@@ -408,33 +423,96 @@ export default function App() {
     toastTimerRef.current = setTimeout(() => setToast(null), 3600);
   }
 
-  // Lógica para detectar si se entra directo a la app por un enlace /evento/123
-  useEffect(() => {
-    function checkUrlForEvent() {
-      const path = window.location.pathname;
-      if (path.startsWith('/evento/')) {
-        const idFromUrl = path.replace('/evento/', '');
-        if (!idFromUrl) return;
+  function navigateTo(path, replace = false) {
+    const target = path || '/';
+    try {
+      if (!target.startsWith('/evento/')) {
+        lastNonEventPathRef.current = target;
+      }
 
-        const found = events.find(e => String(e.id) === String(idFromUrl));
-        if (found) {
-          setSelectedEvent(found);
-          setView('home');
+      if (window.location.pathname !== target) {
+        if (replace) {
+          window.history.replaceState({}, '', target);
         } else {
-          // Si no lo tenemos en caché, lo pedimos a Supabase
-          supabase.from('events').select('*').eq('id', idFromUrl).single().then(res => {
-            if (!res.error && res.data) {
-              setSelectedEvent(res.data);
-              setView('home');
-            }
-          });
+          window.history.pushState({}, '', target);
         }
       }
+      setCurrentPath(target);
+    } catch {
+      setCurrentPath(target);
     }
-    if (events.length > 0) {
-      checkUrlForEvent();
+  }
+
+  function resetDetailUi() {
+    setIsPhotoZoomed(false);
+    setPhotoScale(1);
+    setPhotoPos({ x: 0, y: 0 });
+  }
+
+  function clearSelections() {
+    setSelectedEvent(null);
+    setSelectedPendingEvent(null);
+    setEditingEvent(null);
+    resetDetailUi();
+  }
+
+  function openEvent(ev) {
+    if (!currentPath.startsWith('/evento/')) {
+      lastNonEventPathRef.current = currentPath || '/';
     }
-  }, [events]);
+    setSelectedPendingEvent(null);
+    setEditingEvent(null);
+    resetDetailUi();
+    setSelectedEvent(ev);
+    navigateTo('/evento/' + ev.id);
+  }
+
+  function closeSelectedEvent() {
+    const backPath = lastNonEventPathRef.current || '/';
+    setSelectedEvent(null);
+    resetDetailUi();
+    navigateTo(backPath);
+  }
+
+  function goHome() {
+    setView('home');
+    clearSelections();
+    setSearchQuery('');
+    navigateTo('/');
+  }
+
+  function goFavorites() {
+    setView('favorites');
+    clearSelections();
+    navigateTo('/favoritos');
+  }
+
+  function goCreate() {
+    setView('create');
+    clearSelections();
+    navigateTo('/crear');
+  }
+
+  function goMap() {
+    setView('map');
+    clearSelections();
+    navigateTo('/mapa');
+  }
+
+  function goProfile() {
+    setView('profile');
+    clearSelections();
+    navigateTo('/perfil');
+  }
+
+  function goAdmin() {
+    if (!hasAdmin) return;
+    setView('admin');
+    clearSelections();
+    setAdminTab('pending');
+    fetchEvents();
+    navigateTo('/admin');
+  }
 
   useEffect(() => {
     fetchEvents();
@@ -464,6 +542,138 @@ export default function App() {
       if (sub && sub.data && sub.data.subscription) sub.data.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    function handlePopState() {
+      const path = window.location.pathname || '/';
+      setCurrentPath(path);
+      if (!path.startsWith('/evento/')) {
+        lastNonEventPathRef.current = path;
+      }
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (currentPath.startsWith('/evento/')) return;
+
+    routeEventLookupRef.current = '';
+
+    if (currentPath === '/') {
+      setView('home');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/favoritos') {
+      setView('favorites');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/crear') {
+      setView('create');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/mapa') {
+      setView('map');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/perfil') {
+      setView('profile');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/admin') {
+      if (hasAdmin) {
+        setView('admin');
+        setSelectedEvent(null);
+        setSelectedPendingEvent(null);
+        setEditingEvent(null);
+        resetDetailUi();
+      } else {
+        navigateTo('/', true);
+      }
+      return;
+    }
+
+    navigateTo('/', true);
+  }, [currentPath, hasAdmin]);
+
+  useEffect(() => {
+    if (!currentPath.startsWith('/evento/')) return;
+
+    const idFromUrl = currentPath.replace('/evento/', '').split('/')[0];
+    if (!idFromUrl) {
+      navigateTo('/', true);
+      return;
+    }
+
+    const foundInState = events.find((e) =>
+      String(e.id) === String(idFromUrl) && (e.status === 'approved' || hasAdmin)
+    );
+
+    if (foundInState) {
+      setView('home');
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      setSelectedEvent(foundInState);
+      routeEventLookupRef.current = idFromUrl;
+      return;
+    }
+
+    if (routeEventLookupRef.current === idFromUrl) return;
+    routeEventLookupRef.current = idFromUrl;
+
+    supabase.from('events')
+      .select('*')
+      .eq('id', idFromUrl)
+      .single()
+      .then((res) => {
+        if (res.error || !res.data || (res.data.status !== 'approved' && !hasAdmin)) {
+          showToast('Evento no encontrado', 'error');
+          setSelectedEvent(null);
+          routeEventLookupRef.current = '';
+          navigateTo('/', true);
+          return;
+        }
+
+        setView('home');
+        setSelectedPendingEvent(null);
+        setEditingEvent(null);
+        resetDetailUi();
+        setSelectedEvent(res.data);
+      })
+      .catch(() => {
+        showToast('Evento no encontrado', 'error');
+        setSelectedEvent(null);
+        routeEventLookupRef.current = '';
+        navigateTo('/', true);
+      });
+  }, [currentPath, events, hasAdmin]);
 
   function fetchEvents() {
     try {
@@ -572,30 +782,29 @@ export default function App() {
     }
   }
 
-  // ============================================
-  // LA MEJORA DE IA EXACTAMENTE COMO LA PEDÍAS
-  // ============================================
+  // =======================================================
+  // IA GENERADA CON PROMPT MEJORADO PARA RESULTADOS REALES
+  // =======================================================
   function generateAIImage() {
     if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
     setIsGenerating(true);
     showToast('Generando imagen con IA...', 'info');
-
     const seed = Math.floor(Math.random() * 999999);
     
-    // Traducimos tu categoría a inglés para que la IA la entienda y genere fotos perfectas
-    let catContext = 'crowd gathering festival celebration';
-    if (form.category === 'MUSICA') catContext = 'live music concert, stage, lights, band playing, crowd cheering';
-    if (form.category === 'GASTRONOMIA') catContext = 'food festival, delicious gourmet food, dining, plates';
-    if (form.category === 'TAURINO') catContext = 'traditional spanish bullfighting arena, cultural event';
-    if (form.category === 'FIESTAS PATRONALES') catContext = 'traditional spanish town patronal festival, decorations, street party';
+    const categoryContexts = {
+      'MUSICA': 'live music concert stage with band playing instruments crowd cheering professional concert photography bright stage lighting dynamic atmosphere',
+      'GASTRONOMIA': 'gourmet food festival table filled with delicious dishes people dining elegant restaurant atmosphere culinary presentation beautiful food photography',
+      'TAURINO': 'traditional spanish bullfighting plaza de toros arena bull matador dramatic scene cultural event spanish culture vivid colors',
+      'FIESTAS PATRONALES': 'spanish village street festival colorful decorations parade people celebrating traditional Spanish town celebration fireworks atmosphere festive',
+      'OTROS': 'community event gathering people outdoors celebration local event cheerful atmosphere social gathering festive occasion'
+    };
+    
+    const basePrompt = categoryContexts[form.category] || categoryContexts['OTROS'];
+    const location = form.city ? `, ${form.city}, Spain` : ', Spain';
+    
+    const prompt = `professional high-quality photograph of ${form.title}${location}, ${basePrompt}, sharp focus, natural lighting, 8k resolution, realistic, authentic event photography, no text, no watermarks`;
 
-    // Quitamos tildes para evitar errores en la URL de Pollinations
-    const cleanTitle = normalizeText(form.title);
-    const cleanCity = normalizeText(form.city || 'Spain');
-
-    // Creamos el prompt en inglés pero metiendo el título y ciudad
-    const promptText = `professional photography of event named ${cleanTitle}, ${catContext}, located in ${cleanCity}, highly detailed, 4k, realistic, cinematic lighting, no text, no watermark`;
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(promptText) + '?width=800&height=600&seed=' + seed + '&nologo=true';
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&nologo=true&t=${Date.now()}`;
     
     setForm((prev) => ({ ...prev, image_url: url }));
     setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
@@ -605,25 +814,26 @@ export default function App() {
     if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
     setIsGenerating(true);
     showToast('Generando imagen con IA...', 'info');
-
     const seed = Math.floor(Math.random() * 999999);
     
-    let catContext = 'crowd gathering festival celebration';
-    if (editForm.category === 'MUSICA') catContext = 'live music concert, stage, lights, band playing, crowd cheering';
-    if (editForm.category === 'GASTRONOMIA') catContext = 'food festival, delicious gourmet food, dining, plates';
-    if (editForm.category === 'TAURINO') catContext = 'traditional spanish bullfighting arena, cultural event';
-    if (editForm.category === 'FIESTAS PATRONALES') catContext = 'traditional spanish town patronal festival, decorations, street party';
+    const categoryContexts = {
+      'MUSICA': 'live music concert stage with band playing instruments crowd cheering professional concert photography bright stage lighting dynamic atmosphere',
+      'GASTRONOMIA': 'gourmet food festival table filled with delicious dishes people dining elegant restaurant atmosphere culinary presentation beautiful food photography',
+      'TAURINO': 'traditional spanish bullfighting plaza de toros arena bull matador dramatic scene cultural event spanish culture vivid colors',
+      'FIESTAS PATRONALES': 'spanish village street festival colorful decorations parade people celebrating traditional Spanish town celebration fireworks atmosphere festive',
+      'OTROS': 'community event gathering people outdoors celebration local event cheerful atmosphere social gathering festive occasion'
+    };
+    
+    const basePrompt = categoryContexts[editForm.category] || categoryContexts['OTROS'];
+    const location = editForm.city ? `, ${editForm.city}, Spain` : ', Spain';
+    
+    const prompt = `professional high-quality photograph of ${editForm.title}${location}, ${basePrompt}, sharp focus, natural lighting, 8k resolution, realistic, authentic event photography, no text, no watermarks`;
 
-    const cleanTitle = normalizeText(editForm.title);
-    const cleanCity = normalizeText(editForm.city || 'Spain');
-
-    const promptText = `professional photography of event named ${cleanTitle}, ${catContext}, located in ${cleanCity}, highly detailed, 4k, realistic, cinematic lighting, no text, no watermark`;
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(promptText) + '?width=800&height=600&seed=' + seed + '&nologo=true';
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&nologo=true&t=${Date.now()}`;
     
     setEditForm((prev) => ({ ...prev, image_url: url }));
     setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
   }
-  // ============================================
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
@@ -667,7 +877,7 @@ export default function App() {
         }
         showToast('Evento enviado a revisión correctamente', 'success');
         setForm(INITIAL_FORM);
-        setView('home');
+        goHome();
         fetchEvents();
       })
       .catch((err) => { console.error(err); showToast('Error al enviar', 'error'); })
@@ -758,11 +968,16 @@ export default function App() {
 
   function handleDeleteEvent(id) {
     if (!window.confirm('¿Seguro que quieres borrar este evento?')) return;
+    const wasSelected = selectedEvent && selectedEvent.id === id;
+
     supabase.from('events').delete().eq('id', id).then((res) => {
       if (res.error) { showToast('Error borrando', 'error'); return; }
       showToast('Evento borrado', 'success');
       setSelectedPendingEvent(null);
       setEditingEvent(null);
+      if (wasSelected) {
+        closeSelectedEvent();
+      }
       fetchEvents();
     });
   }
@@ -770,7 +985,10 @@ export default function App() {
   function handleLogin() {
     const email = prompt('Escribe tu email:');
     if (!email) return;
-    supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: APP_URL } }).then((res) => {
+
+    const redirectUrl = APP_URL + (currentPath || '/');
+
+    supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectUrl } }).then((res) => {
       if (res.error) { console.error(res.error); showToast('Error enviando login', 'error'); return; }
       showToast('Revisa tu email y pulsa el enlace', 'success');
     });
@@ -781,7 +999,7 @@ export default function App() {
       setUserEmail('');
       setProfile(null);
       fetchEvents();
-      setView('home');
+      goHome();
       setEditingEvent(null);
       showToast('Sesión cerrada', 'success');
     });
@@ -809,47 +1027,82 @@ export default function App() {
     }, 600);
   }
 
-  // === Lógica para copiar al portapapeles ===
   function shareEvent(ev) {
-    const realLink = APP_URL + '/evento/' + ev.id;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(realLink).then(() => {
-        showToast('✅ Enlace copiado', 'success');
-      }).catch(() => {
-        fallbackCopyText(realLink, showToast);
+    const shareUrl = `${APP_URL}/evento/${ev.id}`;
+    const shareText = `¡No te pierdas ${ev.title}! ${shareUrl}`;
+
+    const shareOptions = [
+      { name: 'WhatsApp', icon: '📱', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
+      { name: 'Facebook', icon: '📘', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
+      { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
+      { name: 'Copiar', icon: '📋', action: 'copy' }
+    ];
+
+    const shareModal = document.createElement('div');
+    shareModal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; 
+      display: flex; align-items: center; justify-content: center;
+    `;
+
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+      background: ${isDark ? '#0f172a' : '#fff'}; border-radius: 20px; padding: 25px; width: 90%; max-width: 360px; 
+      color: ${isDark ? '#fff' : '#0f172a'}; font-family: system-ui, sans-serif;
+    `;
+
+    modalContent.innerHTML = `
+      <h3 style="margin:0 0 20px; font-weight:900; text-align:center; font-size:16px;">🔗 Compartir evento</h3>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+        ${shareOptions.map(opt => `
+          <button class="share-btn-item" data-action="${opt.action || 'link'}" data-url="${opt.url}" style="
+            padding:14px; border:none; border-radius:12px; font-weight:900; font-size:11px; cursor:pointer;
+            background: ${isDark ? '#1e293b' : '#f1f5f9'}; color: ${isDark ? '#fff' : '#0f172a'};
+            display:flex; align-items:center; justify-content:center; gap:8px;
+          ">${opt.icon} ${opt.name}</button>
+        `).join('')}
+      </div>
+      <button id="close-share-modal-btn" style="
+        width:100%; padding:12px; border:none; border-radius:12px; background:#64748b; color:white;
+        font-weight:900; font-size:12px; cursor:pointer;
+      ">CERRAR</button>
+    `;
+
+    shareModal.appendChild(modalContent);
+    document.body.appendChild(shareModal);
+
+    function closeModal() { if (shareModal.parentNode) shareModal.parentNode.removeChild(shareModal); }
+
+    shareModal.addEventListener('click', (e) => {
+      if (e.target === shareModal) closeModal();
+    });
+
+    const closeBtn = document.getElementById('close-share-modal-btn');
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+
+    const btns = shareModal.querySelectorAll('.share-btn-item');
+    btns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const action = btn.getAttribute('data-action');
+        const url = btn.getAttribute('data-url');
+
+        if (action === 'copy') {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(shareUrl).then(() => {
+              showToast('✅ Enlace copiado', 'success');
+            }).catch(() => {
+              fallbackCopyText(shareUrl, showToast);
+            });
+          } else {
+            fallbackCopyText(shareUrl, showToast);
+          }
+        } else if (url) {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
+
+        closeModal();
       });
-    } else {
-      fallbackCopyText(realLink, showToast);
-    }
-  }
-
-  // === Cierra la vista detalle y limpia todo ===
-  function closeEventDetails() {
-    setSelectedEvent(null);
-    setIsPhotoZoomed(false);
-    setPhotoScale(1);
-    setPhotoPos({ x: 0, y: 0 });
-    setShowShareOptions(false);
-    window.history.pushState({}, '', '/');
-  }
-
-  function goHome() {
-    setView('home');
-    setSelectedEvent(null);
-    setSelectedPendingEvent(null);
-    setEditingEvent(null);
-    setIsPhotoZoomed(false);
-    setPhotoScale(1);
-    setPhotoPos({ x: 0, y: 0 });
-    setShowShareOptions(false);
-    setSearchQuery('');
-    window.history.pushState({}, '', '/');
-  }
-
-  function openEventDetails(ev) {
-    setSelectedEvent(ev);
-    setShowShareOptions(false); // reseteamos menú de compartir si abren otro evento
-    window.history.pushState({}, '', '/evento/' + ev.id);
+    });
   }
 
   function handleCategoryChange(cat) {
@@ -857,7 +1110,6 @@ export default function App() {
     if (listRef.current) listRef.current.scrollTop = 0;
   }
 
-  // Funciones para zoom de foto
   function enterPhotoZoom() {
     setIsPhotoZoomed(true);
     setPhotoScale(1);
@@ -902,7 +1154,6 @@ export default function App() {
     } else if (e.touches.length === 1 && photoScale > 1) {
       e.preventDefault();
 
-      // Factor de lentitud: 0.55 = más lento que el natural
       const slowFactor = 0.55;
 
       const dx = e.touches[0].clientX - photoTouchRef.current.lastX;
@@ -918,7 +1169,7 @@ export default function App() {
     }
   }
 
-  function handlePhotoTouchEnd(e) {
+  function handlePhotoTouchEnd() {
     if (photoScale <= 1.05) {
       exitPhotoZoom();
     }
@@ -1009,6 +1260,8 @@ export default function App() {
         @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
         .heart-pop { animation:heartPop .6s ease-out; }
         @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+        .share-btn-item:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
+        @media (max-width: 320px) { .share-btn-item { font-size: 10px !important; padding: 12px !important; } }
       `}</style>
 
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
@@ -1017,7 +1270,7 @@ export default function App() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {hasAdmin && (
-            <button onClick={() => { setView('admin'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setAdminTab('pending'); fetchEvents(); }} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+            <button onClick={goAdmin} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
               <ShieldCheck size={21} className={rawPendingEvents.length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1' }} />
               {rawPendingEvents.length > 0 && (
                 <span style={{ position: 'absolute', top: -8, right: -10, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 999, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: '2px solid ' + (isDark ? '#0f172a' : '#fff') }}>
@@ -1032,7 +1285,7 @@ export default function App() {
           <button onClick={() => setIsDark(!isDark)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
             {isDark ? <Sun size={18} color="#facc15" /> : <Moon size={18} color="#4f46e5" />}
           </button>
-          <Sparkles size={18} color="#6366f1" style={{ cursor: 'pointer' }} onClick={() => setView('profile')} />
+          <Sparkles size={18} color="#6366f1" style={{ cursor: 'pointer' }} onClick={goProfile} />
         </div>
       </nav>
 
@@ -1112,17 +1365,15 @@ export default function App() {
                 </div>
               )}
 
-              {featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEventDetails} />}
-              {restEvents.map((ev) => <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEventDetails} />)}
+              {featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />}
+              {restEvents.map((ev) => <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />)}
             </div>
           </div>
         )}
 
-        {/* Detalles con zoom de foto */}
         {selectedEvent && !selectedPendingEvent && !editingEvent && (
           <>
             {isPhotoZoomed ? (
-              /* Modo Zoom fullscreen */
               <div
                 style={{
                   position: 'fixed', inset: 0, zIndex: 99999, background: '#000',
@@ -1164,28 +1415,41 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              /* Vista normal detalles */
               <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
-                  <button onClick={closeEventDetails} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
+                  <button onClick={closeSelectedEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
                     <ArrowLeft size={14} /> VOLVER
                   </button>
                 </div>
 
                 <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
-                  {/* Foto clickable */}
                   <div
                     onClick={enterPhotoZoom}
                     style={{
                       position: 'relative', width: '100%', height: 220, cursor: 'zoom-in',
-                      overflow: 'hidden', flexShrink: 0
+                      overflow: 'hidden', flexShrink: 0,
+                      backgroundColor: isDark ? '#1e293b' : '#f1f5f9'
                     }}
                   >
-                    <img
-                      src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-                      alt=""
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
+                    {!selectedEvent.image_url || !selectedEvent.image_url.includes('http') ? (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        height: '100%', width: '100%'
+                      }}>
+                        <Loader2 className="animate-spin" size={32} color="#6366f1" />
+                      </div>
+                    ) : (
+                      <img
+                        src={selectedEvent.image_url}
+                        alt={selectedEvent.title}
+                        style={{
+                          width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+                          opacity: 0, transition: 'opacity 0.3s ease'
+                        }}
+                        loading="lazy"
+                        onLoad={(e) => { e.target.style.opacity = '1'; }}
+                      />
+                    )}
                     <div style={{
                       position: 'absolute', bottom: 8, right: 8,
                       background: 'rgba(0,0,0,0.6)', color: 'white',
@@ -1222,29 +1486,9 @@ export default function App() {
                       <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
                     </div>
 
-                    <button onClick={() => { shareEvent(selectedEvent); setShowShareOptions(true); }} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+                    <button onClick={() => shareEvent(selectedEvent)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
                       <Share2 size={14} /> COMPARTIR EVENTO
                     </button>
-
-                    {showShareOptions && (
-                      <div style={{ marginTop: 12 }}>
-                        <p style={{ fontSize: 9, fontWeight: 900, color: '#6366f1', textAlign: 'center', marginBottom: 8, letterSpacing: 1 }}>COMPARTIR EN</p>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                          <button onClick={() => window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(`¡Mira este evento en Eventora!\n${selectedEvent.title}\n\n${APP_URL}/evento/${selectedEvent.id}`), '_blank')} style={{ padding: 10, borderRadius: 10, border: 'none', background: '#25D366', color: 'white', fontWeight: 900, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                            WhatsApp
-                          </button>
-                          <button onClick={() => window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(`${APP_URL}/evento/${selectedEvent.id}`), '_blank')} style={{ padding: 10, borderRadius: 10, border: 'none', background: '#1877F2', color: 'white', fontWeight: 900, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                            Facebook
-                          </button>
-                          <button onClick={() => window.open('https://twitter.com/intent/tweet?url=' + encodeURIComponent(`${APP_URL}/evento/${selectedEvent.id}`) + '&text=' + encodeURIComponent(`¡Mira este evento! ${selectedEvent.title}`), '_blank')} style={{ padding: 10, borderRadius: 10, border: 'none', background: isDark ? '#1e293b' : '#0f172a', color: 'white', fontWeight: 900, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                            X / Twitter
-                          </button>
-                          <button onClick={() => window.open('https://t.me/share/url?url=' + encodeURIComponent(`${APP_URL}/evento/${selectedEvent.id}`) + '&text=' + encodeURIComponent(`¡Mira este evento! ${selectedEvent.title}`), '_blank')} style={{ padding: 10, borderRadius: 10, border: 'none', background: '#0088cc', color: 'white', fontWeight: 900, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                            Telegram
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -1360,7 +1604,7 @@ export default function App() {
 
         {view === 'admin' && !selectedPendingEvent && !editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
-            <button onClick={() => setView('home')} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
+            <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
               <ArrowLeft size={16} /> VOLVER
             </button>
 
@@ -1429,8 +1673,8 @@ export default function App() {
             {adminTab === 'approved' && approvedEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS APROBADOS</p>}
             {adminTab === 'approved' && approvedEvents.map((ev) => (
               <AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="approved"
-                onClick={() => openEventDetails(ev)}
-                onView={() => openEventDetails(ev)}
+                onClick={() => openEvent(ev)}
+                onView={() => openEvent(ev)}
                 onEdit={() => startEditEvent(ev)}
                 onDelete={() => handleDeleteEvent(ev.id)} />
             ))}
@@ -1472,7 +1716,7 @@ export default function App() {
             ) : favoriteEvents.map((ev) => {
               const dl = getDaysLabel(ev.date);
               return (
-                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={() => openEventDetails(ev)}>
+                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={() => openEvent(ev)}>
                   <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }} />
                   <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
@@ -1512,19 +1756,19 @@ export default function App() {
       </main>
 
       <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,.4)', zIndex: 3000, background: isDark ? 'rgba(15,23,42,.95)' : 'rgba(255,255,255,.95)' }}>
-        <button onClick={goHome} style={{ background: 'none', border: 'none', color: view === 'home' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={goHome} style={{ background: 'none', border: 'none', color: (view === 'home' || currentPath.startsWith('/evento/')) ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <LayoutList size={22} />
         </button>
-        <button onClick={() => { setView('favorites'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); setShowShareOptions(false); }} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
+        <button onClick={goFavorites} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
           <Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} />
           {favoriteEvents.length > 0 && (
             <span style={{ position: 'absolute', top: -4, right: -8, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px', minWidth: 14, textAlign: 'center' }}>{favoriteEvents.length}</span>
           )}
         </button>
-        <button onClick={() => { setView('create'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); setShowShareOptions(false); }} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={goCreate} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <PlusCircle size={22} />
         </button>
-        <button onClick={() => { setView('map'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); setIsPhotoZoomed(false); setShowShareOptions(false); }} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={goMap} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <MapIcon size={22} />
         </button>
       </nav>
