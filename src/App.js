@@ -12,31 +12,54 @@ import 'leaflet/dist/leaflet.css';
 
 delete L.Icon.Default.prototype._getIconUrl;
 
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL || '',
-  process.env.REACT_APP_SUPABASE_ANON_KEY || ''
-);
+const supabase = createClient(function generateAIImageEdit() {
+  if (!editForm.title) { 
+    showToast('Escribe un título primero', 'error'); 
+    return; 
+  }
 
-const ADMIN_EMAILS = ['garverjacobo@gmail.com', 'jacobogarver@gmail.com'];
-const APP_URL = 'https://app-eventos-pro-final.vercel.app';
+  setIsGenerating(true);
+  showToast('Generando imagen...', 'info');
 
-const INITIAL_FORM = {
-  title: '', city: '', localidad: '', address: '',
-  time: '21:00', date: '', category: 'MUSICA', image_url: '', featured: false
-};
+  const seed = Math.floor(Math.random() * 999999);
 
-const categoryEmojis = {
-  MUSICA: '🎵', GASTRONOMIA: '🍽️', TAURINO: '🐂',
-  'FIESTAS PATRONALES': '🎉', OTROS: '📌'
-};
+  const categoryContext = {
+    MUSICA: 'concierto en vivo con escenario iluminado y público',
+    GASTRONOMIA: 'evento gastronómico con comida atractiva y ambiente festivo',
+    TAURINO: 'evento taurino en plaza de toros tradicional española',
+    'FIESTAS PATRONALES': 'fiestas patronales de pueblo en España con calles decoradas y gente celebrando',
+    OTROS: 'evento social en España con personas disfrutando'
+  };
 
-const darkTileUrl = 'https://mt1.google.com/vt/lyrs=r&hl=es&x={x}&y={y}&z={z}';
-const lightTileUrl = 'https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}';
+  const context = categoryContext[editForm.category] || categoryContext.OTROS;
 
-const redPinIcon = L.divIcon({
-  html: '<div style="width:22px;height:30px;position:relative;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));"><svg viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg"><path d="M15 0C6.7 0 0 6.7 0 15c0 11.2 13.3 23.5 14 24.4.3.4.7.4 1 0C16.7 38.5 30 26.2 30 15 30 6.7 23.3 0 15 0z" fill="#ef4444"/><circle cx="15" cy="14" r="5" fill="white"/></svg></div>',
-  iconSize: [22, 30], iconAnchor: [11, 30], popupAnchor: [0, -30], className: ''
-});
+  const prompt = `
+    fotografía profesional realista de ${editForm.title} 
+    ${context} 
+    en ${editForm.city || 'España'} 
+    sin texto en la imagen 
+    alta calidad 
+    iluminación cinematográfica 
+    estilo realista 
+    colores vibrantes 
+    ambiente festivo
+  `;
+
+  const url =
+    'https://image.pollinations.ai/prompt/' +
+    encodeURIComponent(prompt) +
+    '?width=800&height=600&seed=' +
+    seed +
+    '&nologo=true&t=' +
+    Date.now();
+
+  setEditForm((prev) => ({ ...prev, image_url: url }));
+
+  setTimeout(() => {
+    setIsGenerating(false);
+    showToast('Imagen generada', 'success');
+  }, 1500);
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
