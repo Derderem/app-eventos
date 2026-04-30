@@ -784,51 +784,14 @@ export default function App() {
     }
   }
 
-  // ==========================
-  // SOLO CAMBIO AQUÍ: IA MEJORADA
-  // ==========================
-  function buildSpanishEventPrompt(title, category, city) {
-    const cleanTitle = String(title || '').trim();
-    const cleanCity = String(city || '').trim();
-
-    const categoryContext = {
-      MUSICA: 'cartel y foto realista de concierto o festival musical, escenario, luces, público, ambiente de música en vivo',
-      GASTRONOMIA: 'foto realista de evento gastronómico, comida atractiva, tapas, platos, mercado o feria gastronómica, ambiente acogedor',
-      TAURINO: 'foto realista de evento taurino, plaza de toros, ambiente tradicional español, estética cultural taurina',
-      'FIESTAS PATRONALES': 'foto realista de fiestas patronales de pueblo en España, calles decoradas, gente celebrando, ambiente festivo tradicional',
-      OTROS: 'foto realista de evento local en España, gente, ambiente festivo, escena atractiva y profesional'
-    };
-
-    const context = categoryContext[category] || categoryContext.OTROS;
-
-    return [
-      'IMPORTANTE: entiende y respeta exactamente el texto en español del evento',
-      'crear una imagen que represente fielmente este título',
-      '"' + cleanTitle + '"',
-      context,
-      cleanCity ? ('ubicado en ' + cleanCity + ', España') : 'ubicado en España',
-      'no texto escrito en la imagen',
-      'no carteles ilegibles',
-      'no letras deformes',
-      'fotografía profesional',
-      'muy realista',
-      'alta calidad',
-      'iluminación cinematográfica',
-      'composición atractiva',
-      'vertical festival atmosphere',
-      'spanish event'
-    ].join(', ');
-  }
-
   function generateAIImage() {
     if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
     setIsGenerating(true);
     showToast('Generando imagen con IA...', 'info');
     const seed = Math.floor(Math.random() * 999999);
-    const prompt = buildSpanishEventPrompt(form.title, form.category, form.city);
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + form.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
     setForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1600);
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
   }
 
   function generateAIImageEdit() {
@@ -836,14 +799,10 @@ export default function App() {
     setIsGenerating(true);
     showToast('Generando imagen con IA...', 'info');
     const seed = Math.floor(Math.random() * 999999);
-    const prompt = buildSpanishEventPrompt(editForm.title, editForm.category, editForm.city);
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + editForm.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
     setEditForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1600);
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
   }
-  // ==========================
-  // FIN CAMBIO IA
-  // ==========================
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
@@ -1039,76 +998,75 @@ export default function App() {
 
   function shareEvent(ev) {
     const shareUrl = `${APP_URL}/evento/${ev.id}`;
-    const shareText = `¡No te pierdas ${ev.title}! ${shareUrl}`;
+  const shareText = `¡No te pierdas ${ev.title}! ${shareUrl}`;
 
-    const shareOptions = [
-      { name: 'WhatsApp', icon: '📱', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
-      { name: 'Facebook', icon: '📘', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
-      { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
-      { name: 'Copiar en portapapeles', icon: '📋', action: 'copy' }
-    ];
+  const shareOptions = [
+    { name: 'WhatsApp', icon: '📱', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
+    { name: 'Facebook', icon: '📘', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
+    { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
+    { name: 'Copiar en portapapeles', icon: '📋', action: 'copy' }
+  ];
 
-    const shareModal = document.createElement('div');
-    shareModal.style.cssText = `
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center;
-    `;
+  const shareModal = document.createElement('div');
+  shareModal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center;
+  `;
 
-    const modalContent = document.createElement('div');
-    modalContent.style.cssText = `
-      background: ${isDark ? '#0f172a' : '#fff'}; border-radius: 20px; padding: 25px; width: 90%; max-width: 360px; color: ${isDark ? '#fff' : '#0f172a'};
-    `;
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: ${isDark ? '#0f172a' : '#fff'}; border-radius: 20px; padding: 25px; width: 90%; max-width: 360px; color: ${isDark ? '#fff' : '#0f172a'};
+  `;
 
-    modalContent.innerHTML = `
-      <h3 style="margin:0 0 20px; font-weight:900; text-align:center; font-size:16px;">Compartir evento</h3>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
-        ${shareOptions.map(opt => `
-          <button class="share-btn" data-action="${opt.action || 'link'}" data-url="${opt.url || ''}" style="
-            padding:14px; border:none; border-radius:12px; font-weight:900; font-size:11px; cursor:pointer;
-            background: ${isDark ? '#1e293b' : '#f1f5f9'}; color: ${isDark ? '#fff' : '#0f172a'};
-            display:flex; align-items:center; justify-content:center; gap:8px;
-          ">
-            ${opt.icon} ${opt.name}
-          </button>
-        `).join('')}
-      </div>
-      <button id="close-share-modal" style="
-        width:100%; padding:12px; border:none; border-radius:12px; background:#64748b; color:white;
-        font-weight:900; font-size:12px; cursor:pointer;
-      ">CERRAR</button>
-    `;
+  modalContent.innerHTML = `
+    <h3 style="margin:0 0 20px; font-weight:900; text-align:center; font-size:16px;">Compartir evento</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+      ${shareOptions.map(opt => `
+        <button class="share-btn" data-action="${opt.action || 'link'}" data-url="${opt.url}" style="
+          padding:14px; border:none; border-radius:12px; font-weight:900; font-size:11px; cursor:pointer;
+          background: ${isDark ? '#1e293b' : '#f1f5f9'}; color: ${isDark ? '#fff' : '#0f172a'};
+          display:flex; align-items:center; justify-content:center; gap:8px;
+        ">
+          ${opt.icon} ${opt.name}
+        </button>
+      `).join('')}
+    </div>
+    <button id="close-share-modal" style="
+      width:100%; padding:12px; border:none; border-radius:12px; background:#64748b; color:white;
+      font-weight:900; font-size:12px; cursor:pointer;
+    ">CERRAR</button>
+  `;
 
-    shareModal.appendChild(modalContent);
-    document.body.appendChild(shareModal);
+  shareModal.appendChild(modalContent);
+  document.body.appendChild(shareModal);
 
-    function closeModal() {
-      shareModal.remove();
-    }
-
-    shareModal.addEventListener('click', (e) => {
-      if (e.target === shareModal) closeModal();
-    });
-
-    const closeBtn = document.getElementById('close-share-modal');
-    if (closeBtn) closeBtn.addEventListener('click', closeModal);
-
-    document.querySelectorAll('.share-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const action = e.currentTarget.dataset.action;
-        const url = e.currentTarget.dataset.url;
-
-        if (action === 'copy') {
-          navigator.clipboard.writeText(shareUrl).then(() => {
-            showToast('✅ Enlace copiado al portapapeles', 'success');
-          }).catch(() => {
-            showToast('❌ No se pudo copiar el enlace', 'error');
-          });
-        } else if (url) {
-          window.open(url, '_blank');
-        }
-        closeModal();
-      });
-    });
+  function closeModal() {
+    shareModal.remove();
   }
+
+  shareModal.addEventListener('click', (e) => {
+    if (e.target === shareModal) closeModal();
+  });
+
+  document.getElementById('close-share-modal').addEventListener('click', closeModal);
+
+  document.querySelectorAll('.share-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const action = e.currentTarget.dataset.action;
+      const url = e.currentTarget.dataset.url;
+
+      if (action === 'copy') {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          showToast('✅ Enlace copiado al portapapeles', 'success');
+        }).catch(() => {
+          showToast('❌ No se pudo copiar el enlace', 'error');
+        });
+      } else {
+        window.open(url, '_blank');
+      }
+      closeModal();
+    });
+  });
+}
 
   function handleCategoryChange(cat) {
     setSelectedCategory(cat);
@@ -1266,6 +1224,7 @@ export default function App() {
   @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
   .heart-pop { animation:heartPop .6s ease-out; }
   @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  /* AÑADE ESTA LÍNEA AQUÍ */
   .share-btn:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
   @media (max-width: 320px) {
   .share-btn { font-size: 10px !important; padding: 12px !important; }
@@ -1769,3 +1728,4 @@ export default function App() {
     </div>
   );
 }
+
