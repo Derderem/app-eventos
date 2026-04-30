@@ -390,7 +390,6 @@ export default function App() {
     }
   });
 
-  // Estados para zoom de foto
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
   const [photoScale, setPhotoScale] = useState(1);
   const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
@@ -558,7 +557,6 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Rutas simples para vistas principales
   useEffect(() => {
     if (currentPath.startsWith('/evento/')) return;
 
@@ -625,7 +623,6 @@ export default function App() {
     navigateTo('/', true);
   }, [currentPath, hasAdmin]);
 
-  // Ruta directa /evento/:id
   useEffect(() => {
     if (!currentPath.startsWith('/evento/')) return;
 
@@ -784,43 +781,79 @@ export default function App() {
     }
   }
 
+  // ==================== MEJORA DE IA ====================
   function generateAIImage() {
-    if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
+    if (!form.title) {
+      showToast('Escribe un título primero', 'error');
+      return;
+    }
+
     setIsGenerating(true);
     showToast('Generando imagen con IA...', 'info');
+
     const seed = Math.floor(Math.random() * 999999);
-    const categoryMap = {
-      MUSICA: 'live music concert with crowd and stage lights',
-      GASTRONOMIA: 'gourmet food event with tables and atmosphere',
-      TAURINO: 'bullfighting festival in a Spanish arena',
-      'FIESTAS PATRONALES': 'traditional Spanish town patron festival with decorations',
-      OTROS: 'local community event with people gathering'
-    };
-    const catDesc = categoryMap[form.category] || categoryMap.OTROS;
-    const prompt = catDesc + ', ' + form.title + ', ' + (form.city || '') + ', Spain, cinematic photo, realistic, warm lighting, vibrant atmosphere, high quality, 4k';
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+
+    // Prompt mejorado y contextual según la categoría
+    let context = '';
+    switch (form.category) {
+      case 'MUSICA':
+        context = 'live music concert, stage lights, crowd, energetic atmosphere';
+        break;
+      case 'GASTRONOMIA':
+        context = 'delicious food festival, gourmet dishes, restaurant ambiance, culinary event';
+        break;
+      case 'TAURINO':
+        context = 'bullfighting festival, traditional Spanish event, bullring, dramatic atmosphere';
+        break;
+      case 'FIESTAS PATRONALES':
+        context = 'traditional Spanish festival, colorful decorations, parade, fireworks, celebration';
+        break;
+      default:
+        context = 'vibrant community event, festive atmosphere, people celebrating';
+    }
+
+    const prompt = `professional high quality photograph of ${form.title}, ${context}, sharp focus, cinematic lighting, vibrant colors, event photography style, 8k`;
+
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&nologo=true&t=${Date.now()}`;
+
     setForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
+    setTimeout(() => {
+      setIsGenerating(false);
+      showToast('Imagen generada con IA', 'success');
+    }, 1500);
   }
 
   function generateAIImageEdit() {
-    if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
+    if (!editForm.title) {
+      showToast('Escribe un título primero', 'error');
+      return;
+    }
+
     setIsGenerating(true);
     showToast('Generando imagen con IA...', 'info');
+
     const seed = Math.floor(Math.random() * 999999);
-    const categoryMap = {
-      MUSICA: 'live music concert with crowd and stage lights',
-      GASTRONOMIA: 'gourmet food event with tables and atmosphere',
-      TAURINO: 'bullfighting festival in a Spanish arena',
-      'FIESTAS PATRONALES': 'traditional Spanish town patron festival with decorations',
-      OTROS: 'local community event with people gathering'
-    };
-    const catDesc = categoryMap[editForm.category] || categoryMap.OTROS;
-    const prompt = catDesc + ', ' + editForm.title + ', ' + (editForm.city || '') + ', Spain, cinematic photo, realistic, warm lighting, vibrant atmosphere, high quality, 4k';
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+
+    let context = '';
+    switch (editForm.category) {
+      case 'MUSICA': context = 'live music concert, stage lights, energetic atmosphere'; break;
+      case 'GASTRONOMIA': context = 'gourmet food festival, culinary presentation'; break;
+      case 'TAURINO': context = 'traditional bullfighting event, dramatic spanish festival'; break;
+      case 'FIESTAS PATRONALES': context = 'colorful traditional festival, spanish celebration, fireworks'; break;
+      default: context = 'festive community event, vibrant celebration';
+    }
+
+    const prompt = `professional high quality photograph of ${editForm.title}, ${context}, sharp focus, cinematic lighting, vibrant colors, event photography style, 8k`;
+
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&nologo=true&t=${Date.now()}`;
+
     setEditForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1500);
+    setTimeout(() => {
+      setIsGenerating(false);
+      showToast('Imagen generada con IA', 'success');
+    }, 1500);
   }
+  // ==================== FIN MEJORA IA ====================
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
@@ -1016,82 +1049,81 @@ export default function App() {
 
   function shareEvent(ev) {
     const shareUrl = `${APP_URL}/evento/${ev.id}`;
-  const shareText = `¡No te pierdas ${ev.title}! ${shareUrl}`;
+    const shareText = `¡No te pierdas ${ev.title}! ${shareUrl}`;
 
-  const shareOptions = [
-    { name: 'WhatsApp', icon: '📱', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
-    { name: 'Facebook', icon: '📘', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
-    { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
-    { name: 'Copiar en portapapeles', icon: '📋', action: 'copy' }
-  ];
+    const shareOptions = [
+      { name: 'WhatsApp', icon: '📱', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
+      { name: 'Facebook', icon: '📘', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
+      { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
+      { name: 'Copiar en portapapeles', icon: '📋', action: 'copy' }
+    ];
 
-  const shareModal = document.createElement('div');
-  shareModal.style.cssText = `
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center;
-  `;
+    const shareModal = document.createElement('div');
+    shareModal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center;
+    `;
 
-  const modalContent = document.createElement('div');
-  modalContent.style.cssText = `
-    background: ${isDark ? '#0f172a' : '#fff'}; border-radius: 20px; padding: 25px; width: 90%; max-width: 360px; color: ${isDark ? '#fff' : '#0f172a'};
-  `;
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+      background: ${isDark ? '#0f172a' : '#fff'}; border-radius: 20px; padding: 25px; width: 90%; max-width: 360px; color: ${isDark ? '#fff' : '#0f172a'};
+    `;
 
-  modalContent.innerHTML = `
-    <h3 style="margin:0 0 20px; font-weight:900; text-align:center; font-size:16px;">Compartir evento</h3>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
-      ${shareOptions.map(opt => `
-        <button class="share-btn" data-action="${opt.action || 'link'}" data-url="${opt.url}" style="
-          padding:14px; border:none; border-radius:12px; font-weight:900; font-size:11px; cursor:pointer;
-          background: ${isDark ? '#1e293b' : '#f1f5f9'}; color: ${isDark ? '#fff' : '#0f172a'};
-          display:flex; align-items:center; justify-content:center; gap:8px;
-        ">
-          ${opt.icon} ${opt.name}
-        </button>
-      `).join('')}
-    </div>
-    <button id="close-share-modal" style="
-      width:100%; padding:12px; border:none; border-radius:12px; background:#64748b; color:white;
-      font-weight:900; font-size:12px; cursor:pointer;
-    ">CERRAR</button>
-  `;
+    modalContent.innerHTML = `
+      <h3 style="margin:0 0 20px; font-weight:900; text-align:center; font-size:16px;">Compartir evento</h3>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+        ${shareOptions.map(opt => `
+          <button class="share-btn" data-action="${opt.action || 'link'}" data-url="${opt.url}" style="
+            padding:14px; border:none; border-radius:12px; font-weight:900; font-size:11px; cursor:pointer;
+            background: ${isDark ? '#1e293b' : '#f1f5f9'}; color: ${isDark ? '#fff' : '#0f172a'};
+            display:flex; align-items:center; justify-content:center; gap:8px;
+          ">
+            ${opt.icon} ${opt.name}
+          </button>
+        `).join('')}
+      </div>
+      <button id="close-share-modal" style="
+        width:100%; padding:12px; border:none; border-radius:12px; background:#64748b; color:white;
+        font-weight:900; font-size:12px; cursor:pointer;
+      ">CERRAR</button>
+    `;
 
-  shareModal.appendChild(modalContent);
-  document.body.appendChild(shareModal);
+    shareModal.appendChild(modalContent);
+    document.body.appendChild(shareModal);
 
-  function closeModal() {
-    shareModal.remove();
-  }
+    function closeModal() {
+      shareModal.remove();
+    }
 
-  shareModal.addEventListener('click', (e) => {
-    if (e.target === shareModal) closeModal();
-  });
-
-  document.getElementById('close-share-modal').addEventListener('click', closeModal);
-
-  document.querySelectorAll('.share-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const action = e.currentTarget.dataset.action;
-      const url = e.currentTarget.dataset.url;
-
-      if (action === 'copy') {
-        navigator.clipboard.writeText(shareUrl).then(() => {
-          showToast('✅ Enlace copiado al portapapeles', 'success');
-        }).catch(() => {
-          showToast('❌ No se pudo copiar el enlace', 'error');
-        });
-      } else {
-        window.open(url, '_blank');
-      }
-      closeModal();
+    shareModal.addEventListener('click', (e) => {
+      if (e.target === shareModal) closeModal();
     });
-  });
-}
+
+    document.getElementById('close-share-modal').addEventListener('click', closeModal);
+
+    document.querySelectorAll('.share-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const action = e.currentTarget.dataset.action;
+        const url = e.currentTarget.dataset.url;
+
+        if (action === 'copy') {
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            showToast('✅ Enlace copiado al portapapeles', 'success');
+          }).catch(() => {
+            showToast('❌ No se pudo copiar el enlace', 'error');
+          });
+        } else {
+          window.open(url, '_blank');
+        }
+        closeModal();
+      });
+    });
+  }
 
   function handleCategoryChange(cat) {
     setSelectedCategory(cat);
     if (listRef.current) listRef.current.scrollTop = 0;
   }
 
-  // Funciones para zoom de foto
   function enterPhotoZoom() {
     setIsPhotoZoomed(true);
     setPhotoScale(1);
@@ -1227,27 +1259,26 @@ export default function App() {
 
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color .25s, color .25s; }
-  html, body, #root { width: 100%; height: 100%; overflow: hidden; }
-  .dark-theme { background:#020617; color:white; }
-  .light-theme { background:#f8fafc; color:#0f172a; }
-  .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
-  .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
-  .no-scrollbar::-webkit-scrollbar { display:none; }
-  .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
-  .leaflet-container img { max-width:none!important; max-height:none!important; }
-  @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-  .animate-spin { animation:spin 1s linear infinite; }
-  @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
-  .pulse-admin { animation:admin-pulse 1.4s infinite; }
-  @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
-  .heart-pop { animation:heartPop .6s ease-out; }
-  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
-  /* AÑADE ESTA LÍNEA AQUÍ */
-  .share-btn:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
-  @media (max-width: 320px) {
-  .share-btn { font-size: 10px !important; padding: 12px !important; }
-}
-`}</style>
+        html, body, #root { width: 100%; height: 100%; overflow: hidden; }
+        .dark-theme { background:#020617; color:white; }
+        .light-theme { background:#f8fafc; color:#0f172a; }
+        .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
+        .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
+        .no-scrollbar::-webkit-scrollbar { display:none; }
+        .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+        .leaflet-container img { max-width:none!important; max-height:none!important; }
+        @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+        .animate-spin { animation:spin 1s linear infinite; }
+        @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
+        .pulse-admin { animation:admin-pulse 1.4s infinite; }
+        @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
+        .heart-pop { animation:heartPop .6s ease-out; }
+        @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+        .share-btn:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
+        @media (max-width: 320px) {
+          .share-btn { font-size: 10px !important; padding: 12px !important; }
+        }
+      `}</style>
 
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
         <div style={{ cursor: 'pointer' }} onClick={goHome}>
@@ -1356,7 +1387,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Detalles con zoom de foto */}
         {selectedEvent && !selectedPendingEvent && !editingEvent && (
           <>
             {isPhotoZoomed ? (
@@ -1413,14 +1443,29 @@ export default function App() {
                     onClick={enterPhotoZoom}
                     style={{
                       position: 'relative', width: '100%', height: 220, cursor: 'zoom-in',
-                      overflow: 'hidden', flexShrink: 0
+                      overflow: 'hidden', flexShrink: 0,
+                      backgroundColor: isDark ? '#1e293b' : '#f1f5f9'
                     }}
                   >
-                    <img
-                      src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
-                      alt=""
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
+                    {!selectedEvent.image_url || !selectedEvent.image_url.includes('http') ? (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        height: '100%', width: '100%'
+                      }}>
+                        <Loader2 className="animate-spin" size={32} color="#6366f1" />
+                      </div>
+                    ) : (
+                      <img
+                        src={selectedEvent.image_url}
+                        alt={selectedEvent.title}
+                        style={{
+                          width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+                          opacity: 0, transition: 'opacity 0.3s ease'
+                        }}
+                        loading="lazy"
+                        onLoad={(e) => { e.target.style.opacity = '1'; }}
+                      />
+                    )}
                     <div style={{
                       position: 'absolute', bottom: 8, right: 8,
                       background: 'rgba(0,0,0,0.6)', color: 'white',
@@ -1746,4 +1791,3 @@ export default function App() {
     </div>
   );
 }
-
