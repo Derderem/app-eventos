@@ -19,7 +19,6 @@ const supabase = createClient(
 
 const ADMIN_EMAILS = ['garverjacobo@gmail.com', 'jacobogarver@gmail.com'];
 const APP_URL = 'https://app-eventos-pro-final.vercel.app';
-const FALLBACK_IMG = 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800';
 
 const INITIAL_FORM = {
   title: '', city: '', localidad: '', address: '',
@@ -140,6 +139,23 @@ async function compressImage(file, options = {}) {
   return { blob: file, extension: file.name.split('.').pop() || 'jpg', type: file.type, originalSize: file.size, compressedSize: file.size };
 }
 
+function fallbackCopyText(text, showToast) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    showToast('✅ Enlace copiado', 'success');
+  } catch (err) {
+    showToast('No se pudo copiar', 'error');
+  }
+  document.body.removeChild(textarea);
+}
+
 function Toast({ toast }) {
   if (!toast) return null;
   const isSuccess = toast.type === 'success';
@@ -218,31 +234,6 @@ function exportToCSV(events) {
   URL.revokeObjectURL(link.href);
 }
 
-function SafeImg({ src, alt, style, onClick }) {
-  const [imgSrc, setImgSrc] = useState(src || FALLBACK_IMG);
-  const tried = useRef(false);
-
-  useEffect(() => {
-    setImgSrc(src || FALLBACK_IMG);
-    tried.current = false;
-  }, [src]);
-
-  return (
-    <img
-      src={imgSrc}
-      alt={alt || ''}
-      style={style}
-      onClick={onClick}
-      onError={() => {
-        if (!tried.current) {
-          tried.current = true;
-          setImgSrc(FALLBACK_IMG);
-        }
-      }}
-    />
-  );
-}
-
 function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, setSelectedEvent }) {
   const dl = getDaysLabel(ev.date);
   const isReallyFeatured = ev.featured === true;
@@ -264,7 +255,7 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
         )}
 
         <div style={{ position: 'relative', height: featured ? 200 : 160 }}>
-          <SafeImg src={ev.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <button onClick={() => toggleFavorite(ev.id)} style={{
             position: 'absolute', top: 10, right: 10, padding: featured ? 8 : 7,
             background: 'white', borderRadius: '50%', border: 'none', color: '#ef4444', display: 'flex', cursor: 'pointer'
@@ -278,13 +269,21 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
             {categoryEmojis[ev.category] || '📌'} {ev.city} | {formatDate(ev.date)}
             {dl && (
               <span style={{
-                display: 'inline-block', marginLeft: 8, background: dl.bg, color: dl.color,
-                padding: '2px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900, letterSpacing: 0
+                display: 'inline-block',
+                marginLeft: 8,
+                background: dl.bg,
+                color: dl.color,
+                padding: '2px 8px',
+                borderRadius: 8,
+                fontSize: 9,
+                fontWeight: 900,
+                letterSpacing: 0
               }}>
                 {dl.text}
               </span>
             )}
           </p>
+
           <h3 style={{ fontWeight: 900, fontSize: featured ? 17 : 15, marginBottom: 10 }}>{ev.title}</h3>
           <button onClick={() => setSelectedEvent(ev)} style={{
             width: '100%', padding: featured ? 12 : 11, borderRadius: 14,
@@ -303,7 +302,7 @@ function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onV
   return (
     <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 16, padding: 10, marginBottom: 10, cursor: 'pointer' }} onClick={onClick}>
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        <SafeImg src={ev.image_url} alt="" style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
+        <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontWeight: 900, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {ev.featured && <Star size={11} fill="#22c55e" color="#22c55e" style={{ marginRight: 4, verticalAlign: 'middle' }} />}
@@ -384,9 +383,14 @@ export default function App() {
   const [adminSearch, setAdminSearch] = useState('');
   const [adminCityFilter, setAdminCityFilter] = useState('TODAS');
   const [currentPath, setCurrentPath] = useState(() => {
-    try { return window.location.pathname || '/'; } catch { return '/'; }
+    try {
+      return window.location.pathname || '/';
+    } catch {
+      return '/';
+    }
   });
 
+  // Estados para zoom de foto
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
   const [photoScale, setPhotoScale] = useState(1);
   const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
@@ -394,19 +398,23 @@ export default function App() {
   const listRef = useRef(null);
   const toastTimerRef = useRef(null);
   const mapSearchTimerRef = useRef(null);
-  const aiTimeoutRef = useRef(null);
   const lastNonEventPathRef = useRef(
     (() => {
       try {
         const p = window.location.pathname || '/';
         return p.startsWith('/evento/') ? '/' : p;
-      } catch { return '/'; }
+      } catch {
+        return '/';
+      }
     })()
   );
   const routeEventLookupRef = useRef('');
   const photoTouchRef = useRef({
-    initialDistance: 0, initialScale: 1,
-    lastX: 0, lastY: 0, isDragging: false
+    initialDistance: 0,
+    initialScale: 1,
+    lastX: 0,
+    lastY: 0,
+    isDragging: false
   });
 
   const hasAdmin = profile && profile.role === 'admin';
@@ -420,13 +428,21 @@ export default function App() {
   function navigateTo(path, replace = false) {
     const target = path || '/';
     try {
-      if (!target.startsWith('/evento/')) lastNonEventPathRef.current = target;
+      if (!target.startsWith('/evento/')) {
+        lastNonEventPathRef.current = target;
+      }
+
       if (window.location.pathname !== target) {
-        if (replace) window.history.replaceState({}, '', target);
-        else window.history.pushState({}, '', target);
+        if (replace) {
+          window.history.replaceState({}, '', target);
+        } else {
+          window.history.pushState({}, '', target);
+        }
       }
       setCurrentPath(target);
-    } catch { setCurrentPath(target); }
+    } catch {
+      setCurrentPath(target);
+    }
   }
 
   function resetDetailUi() {
@@ -443,7 +459,9 @@ export default function App() {
   }
 
   function openEvent(ev) {
-    if (!currentPath.startsWith('/evento/')) lastNonEventPathRef.current = currentPath || '/';
+    if (!currentPath.startsWith('/evento/')) {
+      lastNonEventPathRef.current = currentPath || '/';
+    }
     setSelectedPendingEvent(null);
     setEditingEvent(null);
     resetDetailUi();
@@ -458,14 +476,44 @@ export default function App() {
     navigateTo(backPath);
   }
 
-  function goHome() { setView('home'); clearSelections(); setSearchQuery(''); navigateTo('/'); }
-  function goFavorites() { setView('favorites'); clearSelections(); navigateTo('/favoritos'); }
-  function goCreate() { setView('create'); clearSelections(); navigateTo('/crear'); }
-  function goMap() { setView('map'); clearSelections(); navigateTo('/mapa'); }
-  function goProfile() { setView('profile'); clearSelections(); navigateTo('/perfil'); }
+  function goHome() {
+    setView('home');
+    clearSelections();
+    setSearchQuery('');
+    navigateTo('/');
+  }
+
+  function goFavorites() {
+    setView('favorites');
+    clearSelections();
+    navigateTo('/favoritos');
+  }
+
+  function goCreate() {
+    setView('create');
+    clearSelections();
+    navigateTo('/crear');
+  }
+
+  function goMap() {
+    setView('map');
+    clearSelections();
+    navigateTo('/mapa');
+  }
+
+  function goProfile() {
+    setView('profile');
+    clearSelections();
+    navigateTo('/perfil');
+  }
+
   function goAdmin() {
     if (!hasAdmin) return;
-    setView('admin'); clearSelections(); setAdminTab('pending'); fetchEvents(); navigateTo('/admin');
+    setView('admin');
+    clearSelections();
+    setAdminTab('pending');
+    fetchEvents();
+    navigateTo('/admin');
   }
 
   useEffect(() => {
@@ -473,7 +521,6 @@ export default function App() {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
       if (mapSearchTimerRef.current) clearTimeout(mapSearchTimerRef.current);
-      if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
     };
   }, []);
 
@@ -489,78 +536,165 @@ export default function App() {
       setProfile(isAdminUser(user) ? { role: 'admin', email: user.email } : null);
       fetchEvents();
     }
+
     supabase.auth.getSession().then((res) => handleSession(res.data && res.data.session));
     const sub = supabase.auth.onAuthStateChange((event, session) => handleSession(session));
-    return () => { if (sub && sub.data && sub.data.subscription) sub.data.subscription.unsubscribe(); };
+
+    return () => {
+      if (sub && sub.data && sub.data.subscription) sub.data.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
     function handlePopState() {
       const path = window.location.pathname || '/';
       setCurrentPath(path);
-      if (!path.startsWith('/evento/')) lastNonEventPathRef.current = path;
+      if (!path.startsWith('/evento/')) {
+        lastNonEventPathRef.current = path;
+      }
     }
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // Rutas simples para vistas principales
   useEffect(() => {
     if (currentPath.startsWith('/evento/')) return;
+
     routeEventLookupRef.current = '';
-    if (currentPath === '/') { setView('home'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); resetDetailUi(); return; }
-    if (currentPath === '/favoritos') { setView('favorites'); clearSelections(); return; }
-    if (currentPath === '/crear') { setView('create'); clearSelections(); return; }
-    if (currentPath === '/mapa') { setView('map'); clearSelections(); return; }
-    if (currentPath === '/perfil') { setView('profile'); clearSelections(); return; }
-    if (currentPath === '/admin') {
-      if (hasAdmin) { setView('admin'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); resetDetailUi(); }
-      else navigateTo('/', true);
+
+    if (currentPath === '/') {
+      setView('home');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
       return;
     }
+
+    if (currentPath === '/favoritos') {
+      setView('favorites');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/crear') {
+      setView('create');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/mapa') {
+      setView('map');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/perfil') {
+      setView('profile');
+      setSelectedEvent(null);
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
+      return;
+    }
+
+    if (currentPath === '/admin') {
+      if (hasAdmin) {
+        setView('admin');
+        setSelectedEvent(null);
+        setSelectedPendingEvent(null);
+        setEditingEvent(null);
+        resetDetailUi();
+      } else {
+        navigateTo('/', true);
+      }
+      return;
+    }
+
     navigateTo('/', true);
   }, [currentPath, hasAdmin]);
 
+  // Ruta directa /evento/:id
   useEffect(() => {
     if (!currentPath.startsWith('/evento/')) return;
-    const idFromUrl = currentPath.replace('/evento/', '').split('/')[0];
-    if (!idFromUrl) { navigateTo('/', true); return; }
 
-    const foundInState = events.find((e) => String(e.id) === String(idFromUrl) && (e.status === 'approved' || hasAdmin));
+    const idFromUrl = currentPath.replace('/evento/', '').split('/')[0];
+    if (!idFromUrl) {
+      navigateTo('/', true);
+      return;
+    }
+
+    const foundInState = events.find((e) =>
+      String(e.id) === String(idFromUrl) && (e.status === 'approved' || hasAdmin)
+    );
+
     if (foundInState) {
-      setSelectedPendingEvent(null); setEditingEvent(null); resetDetailUi();
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      resetDetailUi();
       setSelectedEvent(foundInState);
       routeEventLookupRef.current = idFromUrl;
       return;
     }
+
     if (routeEventLookupRef.current === idFromUrl) return;
     routeEventLookupRef.current = idFromUrl;
 
-    supabase.from('events').select('*').eq('id', idFromUrl).single().then((res) => {
-      if (res.error || !res.data || (res.data.status !== 'approved' && !hasAdmin)) {
+    supabase.from('events')
+      .select('*')
+      .eq('id', idFromUrl)
+      .single()
+      .then((res) => {
+        if (res.error || !res.data || (res.data.status !== 'approved' && !hasAdmin)) {
+          showToast('Evento no encontrado', 'error');
+          setSelectedEvent(null);
+          routeEventLookupRef.current = '';
+          navigateTo('/', true);
+          return;
+        }
+
+        setSelectedPendingEvent(null);
+        setEditingEvent(null);
+        resetDetailUi();
+        setSelectedEvent(res.data);
+      })
+      .catch(() => {
         showToast('Evento no encontrado', 'error');
-        setSelectedEvent(null); routeEventLookupRef.current = '';
-        navigateTo('/', true); return;
-      }
-      setSelectedPendingEvent(null); setEditingEvent(null); resetDetailUi();
-      setSelectedEvent(res.data);
-    }).catch(() => {
-      showToast('Evento no encontrado', 'error');
-      setSelectedEvent(null); routeEventLookupRef.current = '';
-      navigateTo('/', true);
-    });
+        setSelectedEvent(null);
+        routeEventLookupRef.current = '';
+        navigateTo('/', true);
+      });
   }, [currentPath, events, hasAdmin]);
 
   function fetchEvents() {
     try {
       const cached = localStorage.getItem('eventora_cache_events_v1');
-      if (cached) setEvents(JSON.parse(cached));
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setEvents(parsed);
+      }
     } catch {}
 
     supabase.from('events').select('*').order('date', { ascending: true }).then((res) => {
-      if (res.error) { console.error('Error cargando eventos:', res.error); return; }
+      if (res.error) {
+        console.error('Error cargando eventos:', res.error);
+        return;
+      }
       const data = res.data || [];
       setEvents(data);
       try { localStorage.setItem('eventora_cache_events_v1', JSON.stringify(data)); } catch {}
+
       const validIds = data.map((e) => e.id);
       setFavorites((prev) => prev.filter((id) => validIds.indexOf(id) !== -1));
     });
@@ -605,6 +739,7 @@ export default function App() {
     const upload = await supabase.storage.from('event-images').upload(path, optimized.blob, {
       cacheControl: '3600', upsert: false, contentType: optimized.type
     });
+
     if (upload.error) throw upload.error;
 
     const publicUrlData = supabase.storage.from('event-images').getPublicUrl(path);
@@ -619,7 +754,8 @@ export default function App() {
     try {
       const result = await uploadImageToStorage(file);
       setForm((prev) => ({ ...prev, image_url: result.url }));
-      showToast('Imagen subida (' + Math.round(result.compressedSize / 1024) + 'KB)', 'success');
+      const finalKb = Math.round(result.compressedSize / 1024);
+      showToast(`Imagen subida (${finalKb}KB)`, 'success');
     } catch (err) {
       console.error(err);
       showToast(err.message || 'Error subiendo imagen', 'error');
@@ -637,7 +773,8 @@ export default function App() {
     try {
       const result = await uploadImageToStorage(file);
       setEditForm((prev) => ({ ...prev, image_url: result.url }));
-      showToast('Nueva imagen subida (' + Math.round(result.compressedSize / 1024) + 'KB)', 'success');
+      const finalKb = Math.round(result.compressedSize / 1024);
+      showToast(`Nueva imagen subida (${finalKb}KB)`, 'success');
     } catch (err) {
       console.error(err);
       showToast(err.message || 'Error subiendo imagen', 'error');
@@ -647,121 +784,25 @@ export default function App() {
     }
   }
 
-  // =====================================================
-  // GENERACIÓN DE IMAGEN IA - VERSIÓN MÓVIL ESTABLE
-  // =====================================================
-
-  function buildEventAIPrompt(title, category) {
-    const rawTitle = String(title || '').trim();
-    const text = String((title || '') + ' ' + (category || ''))
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-
-    let theme = 'Spanish local event, people enjoying a public celebration, festive atmosphere';
-
-    if (text.includes('tapa') || text.includes('tapas') || text.includes('tortilla') || text.includes('gastronomia') || text.includes('comida') || text.includes('cocina') || text.includes('paella') || text.includes('vino') || text.includes('queso') || text.includes('jamon')) {
-      theme = 'Spanish gastronomy contest, tortilla de patatas, tapas, chefs, food tables, people tasting food, festive village atmosphere';
-    } else if (text.includes('musica') || text.includes('concierto') || text.includes('festival') || text.includes('dj') || text.includes('orquesta') || text.includes('verbena')) {
-      theme = 'live music concert, stage lights, crowd enjoying music, outdoor festival atmosphere';
-    } else if (text.includes('taurino') || text.includes('toro') || text.includes('toros') || text.includes('encierro')) {
-      theme = 'traditional Spanish bullring cultural event, festive atmosphere, people in stands, no violence';
-    } else if (text.includes('fiesta') || text.includes('patronal') || text.includes('patronales') || text.includes('romeria') || text.includes('procesion')) {
-      theme = 'traditional Spanish town festival, colorful lights, families, decorated streets, festive atmosphere';
-    }
-
-    return `${theme}. Event title context: ${rawTitle}. Realistic professional horizontal photo, high quality, vibrant colors, natural light, cinematic, 4K, no text, no letters, no logo, no watermark`;
-  }
-
-  function createAIImageUrl(title, category) {
-    const prompt = buildEventAIPrompt(title, category);
-    const seed = Math.floor(Math.random() * 999999999);
-    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&model=flux&enhance=true&nologo=true&safe=true&private=true&t=${Date.now()}`;
-  }
-
-  function getEmergencyImage(category, title) {
-    const text = String((title || '') + ' ' + (category || '')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    let tags = 'event,festival';
-    if (text.includes('tapa') || text.includes('tapas') || text.includes('tortilla') || text.includes('gastronomia') || text.includes('comida') || text.includes('paella')) {
-      tags = 'food,spanish';
-    } else if (text.includes('musica') || text.includes('concierto') || text.includes('festival') || text.includes('dj')) {
-      tags = 'concert,music';
-    } else if (text.includes('fiesta') || text.includes('patronal') || text.includes('patronales')) {
-      tags = 'festival,party';
-    }
-    return 'https://loremflickr.com/800/600/' + tags + '?lock=' + Math.floor(Math.random() * 999999);
-  }
-
-  // FUNCIÓN PARA CREAR EVENTO - CORREGIDA PARA MÓVIL
   function generateAIImage() {
-    const title = String(form.title || '').trim();
-    if (!title) {
-      showToast('Escribe un título primero', 'error');
-      return;
-    }
-
-    // Cancelar timeout anterior si existe
-    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
-
+    if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
     setIsGenerating(true);
-    showToast('⏳ Generando imagen...', 'info');
-
-    // Generar URL única
-    const url = createAIImageUrl(title, form.category);
-    
-    // Forzar actualización con nueva URL
-    setForm(prev => ({ ...prev, image_url: '' }));
-    
-    setTimeout(() => {
-      setForm(prev => ({ ...prev, image_url: url }));
-    }, 100);
-
-    // Seguridad: desbloquear después de 10 segundos
-    aiTimeoutRef.current = setTimeout(() => {
-      if (isGenerating) {
-        setIsGenerating(false);
-        showToast('Generación completada. Si no ves la imagen, pulsa de nuevo.', 'success');
-      }
-    }, 10000);
+    showToast('Generando imagen con IA...', 'info');
+    const seed = Math.floor(Math.random() * 999999);
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + form.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    setForm((prev) => ({ ...prev, image_url: url }));
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
   }
 
-  // FUNCIÓN PARA EDITAR EVENTO - CORREGIDA PARA MÓVIL
   function generateAIImageEdit() {
-    const title = String(editForm.title || '').trim();
-    if (!title) {
-      showToast('Escribe un título primero', 'error');
-      return;
-    }
-
-    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
-
+    if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
     setIsGenerating(true);
-    showToast('⏳ Generando imagen...', 'info');
-
-    const url = createAIImageUrl(title, editForm.category);
-    
-    setEditForm(prev => ({ ...prev, image_url: '' }));
-    
-    setTimeout(() => {
-      setEditForm(prev => ({ ...prev, image_url: url }));
-    }, 100);
-
-    aiTimeoutRef.current = setTimeout(() => {
-      if (isGenerating) {
-        setIsGenerating(false);
-        showToast('Generación completada. Si no ves la imagen, pulsa de nuevo.', 'success');
-      }
-    }, 10000);
+    showToast('Generando imagen con IA...', 'info');
+    const seed = Math.floor(Math.random() * 999999);
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + editForm.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
+    setEditForm((prev) => ({ ...prev, image_url: url }));
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
   }
-
-  // Función para cancelar manualmente si se queda bloqueado
-  function cancelGeneration() {
-    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
-    setIsGenerating(false);
-    showToast('Generación cancelada. Puedes intentar de nuevo.', 'info');
-  }
-
-  // =====================================================
 
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
@@ -781,45 +822,66 @@ export default function App() {
 
   function handleSubmitEvent() {
     if (!form.title || !form.date || !form.city || !form.address) {
-      showToast('Faltan campos: título, ciudad, fecha y dirección', 'error'); return;
+      showToast('Faltan campos: título, ciudad, fecha y dirección', 'error');
+      return;
     }
     setIsSubmitting(true);
     showToast('Enviando evento a revisión...', 'info');
 
-    geocodeAddress(form.address, form.localidad, form.city).then((coords) => {
-      const eventToInsert = {
-        title: form.title.trim(), category: form.category, city: form.city.trim(),
-        localidad: form.localidad ? form.localidad.trim() : null, address: form.address.trim(),
-        date: form.date, time: form.time || '21:00', image_url: cleanImageUrl(form.image_url),
-        status: 'pending', lat: coords.lat, lng: coords.lng, featured: false
-      };
-      return supabase.from('events').insert([eventToInsert]);
-    }).then((res) => {
-      if (res.error) { console.error(res.error); showToast('Error: ' + (res.error.message || 'No se pudo guardar'), 'error'); return; }
-      showToast('Evento enviado a revisión correctamente', 'success');
-      setForm(INITIAL_FORM); goHome(); fetchEvents();
-    }).catch((err) => { console.error(err); showToast('Error al enviar', 'error'); })
-    .finally(() => setIsSubmitting(false));
+    geocodeAddress(form.address, form.localidad, form.city)
+      .then((coords) => {
+        const eventToInsert = {
+          title: form.title.trim(), category: form.category, city: form.city.trim(),
+          localidad: form.localidad ? form.localidad.trim() : null, address: form.address.trim(),
+          date: form.date, time: form.time || '21:00', image_url: cleanImageUrl(form.image_url),
+          status: 'pending', lat: coords.lat, lng: coords.lng, featured: false
+        };
+        return supabase.from('events').insert([eventToInsert]);
+      })
+      .then((res) => {
+        if (res.error) {
+          console.error(res.error);
+          showToast('Error: ' + (res.error.message || 'No se pudo guardar'), 'error');
+          return;
+        }
+        showToast('Evento enviado a revisión correctamente', 'success');
+        setForm(INITIAL_FORM);
+        goHome();
+        fetchEvents();
+      })
+      .catch((err) => { console.error(err); showToast('Error al enviar', 'error'); })
+      .finally(() => setIsSubmitting(false));
   }
 
   function startEditEvent(ev) {
-    setEditingEvent(ev); setSelectedEvent(null); setSelectedPendingEvent(null);
+    setEditingEvent(ev);
+    setSelectedEvent(null);
+    setSelectedPendingEvent(null);
     setEditForm({
-      title: ev.title || '', city: ev.city || '', localidad: ev.localidad || '',
-      address: ev.address || '', date: ev.date || '',
+      title: ev.title || '',
+      city: ev.city || '',
+      localidad: ev.localidad || '',
+      address: ev.address || '',
+      date: ev.date || '',
       time: ev.time ? String(ev.time).slice(0, 5) : '21:00',
-      category: ev.category || 'MUSICA', image_url: ev.image_url || '',
+      category: ev.category || 'MUSICA',
+      image_url: ev.image_url || '',
       featured: ev.featured === true
     });
   }
 
-  function cancelEditEvent() { setEditingEvent(null); setEditForm(INITIAL_FORM); }
+  function cancelEditEvent() {
+    setEditingEvent(null);
+    setEditForm(INITIAL_FORM);
+  }
 
   function handleSaveEditEvent() {
     if (!editingEvent) return;
     if (!editForm.title || !editForm.date || !editForm.city || !editForm.address) {
-      showToast('Faltan campos obligatorios', 'error'); return;
+      showToast('Faltan campos obligatorios', 'error');
+      return;
     }
+
     setIsSubmitting(true);
     showToast('Guardando cambios...', 'info');
 
@@ -831,45 +893,60 @@ export default function App() {
       ? geocodeAddress(editForm.address, editForm.localidad, editForm.city)
       : Promise.resolve({ lat: editingEvent.lat || null, lng: editingEvent.lng || null });
 
-    coordsPromise.then((coords) => {
-      const updateData = {
-        title: editForm.title.trim(), category: editForm.category, city: editForm.city.trim(),
-        localidad: editForm.localidad ? editForm.localidad.trim() : null, address: editForm.address.trim(),
-        date: editForm.date, time: editForm.time || '21:00',
-        image_url: cleanImageUrl(editForm.image_url),
-        lat: coords.lat, lng: coords.lng, featured: editForm.featured === true
-      };
-      return supabase.from('events').update(updateData).eq('id', editingEvent.id);
-    }).then((res) => {
-      if (res.error) { console.error(res.error); showToast('Error guardando', 'error'); return; }
-      showToast('Evento actualizado correctamente', 'success');
-      setEditingEvent(null); setEditForm(INITIAL_FORM); fetchEvents(); setAdminTab('approved');
-    }).catch((err) => { console.error(err); showToast('Error guardando', 'error'); })
-    .finally(() => setIsSubmitting(false));
+    coordsPromise
+      .then((coords) => {
+        const updateData = {
+          title: editForm.title.trim(), category: editForm.category, city: editForm.city.trim(),
+          localidad: editForm.localidad ? editForm.localidad.trim() : null, address: editForm.address.trim(),
+          date: editForm.date, time: editForm.time || '21:00',
+          image_url: cleanImageUrl(editForm.image_url),
+          lat: coords.lat, lng: coords.lng,
+          featured: editForm.featured === true
+        };
+        return supabase.from('events').update(updateData).eq('id', editingEvent.id);
+      })
+      .then((res) => {
+        if (res.error) { console.error(res.error); showToast('Error guardando', 'error'); return; }
+        showToast('Evento actualizado correctamente', 'success');
+        setEditingEvent(null);
+        setEditForm(INITIAL_FORM);
+        fetchEvents();
+        setAdminTab('approved');
+      })
+      .catch((err) => { console.error(err); showToast('Error guardando', 'error'); })
+      .finally(() => setIsSubmitting(false));
   }
 
   function handleApproveEvent(id) {
     supabase.from('events').update({ status: 'approved' }).eq('id', id).then((res) => {
       if (res.error) { showToast('Error aprobando', 'error'); return; }
-      showToast('Evento aprobado', 'success'); setSelectedPendingEvent(null); fetchEvents();
+      showToast('Evento aprobado', 'success');
+      setSelectedPendingEvent(null);
+      fetchEvents();
     });
   }
 
   function handleRejectEvent(id) {
     supabase.from('events').update({ status: 'rejected' }).eq('id', id).then((res) => {
       if (res.error) { showToast('Error rechazando', 'error'); return; }
-      showToast('Evento rechazado', 'info'); setSelectedPendingEvent(null); fetchEvents();
+      showToast('Evento rechazado', 'info');
+      setSelectedPendingEvent(null);
+      fetchEvents();
     });
   }
 
   function handleDeleteEvent(id) {
     if (!window.confirm('¿Seguro que quieres borrar este evento?')) return;
     const wasSelected = selectedEvent && selectedEvent.id === id;
+
     supabase.from('events').delete().eq('id', id).then((res) => {
       if (res.error) { showToast('Error borrando', 'error'); return; }
       showToast('Evento borrado', 'success');
-      setSelectedPendingEvent(null); setEditingEvent(null);
-      if (wasSelected) closeSelectedEvent();
+      setSelectedPendingEvent(null);
+      setEditingEvent(null);
+      if (wasSelected) {
+        closeSelectedEvent();
+      }
       fetchEvents();
     });
   }
@@ -877,7 +954,9 @@ export default function App() {
   function handleLogin() {
     const email = prompt('Escribe tu email:');
     if (!email) return;
+
     const redirectUrl = APP_URL + (currentPath || '/');
+
     supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectUrl } }).then((res) => {
       if (res.error) { console.error(res.error); showToast('Error enviando login', 'error'); return; }
       showToast('Revisa tu email y pulsa el enlace', 'success');
@@ -886,7 +965,11 @@ export default function App() {
 
   function handleLogout() {
     supabase.auth.signOut().then(() => {
-      setUserEmail(''); setProfile(null); fetchEvents(); goHome(); setEditingEvent(null);
+      setUserEmail('');
+      setProfile(null);
+      fetchEvents();
+      goHome();
+      setEditingEvent(null);
       showToast('Sesión cerrada', 'success');
     });
   }
@@ -894,82 +977,127 @@ export default function App() {
   function handleMapSearchChange(e) {
     const value = e.target.value;
     setMapSearch(value);
+
     if (mapSearchTimerRef.current) clearTimeout(mapSearchTimerRef.current);
+
     if (!value || value.length < 3) return;
+
     mapSearchTimerRef.current = setTimeout(() => {
       fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&countrycodes=es&q=' + encodeURIComponent(value))
         .then((r) => r.json())
         .then((data) => {
-          if (data && data[0]) setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
-          else showToast('No se encontró el lugar', 'error');
+          if (data && data[0]) {
+            setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+          } else {
+            showToast('No se encontró el lugar', 'error');
+          }
         })
         .catch(() => showToast('Error buscando lugar', 'error'));
     }, 600);
   }
 
   function shareEvent(ev) {
-    const shareUrl = APP_URL + '/evento/' + ev.id;
-    const shareText = '¡No te pierdas ' + ev.title + '! ' + shareUrl;
+    const shareUrl = `${APP_URL}/evento/${ev.id}`;
+  const shareText = `¡No te pierdas ${ev.title}! ${shareUrl}`;
 
-    const shareModal = document.createElement('div');
-    shareModal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
+  const shareOptions = [
+    { name: 'WhatsApp', icon: '📱', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
+    { name: 'Facebook', icon: '📘', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
+    { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
+    { name: 'Copiar en portapapeles', icon: '📋', action: 'copy' }
+  ];
 
-    const modalContent = document.createElement('div');
-    modalContent.style.cssText = 'background:' + (isDark ? '#0f172a' : '#fff') + ';border-radius:20px;padding:25px;width:90%;max-width:360px;color:' + (isDark ? '#fff' : '#0f172a') + ';';
+  const shareModal = document.createElement('div');
+  shareModal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center;
+  `;
 
-    const btnStyle = 'padding:14px;border:none;border-radius:12px;font-weight:900;font-size:11px;cursor:pointer;background:' + (isDark ? '#1e293b' : '#f1f5f9') + ';color:' + (isDark ? '#fff' : '#0f172a') + ';display:flex;align-items:center;justify-content:center;gap:8px;';
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: ${isDark ? '#0f172a' : '#fff'}; border-radius: 20px; padding: 25px; width: 90%; max-width: 360px; color: ${isDark ? '#fff' : '#0f172a'};
+  `;
 
-    modalContent.innerHTML = '<h3 style="margin:0 0 20px;font-weight:900;text-align:center;font-size:16px;">Compartir evento</h3>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">'
-      + '<button class="share-btn" data-action="link" data-url="https://wa.me/?text=' + encodeURIComponent(shareText) + '" style="' + btnStyle + '">📱 WhatsApp</button>'
-      + '<button class="share-btn" data-action="link" data-url="https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(shareUrl) + '" style="' + btnStyle + '">📘 Facebook</button>'
-      + '<button class="share-btn" data-action="link" data-url="https://twitter.com/intent/tweet?url=' + encodeURIComponent(shareUrl) + '&text=' + encodeURIComponent(shareText) + '" style="' + btnStyle + '">🐦 Twitter/X</button>'
-      + '<button class="share-btn" data-action="copy" style="' + btnStyle + '">📋 Copiar enlace</button>'
-      + '</div>'
-      + '<button id="close-share-modal" style="width:100%;padding:12px;border:none;border-radius:12px;background:#64748b;color:white;font-weight:900;font-size:12px;cursor:pointer;">CERRAR</button>';
+  modalContent.innerHTML = `
+    <h3 style="margin:0 0 20px; font-weight:900; text-align:center; font-size:16px;">Compartir evento</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+      ${shareOptions.map(opt => `
+        <button class="share-btn" data-action="${opt.action || 'link'}" data-url="${opt.url}" style="
+          padding:14px; border:none; border-radius:12px; font-weight:900; font-size:11px; cursor:pointer;
+          background: ${isDark ? '#1e293b' : '#f1f5f9'}; color: ${isDark ? '#fff' : '#0f172a'};
+          display:flex; align-items:center; justify-content:center; gap:8px;
+        ">
+          ${opt.icon} ${opt.name}
+        </button>
+      `).join('')}
+    </div>
+    <button id="close-share-modal" style="
+      width:100%; padding:12px; border:none; border-radius:12px; background:#64748b; color:white;
+      font-weight:900; font-size:12px; cursor:pointer;
+    ">CERRAR</button>
+  `;
 
-    shareModal.appendChild(modalContent);
-    document.body.appendChild(shareModal);
+  shareModal.appendChild(modalContent);
+  document.body.appendChild(shareModal);
 
-    function closeModal() { shareModal.remove(); }
-    shareModal.addEventListener('click', function(e) { if (e.target === shareModal) closeModal(); });
-    document.getElementById('close-share-modal').addEventListener('click', closeModal);
-
-    document.querySelectorAll('.share-btn').forEach(function(btn) {
-      btn.addEventListener('click', function(e) {
-        var action = e.currentTarget.dataset.action;
-        var url = e.currentTarget.dataset.url;
-        if (action === 'copy') {
-          navigator.clipboard.writeText(shareUrl).then(function() {
-            showToast('✅ Enlace copiado', 'success');
-          }).catch(function() { showToast('No se pudo copiar', 'error'); });
-        } else {
-          window.open(url, '_blank');
-        }
-        closeModal();
-      });
-    });
+  function closeModal() {
+    shareModal.remove();
   }
+
+  shareModal.addEventListener('click', (e) => {
+    if (e.target === shareModal) closeModal();
+  });
+
+  document.getElementById('close-share-modal').addEventListener('click', closeModal);
+
+  document.querySelectorAll('.share-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const action = e.currentTarget.dataset.action;
+      const url = e.currentTarget.dataset.url;
+
+      if (action === 'copy') {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          showToast('✅ Enlace copiado al portapapeles', 'success');
+        }).catch(() => {
+          showToast('❌ No se pudo copiar el enlace', 'error');
+        });
+      } else {
+        window.open(url, '_blank');
+      }
+      closeModal();
+    });
+  });
+}
 
   function handleCategoryChange(cat) {
     setSelectedCategory(cat);
     if (listRef.current) listRef.current.scrollTop = 0;
   }
 
-  function enterPhotoZoom() { setIsPhotoZoomed(true); setPhotoScale(1); setPhotoPos({ x: 0, y: 0 }); }
-  function exitPhotoZoom() { setIsPhotoZoomed(false); setPhotoScale(1); setPhotoPos({ x: 0, y: 0 }); }
+  // Funciones para zoom de foto
+  function enterPhotoZoom() {
+    setIsPhotoZoomed(true);
+    setPhotoScale(1);
+    setPhotoPos({ x: 0, y: 0 });
+  }
+
+  function exitPhotoZoom() {
+    setIsPhotoZoomed(false);
+    setPhotoScale(1);
+    setPhotoPos({ x: 0, y: 0 });
+  }
 
   function getDistance(touches) {
     if (!touches || touches.length < 2) return 0;
-    var dx = touches[0].clientX - touches[1].clientX;
-    var dy = touches[0].clientY - touches[1].clientY;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
     return Math.sqrt(dx * dx + dy * dy);
   }
 
   function handlePhotoTouchStart(e) {
     if (e.touches.length === 2) {
       e.preventDefault();
-      photoTouchRef.current.initialDistance = getDistance(e.touches);
+      const dist = getDistance(e.touches);
+      photoTouchRef.current.initialDistance = dist;
       photoTouchRef.current.initialScale = photoScale;
     } else if (e.touches.length === 1) {
       photoTouchRef.current.lastX = e.touches[0].clientX;
@@ -980,87 +1108,100 @@ export default function App() {
 
   function handlePhotoTouchMove(e) {
     if (!isPhotoZoomed) return;
+
     if (e.touches.length === 2) {
       e.preventDefault();
-      var dist = getDistance(e.touches);
-      var scale = dist / photoTouchRef.current.initialDistance;
-      setPhotoScale(Math.min(Math.max(photoTouchRef.current.initialScale * scale, 1), 5));
+      const dist = getDistance(e.touches);
+      const scale = dist / photoTouchRef.current.initialDistance;
+      const newScale = Math.min(Math.max(photoTouchRef.current.initialScale * scale, 1), 5);
+      setPhotoScale(newScale);
     } else if (e.touches.length === 1 && photoScale > 1) {
       e.preventDefault();
-      var dx = e.touches[0].clientX - photoTouchRef.current.lastX;
-      var dy = e.touches[0].clientY - photoTouchRef.current.lastY;
-      setPhotoPos(function(prev) { return { x: prev.x + dx * 0.55, y: prev.y + dy * 0.55 }; });
+
+      const slowFactor = 0.55;
+
+      const dx = e.touches[0].clientX - photoTouchRef.current.lastX;
+      const dy = e.touches[0].clientY - photoTouchRef.current.lastY;
+
+      setPhotoPos(prev => ({
+        x: prev.x + (dx * slowFactor),
+        y: prev.y + (dy * slowFactor)
+      }));
+
       photoTouchRef.current.lastX = e.touches[0].clientX;
       photoTouchRef.current.lastY = e.touches[0].clientY;
     }
   }
 
   function handlePhotoTouchEnd() {
-    if (photoScale <= 1.05) exitPhotoZoom();
+    if (photoScale <= 1.05) {
+      exitPhotoZoom();
+    }
     photoTouchRef.current.isDragging = false;
   }
 
   function eventMatchesAdminFilters(e) {
-    var cityOk = adminCityFilter === 'TODAS' || e.city === adminCityFilter;
+    const cityOk = adminCityFilter === 'TODAS' || e.city === adminCityFilter;
     if (!cityOk) return false;
-    var q = normalizeText(adminSearch).trim();
+    const q = normalizeText(adminSearch).trim();
     if (!q) return true;
-    var haystack = normalizeText([e.title, e.city, e.localidad, e.address, e.category, e.status, e.date, e.time].join(' '));
-    return q.split(/\s+/).filter(Boolean).every(function(term) { return haystack.indexOf(term) !== -1; });
+    const haystack = normalizeText([e.title, e.city, e.localidad, e.address, e.category, e.status, e.date, e.time].join(' '));
+    const terms = q.split(/\s+/).filter(Boolean);
+    return terms.every((term) => haystack.indexOf(term) !== -1);
   }
 
-  var today = new Date().toISOString().split('T')[0];
-  var publicEvents = events.filter(function(e) { return e.status === 'approved' && e.date >= today; });
+  const today = new Date().toISOString().split('T')[0];
+  const publicEvents = events.filter((e) => e.status === 'approved' && e.date >= today);
 
-  var searchedEvents = searchQuery
-    ? publicEvents.filter(function(e) {
-        var q = normalizeText(searchQuery).trim();
-        var terms = q.split(/\s+/).filter(Boolean);
-        var haystack = normalizeText([e.title, e.city, e.localidad, e.address, e.category, e.date].join(' '));
-        return terms.every(function(term) { return haystack.indexOf(term) !== -1; });
+  const searchedEvents = searchQuery
+    ? publicEvents.filter((e) => {
+        const q = normalizeText(searchQuery).trim();
+        const terms = q.split(/\s+/).filter(Boolean);
+        const haystack = normalizeText([e.title, e.city, e.localidad, e.address, e.category, e.date].join(' '));
+        return terms.every((term) => haystack.indexOf(term) !== -1);
       })
     : publicEvents;
 
-  var categoryEvents = searchedEvents.filter(function(e) { return selectedCategory === 'TODOS' || e.category === selectedCategory; });
+  const categoryEvents = searchedEvents.filter((e) => selectedCategory === 'TODOS' || e.category === selectedCategory);
 
-  var filteredEvents = categoryEvents.filter(function(e) {
+  const filteredEvents = categoryEvents.filter((e) => {
     if (dateFilter === 'today') return e.date === today;
     if (dateFilter === 'week') {
-      var eventDate = new Date(e.date);
-      var now = new Date();
-      var weekEnd = new Date(now);
+      const eventDate = new Date(e.date);
+      const now = new Date();
+      const weekEnd = new Date(now);
       weekEnd.setDate(weekEnd.getDate() + 7);
       return eventDate >= now && eventDate <= weekEnd;
     }
     return true;
   });
 
-  var favoriteEvents = publicEvents.filter(function(e) { return favorites.indexOf(e.id) !== -1; });
-  var rawPendingEvents = hasAdmin ? events.filter(function(e) { return e.status === 'pending'; }) : [];
-  var rawApprovedEvents = hasAdmin ? events.filter(function(e) { return e.status === 'approved'; }) : [];
-  var pendingEvents = rawPendingEvents.filter(eventMatchesAdminFilters);
-  var approvedEvents = rawApprovedEvents.filter(eventMatchesAdminFilters);
+  const favoriteEvents = publicEvents.filter((e) => favorites.indexOf(e.id) !== -1);
+  const rawPendingEvents = hasAdmin ? events.filter((e) => e.status === 'pending') : [];
+  const rawApprovedEvents = hasAdmin ? events.filter((e) => e.status === 'approved') : [];
+  const pendingEvents = rawPendingEvents.filter(eventMatchesAdminFilters);
+  const approvedEvents = rawApprovedEvents.filter(eventMatchesAdminFilters);
 
-  var adminCitiesList = [];
-  events.forEach(function(e) { if (e.city && adminCitiesList.indexOf(e.city) === -1) adminCitiesList.push(e.city); });
+  const adminCitiesList = [];
+  events.forEach((e) => { if (e.city && adminCitiesList.indexOf(e.city) === -1) adminCitiesList.push(e.city); });
   adminCitiesList.sort();
 
-  var sortedFiltered = filteredEvents.slice().sort(function(a, b) {
+  const sortedFiltered = filteredEvents.slice().sort((a, b) => {
     if (a.featured && !b.featured) return -1;
     if (!a.featured && b.featured) return 1;
     return 0;
   });
 
-  var featuredEvent = sortedFiltered.length ? sortedFiltered[0] : null;
-  var restEvents = sortedFiltered.length ? sortedFiltered.slice(1) : [];
-  var adminFiltersActive = adminSearch.trim() || adminCityFilter !== 'TODAS';
+  const featuredEvent = sortedFiltered.length ? sortedFiltered[0] : null;
+  const restEvents = sortedFiltered.length ? sortedFiltered.slice(1) : [];
+  const adminFiltersActive = adminSearch.trim() || adminCityFilter !== 'TODAS';
 
-  var INPUT_STYLE = {
+  const INPUT_STYLE = {
     width: '100%', padding: 12, borderRadius: 10, border: 'none',
     background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700
   };
 
-  if (showSplash) return <Splash onDone={function() { setShowSplash(false); }} />;
+  if (showSplash) return <Splash onDone={() => setShowSplash(false)} />;
 
   return (
     <div className={isDark ? 'dark-theme' : 'light-theme'} style={{ width: '100vw', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -1068,24 +1209,28 @@ export default function App() {
 
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color .25s, color .25s; }
-        html, body, #root { width: 100%; height: 100%; overflow: hidden; }
-        .dark-theme { background:#020617; color:white; }
-        .light-theme { background:#f8fafc; color:#0f172a; }
-        .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
-        .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
-        .no-scrollbar::-webkit-scrollbar { display:none; }
-        .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
-        .leaflet-container img { max-width:none!important; max-height:none!important; }
-        @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-        .animate-spin { animation:spin 1s linear infinite; }
-        @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
-        .pulse-admin { animation:admin-pulse 1.4s infinite; }
-        @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
-        .heart-pop { animation:heartPop .6s ease-out; }
-        @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
-      `}</style>
+  html, body, #root { width: 100%; height: 100%; overflow: hidden; }
+  .dark-theme { background:#020617; color:white; }
+  .light-theme { background:#f8fafc; color:#0f172a; }
+  .card-dark { background:#0f172a; border:1px solid #1e293b; color:white; }
+  .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
+  .no-scrollbar::-webkit-scrollbar { display:none; }
+  .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+  .leaflet-container img { max-width:none!important; max-height:none!important; }
+  @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+  .animate-spin { animation:spin 1s linear infinite; }
+  @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
+  .pulse-admin { animation:admin-pulse 1.4s infinite; }
+  @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
+  .heart-pop { animation:heartPop .6s ease-out; }
+  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  /* AÑADE ESTA LÍNEA AQUÍ */
+  .share-btn:hover { background: ${isDark ? '#334155' : '#e2e8f0'} !important; }
+  @media (max-width: 320px) {
+  .share-btn { font-size: 10px !important; padding: 12px !important; }
+}
+`}</style>
 
-      {/* NAVBAR */}
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
         <div style={{ cursor: 'pointer' }} onClick={goHome}>
           <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png" alt="Eventora" style={{ height: 18, width: 'auto' }} />
@@ -1095,41 +1240,54 @@ export default function App() {
             <button onClick={goAdmin} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
               <ShieldCheck size={21} className={rawPendingEvents.length > 0 ? 'pulse-admin' : ''} style={{ color: '#6366f1' }} />
               {rawPendingEvents.length > 0 && (
-                <span style={{ position: 'absolute', top: -8, right: -10, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 999, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: '2px solid ' + (isDark ? '#0f172a' : '#fff') }}>{rawPendingEvents.length}</span>
+                <span style={{ position: 'absolute', top: -8, right: -10, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 999, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: '2px solid ' + (isDark ? '#0f172a' : '#fff') }}>
+                  {rawPendingEvents.length}
+                </span>
               )}
             </button>
           )}
           {!userEmail && (
             <button onClick={handleLogin} style={{ background: '#4f46e5', color: 'white', border: 'none', borderRadius: 8, padding: '4px 8px', fontSize: 8, fontWeight: 900, cursor: 'pointer' }}>LOGIN</button>
           )}
-          <button onClick={function() { setIsDark(!isDark); }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+          <button onClick={() => setIsDark(!isDark)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
             {isDark ? <Sun size={18} color="#facc15" /> : <Moon size={18} color="#4f46e5" />}
           </button>
           <Sparkles size={18} color="#6366f1" style={{ cursor: 'pointer' }} onClick={goProfile} />
         </div>
       </nav>
 
-      {/* MAIN */}
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
 
-        {/* MAPA */}
         {view === 'map' && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
             <div style={{ position: 'absolute', top: 15, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
               <div style={{ background: '#fff', borderRadius: 15, padding: '4px 12px', display: 'flex', alignItems: 'center', boxShadow: '0 10px 25px rgba(0,0,0,.2)' }}>
                 <Search size={16} color="#6366f1" />
-                <input type="text" value={mapSearch} onChange={handleMapSearchChange} placeholder="Buscar ciudad, pueblo o lugar..." style={{ width: '100%', padding: 10, border: 'none', outline: 'none', fontWeight: 700, fontSize: 12, color: '#0f172a', background: 'transparent' }} />
-                {mapSearch && <button onClick={function() { setMapSearch(''); setMapCenter(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontWeight: 900 }}>X</button>}
+                <input
+                  type="text"
+                  value={mapSearch}
+                  onChange={handleMapSearchChange}
+                  placeholder="Buscar ciudad, pueblo o lugar..."
+                  style={{ width: '100%', padding: 10, border: 'none', outline: 'none', fontWeight: 700, fontSize: 12, color: '#0f172a', background: 'transparent' }}
+                />
+                {mapSearch && (
+                  <button onClick={() => { setMapSearch(''); setMapCenter(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontWeight: 900 }}>X</button>
+                )}
               </div>
             </div>
+
             <MapContainer center={[40.41, -3.70]} zoom={6} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
               <MapResizer center={mapCenter} />
               <TileLayer url={isDark ? darkTileUrl : lightTileUrl} attribution="Google Maps" maxZoom={20} />
-              {publicEvents.map(function(ev) {
+              {publicEvents.map((ev) => {
                 if (!ev.lat || !ev.lng) return null;
                 return (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={redPinIcon}>
-                    <Popup><b>{ev.title}</b><br />{ev.address}, {ev.localidad || ''} - {ev.city}<br />{formatDate(ev.date)}</Popup>
+                    <Popup>
+                      <b>{ev.title}</b><br />
+                      {ev.address}, {ev.localidad || ''} - {ev.city}<br />
+                      {formatDate(ev.date)}
+                    </Popup>
                   </Marker>
                 );
               })}
@@ -1137,27 +1295,28 @@ export default function App() {
           </div>
         )}
 
-        {/* HOME */}
         {view === 'home' && !selectedEvent && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '8px 12px', flexShrink: 0, background: isDark ? '#020617' : '#f8fafc' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 12, padding: '6px 12px' }}>
                 <Search size={16} color="#6366f1" />
-                <input value={searchQuery} onChange={function(e) { setSearchQuery(e.target.value); }} placeholder="Buscar evento, ciudad, localidad..." style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontWeight: 700, fontSize: 11, color: 'inherit' }} />
-                {searchQuery && <button onClick={function() { setSearchQuery(''); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer' }}>X</button>}
+                <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Buscar evento, ciudad, localidad..." style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontWeight: 700, fontSize: 11, color: 'inherit' }} />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer' }}>X</button>
+                )}
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: 6, padding: '6px 12px', flexShrink: 0 }}>
-              {[{ k: 'all', l: 'TODOS' }, { k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }].map(function(f) {
-                return <button key={f.k} onClick={function() { setDateFilter(f.k); }} style={{ padding: '5px 10px', borderRadius: 10, border: 'none', background: dateFilter === f.k ? '#22c55e' : 'transparent', color: dateFilter === f.k ? 'white' : '#6366f1', fontSize: 8, fontWeight: 900, cursor: 'pointer' }}>{f.l}</button>;
-              })}
+              {[{ k: 'all', l: 'TODOS' }, { k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }].map((f) => (
+                <button key={f.k} onClick={() => setDateFilter(f.k)} style={{ padding: '5px 10px', borderRadius: 10, border: 'none', background: dateFilter === f.k ? '#22c55e' : 'transparent', color: dateFilter === f.k ? 'white' : '#6366f1', fontSize: 8, fontWeight: 900, cursor: 'pointer' }}>{f.l}</button>
+              ))}
             </div>
 
             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, padding: '8px 12px', overflowX: 'auto', flexShrink: 0 }}>
-              {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINO', 'FIESTAS PATRONALES', 'OTROS'].map(function(cat) {
-                return <button key={cat} onClick={function() { handleCategoryChange(cat); }} style={{ padding: '7px 15px', borderRadius: 25, border: 'none', background: selectedCategory === cat ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory === cat ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>{cat}</button>;
-              })}
+              {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINO', 'FIESTAS PATRONALES', 'OTROS'].map((cat) => (
+                <button key={cat} onClick={() => handleCategoryChange(cat)} style={{ padding: '7px 15px', borderRadius: 25, border: 'none', background: selectedCategory === cat ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory === cat ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>{cat}</button>
+              ))}
             </div>
 
             <div style={{ padding: '4px 12px', fontSize: 9, color: '#6366f1', fontWeight: 800, flexShrink: 0 }}>
@@ -1172,24 +1331,55 @@ export default function App() {
                   <p style={{ fontSize: 10, marginTop: 8 }}>Prueba con otra búsqueda o categoría</p>
                 </div>
               )}
+
               {featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />}
-              {restEvents.map(function(ev) { return <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />; })}
+              {restEvents.map((ev) => <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />)}
             </div>
           </div>
         )}
 
-        {/* DETALLE EVENTO */}
+        {/* Detalles con zoom de foto */}
         {selectedEvent && !selectedPendingEvent && !editingEvent && (
           <>
             {isPhotoZoomed ? (
-              <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', touchAction: 'none' }}
-                onTouchStart={handlePhotoTouchStart} onTouchMove={handlePhotoTouchMove} onTouchEnd={handlePhotoTouchEnd}>
-                <SafeImg src={selectedEvent.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(' + photoScale + ') translate(' + photoPos.x + 'px, ' + photoPos.y + 'px)', transition: 'transform 0.1s ease-out' }} />
-                <button onClick={exitPhotoZoom} style={{ position: 'absolute', top: 40, right: 20, background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: 999, fontWeight: 900, fontSize: 12, cursor: 'pointer', zIndex: 100000, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div
+                style={{
+                  position: 'fixed', inset: 0, zIndex: 99999, background: '#000',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  overflow: 'hidden', touchAction: 'none'
+                }}
+                onTouchStart={handlePhotoTouchStart}
+                onTouchMove={handlePhotoTouchMove}
+                onTouchEnd={handlePhotoTouchEnd}
+              >
+                <img
+                  src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
+                  alt=""
+                  draggable={false}
+                  style={{
+                    width: '100%', height: '100%', objectFit: 'contain',
+                    transform: 'scale(' + photoScale + ') translate(' + photoPos.x + 'px, ' + photoPos.y + 'px)',
+                    transition: 'transform 0.1s ease-out'
+                  }}
+                />
+                <button
+                  onClick={exitPhotoZoom}
+                  style={{
+                    position: 'absolute', top: 40, right: 20,
+                    background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
+                    color: 'white', border: 'none', padding: '10px 20px', borderRadius: 999,
+                    fontWeight: 900, fontSize: 12, cursor: 'pointer', zIndex: 100000,
+                    display: 'flex', alignItems: 'center', gap: 6
+                  }}
+                >
                   <X size={16}/> CERRAR
                 </button>
-                <div style={{ position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 700, pointerEvents: 'none', textAlign: 'center' }}>
-                  Usa dos dedos para zoom
+                <div style={{
+                  position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)',
+                  color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 700,
+                  pointerEvents: 'none', textAlign: 'center'
+                }}>
+                  Usa dos dedos para zoom · Pellizca hacia afuera para volver
                 </div>
               </div>
             ) : (
@@ -1201,9 +1391,23 @@ export default function App() {
                 </div>
 
                 <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
-                  <div onClick={enterPhotoZoom} style={{ position: 'relative', width: '100%', height: 220, cursor: 'zoom-in', overflow: 'hidden', flexShrink: 0 }}>
-                    <SafeImg src={selectedEvent.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.6)', color: 'white', padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900, pointerEvents: 'none' }}>
+                  <div
+                    onClick={enterPhotoZoom}
+                    style={{
+                      position: 'relative', width: '100%', height: 220, cursor: 'zoom-in',
+                      overflow: 'hidden', flexShrink: 0
+                    }}
+                  >
+                    <img
+                      src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'}
+                      alt=""
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                    <div style={{
+                      position: 'absolute', bottom: 8, right: 8,
+                      background: 'rgba(0,0,0,0.6)', color: 'white',
+                      padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900, pointerEvents: 'none'
+                    }}>
                       🔍 Pulsa para zoom
                     </div>
                   </div>
@@ -1229,13 +1433,13 @@ export default function App() {
                       </div>
                     )}
 
-                    <div onClick={function() { window.open('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(selectedEvent.address + ' ' + (selectedEvent.localidad || '') + ' ' + selectedEvent.city)); }} style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 8, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1', marginBottom: 8 }}>
+                    <div onClick={() => window.open('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(selectedEvent.address + ' ' + (selectedEvent.localidad || '') + ' ' + selectedEvent.city))} style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 8, cursor: 'pointer', textAlign: 'center', border: '1px dashed #6366f1', marginBottom: 8 }}>
                       <MapPin color="#6366f1" size={14} style={{ margin: '0 auto 2px' }} />
                       <b style={{ fontSize: 10 }}>{selectedEvent.address}, {selectedEvent.localidad || ''} - {selectedEvent.city}</b><br />
                       <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
                     </div>
 
-                    <button onClick={function() { shareEvent(selectedEvent); }} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+                    <button onClick={() => shareEvent(selectedEvent)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
                       <Share2 size={14} /> COMPARTIR EVENTO
                     </button>
                   </div>
@@ -1245,7 +1449,6 @@ export default function App() {
           </>
         )}
 
-        {/* CREAR EVENTO */}
         {view === 'create' && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 15, borderRadius: 20, gap: 8, display: 'flex', flexDirection: 'column' }}>
@@ -1267,47 +1470,16 @@ export default function App() {
                 <input name="date" type="date" style={{ ...INPUT_STYLE, padding: 8 }} value={form.date} onChange={handleInputChange} />
                 <input name="time" type="time" style={{ ...INPUT_STYLE, padding: 8 }} value={form.time} onChange={handleInputChange} />
               </div>
-              
-              {/* BOTONES IA Y GALERIA */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                <button onClick={generateAIImage} disabled={isGenerating} style={{ padding: 10, background: isGenerating ? '#6366f1' : '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: isGenerating ? 'wait' : 'pointer', opacity: isGenerating ? 0.8 : 1 }}>
-                  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
-                  {isGenerating ? 'GENERANDO...' : 'IA FOTO'}
+                <button onClick={generateAIImage} disabled={isGenerating} style={{ padding: 10, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}>
+                  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />} IA FOTO
                 </button>
                 <label style={{ padding: 10, background: '#1e293b', color: 'white', textAlign: 'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>
                   GALERÍA
                   <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleGalleryUpload} />
                 </label>
               </div>
-
-              {/* BOTÓN CANCELAR SI SE BLOQUEA */}
-              {isGenerating && (
-                <button onClick={cancelGeneration} style={{ width: '100%', padding: 8, background: '#ef4444', color: 'white', border: 'none', borderRadius: 8, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>
-                  ⚠️ CANCELAR (si se queda bloqueado)
-                </button>
-              )}
-
-              {/* PREVISUALIZACIÓN IMAGEN CON MANEJO DE ERRORES */}
-              {form.image_url && (
-                <img
-                  key={form.image_url}
-                  src={form.image_url}
-                  alt=""
-                  style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 10 }}
-                  onLoad={() => {
-                    setIsGenerating(false);
-                    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
-                  }}
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = getEmergencyImage(form.category, form.title);
-                    setIsGenerating(false);
-                    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
-                    showToast('Error cargando imagen IA. Usando temporal.', 'error');
-                  }}
-                />
-              )}
-              
+              {form.image_url && <img src={form.image_url} alt="" style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 10 }} />}
               <button onClick={handleSubmitEvent} disabled={isSubmitting} style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
                 {isSubmitting ? 'Enviando...' : 'ENVIAR REVISIÓN'}
               </button>
@@ -1315,7 +1487,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ADMIN - EDITAR */}
         {view === 'admin' && editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={cancelEditEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
@@ -1348,55 +1519,34 @@ export default function App() {
                 borderRadius: 10, cursor: 'pointer',
                 border: editForm.featured ? '2px solid #22c55e' : '2px solid transparent'
               }}>
-                <input type="checkbox" checked={editForm.featured === true} onChange={function(e) { setEditForm(function(prev) { return { ...prev, featured: e.target.checked }; }); }} style={{ width: 18, height: 18, cursor: 'pointer' }} />
+                <input
+                  type="checkbox"
+                  checked={editForm.featured === true}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, featured: e.target.checked }))}
+                  style={{ width: 18, height: 18, cursor: 'pointer' }}
+                />
                 <Star size={16} fill={editForm.featured ? '#22c55e' : 'none'} color={editForm.featured ? '#22c55e' : '#6366f1'} />
-                <span style={{ fontSize: 12, fontWeight: 900, color: editForm.featured ? '#22c55e' : 'inherit' }}>MARCAR COMO DESTACADO</span>
+                <span style={{ fontSize: 12, fontWeight: 900, color: editForm.featured ? '#22c55e' : 'inherit' }}>
+                  MARCAR COMO DESTACADO
+                </span>
               </label>
 
               <input name="image_url" placeholder="URL DE IMAGEN" style={INPUT_STYLE} value={editForm.image_url} onChange={handleEditInputChange} />
-              
-              {/* BOTONES NUEVA IA Y GALERIA */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                <button onClick={generateAIImageEdit} disabled={isGenerating} style={{ padding: 10, background: isGenerating ? '#6366f1' : '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: isGenerating ? 'wait' : 'pointer', opacity: isGenerating ? 0.8 : 1 }}>
-                  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
-                  {isGenerating ? 'GENERANDO...' : 'NUEVA IA'}
+                <button onClick={generateAIImageEdit} disabled={isGenerating} style={{ padding: 10, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}>
+                  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />} NUEVA IA
                 </button>
                 <label style={{ padding: 10, background: '#1e293b', color: 'white', textAlign: 'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>
                   NUEVA GALERÍA
                   <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleEditGalleryUpload} />
                 </label>
               </div>
-
-              {/* BOTÓN CANCELAR SI SE BLOQUEA */}
-              {isGenerating && (
-                <button onClick={cancelGeneration} style={{ width: '100%', padding: 8, background: '#ef4444', color: 'white', border: 'none', borderRadius: 8, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>
-                  ⚠️ CANCELAR (si se queda bloqueado)
-                </button>
-              )}
-
-              {/* PREVISUALIZACIÓN IMAGEN */}
-              {editForm.image_url && (
-                <img
-                  key={editForm.image_url}
-                  src={editForm.image_url}
-                  alt=""
-                  style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 12 }}
-                  onLoad={() => {
-                    setIsGenerating(false);
-                    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
-                  }}
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = getEmergencyImage(editForm.category, editForm.title);
-                    setIsGenerating(false);
-                    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
-                    showToast('Error cargando imagen IA. Usando temporal.', 'error');
-                  }}
-                />
-              )}
+              {editForm.image_url && <img src={editForm.image_url} alt="" style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 12 }} />}
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
-                <button onClick={cancelEditEvent} disabled={isSubmitting} style={{ width: '100%', background: '#64748b', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>CANCELAR</button>
+                <button onClick={cancelEditEvent} disabled={isSubmitting} style={{ width: '100%', background: '#64748b', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
+                  CANCELAR
+                </button>
                 <button onClick={handleSaveEditEvent} disabled={isSubmitting} style={{ width: '100%', background: '#22c55e', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
                   {isSubmitting ? 'Guardando...' : 'GUARDAR'}
                 </button>
@@ -1405,7 +1555,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ADMIN - PANEL */}
         {view === 'admin' && !selectedPendingEvent && !editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
@@ -1418,7 +1567,7 @@ export default function App() {
                   <p style={{ fontSize: 15, fontWeight: 900 }}>PANEL ADMIN</p>
                   <p style={{ fontSize: 9, opacity: 0.65 }}>{userEmail || 'No conectado'}</p>
                 </div>
-                <button onClick={function() { fetchEvents(); showToast('Eventos actualizados', 'success'); }} style={{ width: 36, height: 36, borderRadius: 12, border: 'none', background: 'rgba(99,102,241,.15)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <button onClick={() => { fetchEvents(); showToast('Eventos actualizados', 'success'); }} style={{ width: 36, height: 36, borderRadius: 12, border: 'none', background: 'rgba(99,102,241,.15)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                   <RefreshCw size={16} />
                 </button>
               </div>
@@ -1434,66 +1583,65 @@ export default function App() {
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 12, padding: '6px 10px', marginBottom: 8 }}>
                 <Search size={15} color="#6366f1" />
-                <input value={adminSearch} onChange={function(e) { setAdminSearch(e.target.value); }} placeholder="Buscar por título, ciudad, dirección..." style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', color: 'inherit', fontWeight: 800, fontSize: 10 }} />
-                {adminSearch && <button onClick={function() { setAdminSearch(''); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontWeight: 900 }}>X</button>}
+                <input value={adminSearch} onChange={(e) => setAdminSearch(e.target.value)} placeholder="Buscar por título, ciudad, dirección..." style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', color: 'inherit', fontWeight: 800, fontSize: 10 }} />
+                {adminSearch && <button onClick={() => setAdminSearch('')} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontWeight: 900 }}>X</button>}
               </div>
 
-              <select value={adminCityFilter} onChange={function(e) { setAdminCityFilter(e.target.value); }} style={{ width: '100%', padding: 10, borderRadius: 12, border: 'none', outline: 'none', background: isDark ? '#1e293b' : '#e2e8f0', color: 'inherit', fontWeight: 900, fontSize: 10 }}>
+              <select value={adminCityFilter} onChange={(e) => setAdminCityFilter(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 12, border: 'none', outline: 'none', background: isDark ? '#1e293b' : '#e2e8f0', color: 'inherit', fontWeight: 900, fontSize: 10 }}>
                 <option value="TODAS">TODAS LAS CIUDADES</option>
-                {adminCitiesList.map(function(city) { return <option key={city} value={city}>{city}</option>; })}
+                {adminCitiesList.map((city) => <option key={city} value={city}>{city}</option>)}
               </select>
 
               {adminFiltersActive && (
-                <button onClick={function() { setAdminSearch(''); setAdminCityFilter('TODAS'); }} style={{ width: '100%', marginTop: 8, padding: 8, borderRadius: 10, border: 'none', background: 'rgba(99,102,241,.12)', color: '#6366f1', fontWeight: 900, fontSize: 9, cursor: 'pointer' }}>
+                <button onClick={() => { setAdminSearch(''); setAdminCityFilter('TODAS'); }} style={{ width: '100%', marginTop: 8, padding: 8, borderRadius: 10, border: 'none', background: 'rgba(99,102,241,.12)', color: '#6366f1', fontWeight: 900, fontSize: 9, cursor: 'pointer' }}>
                   LIMPIAR FILTROS
                 </button>
               )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-              <button onClick={function() { setAdminTab('pending'); fetchEvents(); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'pending' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'pending' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+              <button onClick={() => { setAdminTab('pending'); fetchEvents(); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'pending' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'pending' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
                 PENDIENTES ({pendingEvents.length}{adminFiltersActive ? '/' + rawPendingEvents.length : ''})
               </button>
-              <button onClick={function() { setAdminTab('approved'); fetchEvents(); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'approved' ? '#22c55e' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'approved' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+              <button onClick={() => { setAdminTab('approved'); fetchEvents(); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'approved' ? '#22c55e' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'approved' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
                 APROBADOS ({approvedEvents.length}{adminFiltersActive ? '/' + rawApprovedEvents.length : ''})
               </button>
             </div>
 
             {adminTab === 'approved' && approvedEvents.length > 0 && (
-              <button onClick={function() { exportToCSV(approvedEvents); }} style={{ width: '100%', padding: 10, borderRadius: 10, border: 'none', background: 'rgba(99,102,241,.1)', color: '#6366f1', fontWeight: 900, fontSize: 10, cursor: 'pointer', marginBottom: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <button onClick={() => exportToCSV(approvedEvents)} style={{ width: '100%', padding: 10, borderRadius: 10, border: 'none', background: 'rgba(99,102,241,.1)', color: '#6366f1', fontWeight: 900, fontSize: 10, cursor: 'pointer', marginBottom: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 <Download size={14} /> EXPORTAR RESULTADOS A CSV
               </button>
             )}
 
             {adminTab === 'pending' && pendingEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS PENDIENTES</p>}
-            {adminTab === 'pending' && pendingEvents.map(function(ev) {
-              return <AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="pending"
-                onClick={function() { setSelectedPendingEvent(ev); }}
-                onApprove={function() { handleApproveEvent(ev.id); }}
-                onReject={function() { handleRejectEvent(ev.id); }}
-                onDelete={function() { handleDeleteEvent(ev.id); }} />;
-            })}
+            {adminTab === 'pending' && pendingEvents.map((ev) => (
+              <AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="pending"
+                onClick={() => setSelectedPendingEvent(ev)}
+                onApprove={() => handleApproveEvent(ev.id)}
+                onReject={() => handleRejectEvent(ev.id)}
+                onDelete={() => handleDeleteEvent(ev.id)} />
+            ))}
 
             {adminTab === 'approved' && approvedEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS APROBADOS</p>}
-            {adminTab === 'approved' && approvedEvents.map(function(ev) {
-              return <AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="approved"
-                onClick={function() { openEvent(ev); }}
-                onView={function() { openEvent(ev); }}
-                onEdit={function() { startEditEvent(ev); }}
-                onDelete={function() { handleDeleteEvent(ev.id); }} />;
-            })}
+            {adminTab === 'approved' && approvedEvents.map((ev) => (
+              <AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="approved"
+                onClick={() => openEvent(ev)}
+                onView={() => openEvent(ev)}
+                onEdit={() => startEditEvent(ev)}
+                onDelete={() => handleDeleteEvent(ev.id)} />
+            ))}
           </div>
         )}
 
-        {/* ADMIN - DETALLE PENDIENTE */}
         {view === 'admin' && selectedPendingEvent && !editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
-            <button onClick={function() { setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
+            <button onClick={() => setSelectedPendingEvent(null)} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
               <ArrowLeft size={16} /> VOLVER A LISTA
             </button>
 
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 20, overflow: 'hidden', padding: 0 }}>
-              <SafeImg src={selectedPendingEvent.image_url} alt="" style={{ width: '100%', height: 220, objectFit: 'cover' }} />
+              <img src={selectedPendingEvent.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: '100%', height: 220, objectFit: 'cover' }} />
               <div style={{ padding: 18 }}>
                 <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 15 }}>{selectedPendingEvent.title}</h2>
                 <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
@@ -1504,32 +1652,31 @@ export default function App() {
                   {selectedPendingEvent.created_at && <div style={{ fontSize: 11, opacity: 0.65 }}>Enviado: {formatDateTime(selectedPendingEvent.created_at)}</div>}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                  <button onClick={function() { handleApproveEvent(selectedPendingEvent.id); }} style={{ padding: 12, background: '#22c55e', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>APROBAR</button>
-                  <button onClick={function() { handleRejectEvent(selectedPendingEvent.id); }} style={{ padding: 12, background: '#f59e0b', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>RECHAZAR</button>
-                  <button onClick={function() { handleDeleteEvent(selectedPendingEvent.id); }} style={{ padding: 12, background: '#ef4444', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>BORRAR</button>
+                  <button onClick={() => handleApproveEvent(selectedPendingEvent.id)} style={{ padding: 12, background: '#22c55e', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>APROBAR</button>
+                  <button onClick={() => handleRejectEvent(selectedPendingEvent.id)} style={{ padding: 12, background: '#f59e0b', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>RECHAZAR</button>
+                  <button onClick={() => handleDeleteEvent(selectedPendingEvent.id)} style={{ padding: 12, background: '#ef4444', color: 'white', border: 'none', borderRadius: 10, fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>BORRAR</button>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* FAVORITOS */}
         {view === 'favorites' && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16 }}>MIS GUARDADOS ({favoriteEvents.length})</h2>
             {favoriteEvents.length === 0 ? (
               <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS GUARDADOS</p>
-            ) : favoriteEvents.map(function(ev) {
-              var dl = getDaysLabel(ev.date);
+            ) : favoriteEvents.map((ev) => {
+              const dl = getDaysLabel(ev.date);
               return (
-                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={function() { openEvent(ev); }}>
-                  <SafeImg src={ev.image_url} alt="" style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }} />
+                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={() => openEvent(ev)}>
+                  <img src={ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800'} alt="" style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }} />
                   <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
                     <p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city}</p>
                     {dl && <span style={{ fontSize: 8, color: dl.color, fontWeight: 900, background: dl.bg, padding: '2px 6px', borderRadius: 6 }}>{dl.text}</span>}
                   </div>
-                  <button onClick={function(e) { e.stopPropagation(); toggleFavorite(ev.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
+                  <button onClick={(e) => { e.stopPropagation(); toggleFavorite(ev.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
                     <Trash2 size={18} />
                   </button>
                 </div>
@@ -1538,7 +1685,6 @@ export default function App() {
           </div>
         )}
 
-        {/* PERFIL */}
         {view === 'profile' && (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 22, borderRadius: 35, width: '100%', maxWidth: 300, textAlign: 'center' }}>
@@ -1562,7 +1708,6 @@ export default function App() {
         )}
       </main>
 
-      {/* BARRA INFERIOR */}
       <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,.4)', zIndex: 3000, background: isDark ? 'rgba(15,23,42,.95)' : 'rgba(255,255,255,.95)' }}>
         <button onClick={goHome} style={{ background: 'none', border: 'none', color: (view === 'home' || currentPath.startsWith('/evento/')) ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <LayoutList size={22} />
