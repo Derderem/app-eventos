@@ -661,97 +661,137 @@ export default function App() {
   // GENERACIÓN DE IMAGEN IA - CORREGIDA
   // =====================================================
   function generateAIImage() {
-    if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
-    if (isGenerating) return;
+    if (!form.title) { 
+      showToast('Escribe un título primero', 'error'); 
+      return; 
+    }
+    
+    // Forzar reseteo del estado por si acaso
+    setIsGenerating(false);
+    
+    // Pequeño delay para asegurar que React procese el estado
+    setTimeout(() => {
+      setIsGenerating(true);
+      showToast('Generando imagen con IA...', 'info');
 
-    setIsGenerating(true);
-    showToast('Generando imagen con IA (puede tardar 10-15s)...', 'info');
+      // Limpiar título para la URL
+      const cleanTitle = form.title
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, '+')
+        .trim();
 
-    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
+      if (!cleanTitle) {
+        setIsGenerating(false);
+        showToast('El título no tiene texto válido', 'error');
+        return;
+      }
 
-    const cleanTitle = cleanTitleForAI(form.title);
-    if (!cleanTitle) { setIsGenerating(false); showToast('El título no tiene texto válido para la IA', 'error'); return; }
+      const seed = Math.floor(Math.random() * 1000000);
+      const prompt = 'professional+event+photo+' + cleanTitle + '+high+quality';
+      const url = 'https://image.pollinations.ai/prompt/' + prompt + '?width=800&height=600&seed=' + seed + '&nologo=true';
 
-    const seed = Math.floor(Math.random() * 999999);
-    const prompt = 'professional event photo of ' + cleanTitle + ', high quality, vibrant colors';
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true';
+      // Verificar si la imagen carga
+      const testImg = new window.Image();
+      let completed = false;
 
-    let finished = false;
-    const testImg = new window.Image();
+      // Timeout de seguridad (15 segundos)
+      const timeout = setTimeout(() => {
+        if (!completed) {
+          completed = true;
+          setIsGenerating(false);
+          showToast('Tiempo agotado. Intenta de nuevo.', 'error');
+        }
+      }, 15000);
 
-    aiTimeoutRef.current = setTimeout(() => {
-      if (finished) return;
-      finished = true;
-      testImg.src = '';
-      setIsGenerating(false);
-      showToast('La IA tardó demasiado. Pulsa de nuevo o sube una foto.', 'error');
-    }, 25000);
+      testImg.onload = () => {
+        if (!completed) {
+          completed = true;
+          clearTimeout(timeout);
+          setForm((prev) => ({ ...prev, image_url: url }));
+          setIsGenerating(false);
+          showToast('✅ Imagen generada correctamente', 'success');
+        }
+      };
 
-    testImg.onload = () => {
-      if (finished) return;
-      finished = true;
-      clearTimeout(aiTimeoutRef.current);
-      setForm((prev) => ({ ...prev, image_url: url }));
-      setIsGenerating(false);
-      showToast('✅ Imagen generada correctamente', 'success');
-    };
+      testImg.onerror = () => {
+        if (!completed) {
+          completed = true;
+          clearTimeout(timeout);
+          setIsGenerating(false);
+          showToast('Error al generar. Pulsa de nuevo.', 'error');
+        }
+      };
 
-    testImg.onerror = () => {
-      if (finished) return;
-      finished = true;
-      clearTimeout(aiTimeoutRef.current);
-      setIsGenerating(false);
-      showToast('Error generando imagen. Pulsa de nuevo o sube una foto.', 'error');
-    };
-
-    testImg.src = url;
+      testImg.src = url;
+    }, 100);
   }
 
   function generateAIImageEdit() {
-    if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
-    if (isGenerating) return;
+    if (!editForm.title) { 
+      showToast('Escribe un título primero', 'error'); 
+      return; 
+    }
+    
+    // Forzar reseteo del estado por si acaso
+    setIsGenerating(false);
+    
+    setTimeout(() => {
+      setIsGenerating(true);
+      showToast('Generando imagen con IA...', 'info');
 
-    setIsGenerating(true);
-    showToast('Generando imagen con IA (puede tardar 10-15s)...', 'info');
+      const cleanTitle = editForm.title
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, '+')
+        .trim();
 
-    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
+      if (!cleanTitle) {
+        setIsGenerating(false);
+        showToast('El título no tiene texto válido', 'error');
+        return;
+      }
 
-    const cleanTitle = cleanTitleForAI(editForm.title);
-    if (!cleanTitle) { setIsGenerating(false); showToast('El título no tiene texto válido para la IA', 'error'); return; }
+      const seed = Math.floor(Math.random() * 1000000);
+      const prompt = 'professional+event+photo+' + cleanTitle + '+high+quality';
+      const url = 'https://image.pollinations.ai/prompt/' + prompt + '?width=800&height=600&seed=' + seed + '&nologo=true';
 
-    const seed = Math.floor(Math.random() * 999999);
-    const prompt = 'professional event photo of ' + cleanTitle + ', high quality, vibrant colors';
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=800&height=600&seed=' + seed + '&nologo=true';
+      const testImg = new window.Image();
+      let completed = false;
 
-    let finished = false;
-    const testImg = new window.Image();
+      const timeout = setTimeout(() => {
+        if (!completed) {
+          completed = true;
+          setIsGenerating(false);
+          showToast('Tiempo agotado. Intenta de nuevo.', 'error');
+        }
+      }, 15000);
 
-    aiTimeoutRef.current = setTimeout(() => {
-      if (finished) return;
-      finished = true;
-      testImg.src = '';
-      setIsGenerating(false);
-      showToast('La IA tardó demasiado. Pulsa de nuevo o sube una foto.', 'error');
-    }, 25000);
+      testImg.onload = () => {
+        if (!completed) {
+          completed = true;
+          clearTimeout(timeout);
+          setEditForm((prev) => ({ ...prev, image_url: url }));
+          setIsGenerating(false);
+          showToast('✅ Imagen generada correctamente', 'success');
+        }
+      };
 
-    testImg.onload = () => {
-      if (finished) return;
-      finished = true;
-      clearTimeout(aiTimeoutRef.current);
-      setEditForm((prev) => ({ ...prev, image_url: url }));
-      setIsGenerating(false);
-      showToast('✅ Imagen generada correctamente', 'success');
-    };
+      testImg.onerror = () => {
+        if (!completed) {
+          completed = true;
+          clearTimeout(timeout);
+          setIsGenerating(false);
+          showToast('Error al generar. Pulsa de nuevo.', 'error');
+        }
+      };
 
-    testImg.onerror = () => {
-      if (finished) return;
-      finished = true;
-      clearTimeout(aiTimeoutRef.current);
-      setIsGenerating(false);
-      showToast('Error generando imagen. Pulsa de nuevo o sube una foto.', 'error');
-    };
-
-    testImg.src = url;
+      testImg.src = url;
+    }, 100);
   }
   // =====================================================
 
