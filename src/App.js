@@ -662,111 +662,69 @@ export default function App() {
   // =====================================================
  function generateAIImage() {
     if (!form.title) { 
-      showToast('Escribe un título primero', 'error'); 
-      return; 
+        showToast('Escribe un título primero', 'error'); 
+        return; 
     }
-    
-    if (isGenerating) {
-      showToast('Espera a que termine la generación actual', 'info');
-      return;
-    }
-    
-    setIsGenerating(true);
-    showToast('⏳ Generando (tarda 5-15 segundos)...', 'info');
-    
-    // Limpiar título - SOLO letras, números y espacios
-    let cleanTitle = form.title
-      .trim()
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // quitar acentos
-      .replace(/ñ/g, 'n')               // cambiar ñ por n
-      .replace(/[^a-z0-9\s]/g, '')     // solo letras, números y espacios
-      .replace(/\s+/g, '-')            // espacios por guiones
-      .trim();
-    
-    if (!cleanTitle || cleanTitle.length < 2) {
-      setIsGenerating(false);
-      showToast('Escribe un título más descriptivo', 'error');
-      return;
-    }
-    
-    // Usar número aleatorio para evitar caché
-    const randomNum = Math.floor(Math.random() * 999999);
-    
-    // URL CORRECTA para Pollinations
-    const imageUrl = `https://image.pollinations.ai/prompt/event-photo-${cleanTitle}-professional-quality?width=800&height=600&seed=${randomNum}&nologo=true`;
-    
-    console.log('🖼️ URL IA:', imageUrl);
-    
-    // Esperar y luego asignar la URL
-    setTimeout(() => {
-      setForm((prev) => ({ ...prev, image_url: imageUrl }));
-      setIsGenerating(false);
-      showToast('✅ Imagen generada. Si no se ve, espera unos segundos.', 'success');
-    }, 3000); // Esperar 3 segundos para dar tiempo a la IA
-  }
 
-  function generateAIImageEdit() {
+    // Resetear estado por si está bloqueado
+    setIsGenerating(true);
+    showToast('Generando imagen con IA...', 'info');
+
+    // Limpiar título
+    const cleanTitle = form.title
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/ñ/g, 'n')
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, '-')
+        .toLowerCase();
+
+    // Forzar que la URL sea diferente cada vez
+    const timestamp = Date.now();
+    const randomSeed = Math.floor(Math.random() * 999999);
+
+    const imageUrl = `https://image.pollinations.ai/prompt/${cleanTitle}-event-photo?width=800&height=600&seed=${randomSeed}&nologo=true&t=${timestamp}`;
+
+    // Asignar la URL directamente
+    setForm(prev => ({ ...prev, image_url: imageUrl }));
+
+    // Liberar el estado después de 4 segundos
+    setTimeout(() => {
+        setIsGenerating(false);
+        showToast('Imagen generada (si no carga, pulsa de nuevo)', 'success');
+    }, 4000);
+}
+
+function generateAIImageEdit() {
     if (!editForm.title) { 
-      showToast('Escribe un título primero', 'error'); 
-      return; 
+        showToast('Escribe un título primero', 'error'); 
+        return; 
     }
-    
-    if (isGenerating) {
-      showToast('Espera a que termine la generación actual', 'info');
-      return;
-    }
-    
-    setIsGenerating(true);
-    showToast('⏳ Generando (tarda 5-15 segundos)...', 'info');
-    
-    let cleanTitle = editForm.title
-      .trim()
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/ñ/g, 'n')
-      .replace(/[^a-z0-9\s]/g, '')
-      .replace(/\s+/g, '-')
-      .trim();
-    
-    if (!cleanTitle || cleanTitle.length < 2) {
-      setIsGenerating(false);
-      showToast('Escribe un título más descriptivo', 'error');
-      return;
-    }
-    
-    const randomNum = Math.floor(Math.random() * 999999);
-    const imageUrl = `https://image.pollinations.ai/prompt/event-photo-${cleanTitle}-professional-quality?width=800&height=600&seed=${randomNum}&nologo=true`;
-    
-    console.log('🖼️ URL IA Edit:', imageUrl);
-    
-    setTimeout(() => {
-      setEditForm((prev) => ({ ...prev, image_url: imageUrl }));
-      setIsGenerating(false);
-      showToast('✅ Imagen generada. Si no se ve, espera unos segundos.', 'success');
-    }, 3000);
-  }
 
-  function generateAIImageBackup() {
-    if (!form.title) { 
-      showToast('Escribe un título primero', 'error'); 
-      return; 
-    }
-    
     setIsGenerating(true);
-    showToast('Buscando imagen de stock...', 'info');
-    
-    const query = encodeURIComponent(form.title.trim());
-    // Unsplash es más fiable que Pollinations
-    const url = `https://source.unsplash.com/800x600/?${query},event`;
-    
+    showToast('Generando imagen con IA...', 'info');
+
+    const cleanTitle = editForm.title
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/ñ/g, 'n')
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, '-')
+        .toLowerCase();
+
+    const timestamp = Date.now();
+    const randomSeed = Math.floor(Math.random() * 999999);
+
+    const imageUrl = `https://image.pollinations.ai/prompt/${cleanTitle}-event-photo?width=800&height=600&seed=${randomSeed}&nologo=true&t=${timestamp}`;
+
+    setEditForm(prev => ({ ...prev, image_url: imageUrl }));
+
     setTimeout(() => {
-      setForm((prev) => ({ ...prev, image_url: url }));
-      setIsGenerating(false);
-      showToast('✅ Imagen encontrada', 'success');
-    }, 1000);
+        setIsGenerating(false);
+        showToast('Imagen generada', 'success');
+    }, 4000);
 }
   // =====================================================
 
