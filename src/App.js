@@ -784,91 +784,44 @@ export default function App() {
     }
   }
 
-  function getIAKeywordsFromSpanishTitle(title, category) {
-  var t = normalizeText(title);
-
-  // Base por categoría
-  var baseByCat = {
-    MUSICA: 'live concert, stage lights, crowd cheering',
-    GASTRONOMIA: 'food festival, tapas, people tasting dishes, bar atmosphere',
-    TAURINO: 'spanish bull festival, traditional fiesta, crowd, street festival',
-    'FIESTAS PATRONALES': 'spanish village festival, bunting flags, street decorations, fireworks',
-    OTROS: 'community event, celebration, people gathering'
-  };
-
-  var kw = baseByCat[category] || baseByCat.OTROS;
-
-  // Afinado por palabras clave del título (ES -> EN)
-  if (t.includes('encierro')) kw = 'running of the bulls, bulls running in the street, runners, barriers, crowd watching, spanish street festival';
-  if (t.includes('campero')) kw = 'rural bull run, spanish countryside festival, horses and riders, dusty road, traditional celebration';
-  if (t.includes('toros') || t.includes('toro') || t.includes('taurin')) kw = 'spanish bull festival, bullring arena, traditional fiesta, crowd';
-  if (t.includes('romeria') || t.includes('peregrin')) kw = 'spanish romeria pilgrimage festival, traditional dresses, horses, carriages, countryside celebration';
-  if (t.includes('tapas')) kw = 'tapas contest, spanish tapas, plates on bar counter, judges tasting, food photography';
-  if (t.includes('pinchos')) kw = 'pinchos contest, basque tapas, gourmet bites, bar counter, food photography';
-  if (t.includes('concierto')) kw = 'live concert, stage lights, crowd cheering, concert photography';
-  if (t.includes('dance') || t.includes('dj') || t.includes('electro') || t.includes('techno')) kw = 'electronic dance music concert, DJ on stage, lasers, crowd dancing, nightlife';
-
-  return kw;
-}
-
-function buildPollinationsUrl(title, category, city) {
-  // Token para romper caché (MUY importante)
-  var nonce = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
-
-  var place = city ? (city + ', Spain') : 'Spain';
-  var kw = getIAKeywordsFromSpanishTitle(title, category);
-
-  // Prompt corto + token dentro del prompt
-  var prompt =
-    'photorealistic documentary event photo, ' +
-    'event: ' + title + ', ' +
-    'location: ' + place + ', ' +
-    kw + ', ' +
-    'high quality, natural light, 35mm, ' +
-    'NO text, NO logo, NO watermark, ' +
-    'unique:' + nonce;
-
-  return (
-    'https://image.pollinations.ai/prompt/' +
-    encodeURIComponent(prompt) +
-    '?width=800&height=600&nologo=true&t=' + Date.now()
-  );
-}
-  
   function generateAIImage() {
-  if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
-  setIsGenerating(true);
-  showToast('Generando imagen con IA...', 'info');
+    if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
+    setIsGenerating(true);
+    showToast('Generando imagen con IA...', 'info');
+    
+    // SOLUCIÓN: Limpiamos el título y usamos + en vez de %20
+    const cleanTitle = form.title.trim().replace(/\s+/g, '+').replace(/[^\w\s+]/g, '');
+    const seed = Math.floor(Math.random() * 999999);
+    
+    // Prompt más corto y directo para evitar errores
+    const prompt = `professional event photo, ${cleanTitle}, high quality`;
+    
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&nologo=true&t=${Date.now()}`;
+    
+    setForm((prev) => ({ ...prev, image_url: url }));
+    
+    // Timeout un poco más largo por si la IA va lenta
+    setTimeout(() => { 
+      setIsGenerating(false); 
+      showToast('✅ Imagen generada (si no aparece, vuelve a intentar)', 'success'); 
+    }, 2000);
+  }
 
-  // 1) Vaciar para forzar refresco
-  setForm(function(prev) { return { ...prev, image_url: '' }; });
+  function generateAIImageEdit() {
+    if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
+    setIsGenerating(true);
+    showToast('Generando imagen con IA...', 'info');
 
-  // 2) Generar URL con token anti-caché DENTRO del prompt
-  var url = buildPollinationsUrl(form.title, form.category, form.city);
+    const cleanTitle = editForm.title.trim().replace(/\s+/g, '+').replace(/[^\w\s+]/g, '');
+    const seed = Math.floor(Math.random() * 999999);
+    const prompt = `professional event photo, ${cleanTitle}, high quality`;
+    
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&nologo=true&t=${Date.now()}`;
+    
+    setEditForm((prev) => ({ ...prev, image_url: url }));
+    setTimeout(() => { setIsGenerating(false); showToast('✅ Imagen generada', 'success'); }, 2000);
+  }
 
-  // 3) Aplicar un pelín después (asegura que React recargue el <img>)
-  setTimeout(function() {
-    setForm(function(prev) { return { ...prev, image_url: url }; });
-    setIsGenerating(false);
-    showToast('Imagen generada', 'success');
-  }, 500);
-}
-
-function generateAIImageEdit() {
-  if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
-  setIsGenerating(true);
-  showToast('Generando imagen con IA...', 'info');
-
-  setEditForm(function(prev) { return { ...prev, image_url: '' }; });
-
-  var url = buildPollinationsUrl(editForm.title, editForm.category, editForm.city);
-
-  setTimeout(function() {
-    setEditForm(function(prev) { return { ...prev, image_url: url }; });
-    setIsGenerating(false);
-    showToast('Imagen generada', 'success');
-  }, 500);
-}
   function geocodeAddress(address, localidad, city) {
     const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
     return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(fullAddress))
