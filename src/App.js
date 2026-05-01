@@ -660,72 +660,190 @@ export default function App() {
   // =====================================================
   // GENERACIÓN DE IMAGEN IA - CORREGIDA
   // =====================================================
- function generateAIImage() {
-    if (!form.title) { 
-        showToast('Escribe un título primero', 'error'); 
-        return; 
+
+  function buildEventAIPrompt(title, category) {
+    const rawTitle = String(title || '').trim();
+
+    const text = String((title || '') + ' ' + (category || ''))
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    let theme = 'Spanish local event, people enjoying a public celebration, festive atmosphere';
+
+    if (
+      text.includes('tapa') ||
+      text.includes('tapas') ||
+      text.includes('tortilla') ||
+      text.includes('gastronomia') ||
+      text.includes('comida') ||
+      text.includes('cocina') ||
+      text.includes('paella') ||
+      text.includes('vino') ||
+      text.includes('queso') ||
+      text.includes('jamon')
+    ) {
+      theme = 'Spanish gastronomy contest, tortilla de patatas, tapas, chefs, food tables, people tasting food, festive village atmosphere';
+    } else if (
+      text.includes('musica') ||
+      text.includes('concierto') ||
+      text.includes('festival') ||
+      text.includes('dj') ||
+      text.includes('orquesta') ||
+      text.includes('verbena')
+    ) {
+      theme = 'live music concert, stage lights, crowd enjoying music, outdoor festival atmosphere';
+    } else if (
+      text.includes('taurino') ||
+      text.includes('toro') ||
+      text.includes('toros') ||
+      text.includes('encierro')
+    ) {
+      theme = 'traditional Spanish bullring cultural event, festive atmosphere, people in stands, no violence';
+    } else if (
+      text.includes('fiesta') ||
+      text.includes('patronal') ||
+      text.includes('patronales') ||
+      text.includes('romeria') ||
+      text.includes('procesion')
+    ) {
+      theme = 'traditional Spanish town festival, colorful lights, families, decorated streets, festive atmosphere';
     }
 
-    // Resetear estado por si está bloqueado
-    setIsGenerating(true);
-    showToast('Generando imagen con IA...', 'info');
+    return `${theme}. Event title context: ${rawTitle}. Realistic professional horizontal photo, high quality, vibrant colors, natural light, cinematic, 4K, no text, no letters, no logo, no watermark`;
+  }
 
-    // Limpiar título
-    const cleanTitle = form.title
-        .trim()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/ñ/g, 'n')
-        .replace(/[^a-zA-Z0-9\s]/g, '')
-        .replace(/\s+/g, '-')
-        .toLowerCase();
+  function createAIImageUrl(title, category) {
+    const prompt = buildEventAIPrompt(title, category);
+    const seed = Math.floor(Math.random() * 999999999);
 
-    // Forzar que la URL sea diferente cada vez
-    const timestamp = Date.now();
-    const randomSeed = Math.floor(Math.random() * 999999);
+    return (
+      'https://image.pollinations.ai/prompt/' +
+      encodeURIComponent(prompt) +
+      '?width=800&height=600' +
+      '&seed=' + seed +
+      '&model=flux' +
+      '&enhance=true' +
+      '&nologo=true' +
+      '&safe=true' +
+      '&private=true' +
+      '&t=' + Date.now()
+    );
+  }
 
-    const imageUrl = `https://image.pollinations.ai/prompt/${cleanTitle}-event-photo?width=800&height=600&seed=${randomSeed}&nologo=true&t=${timestamp}`;
+  function getEmergencyImage(category, title) {
+    const text = String((title || '') + ' ' + (category || ''))
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
 
-    // Asignar la URL directamente
-    setForm(prev => ({ ...prev, image_url: imageUrl }));
+    let tags = 'event,festival';
 
-    // Liberar el estado después de 4 segundos
-    setTimeout(() => {
-        setIsGenerating(false);
-        showToast('Imagen generada (si no carga, pulsa de nuevo)', 'success');
-    }, 4000);
-}
-
-function generateAIImageEdit() {
-    if (!editForm.title) { 
-        showToast('Escribe un título primero', 'error'); 
-        return; 
+    if (
+      text.includes('tapa') ||
+      text.includes('tapas') ||
+      text.includes('tortilla') ||
+      text.includes('gastronomia') ||
+      text.includes('comida') ||
+      text.includes('paella')
+    ) {
+      tags = 'food,spanish';
+    } else if (
+      text.includes('musica') ||
+      text.includes('concierto') ||
+      text.includes('festival') ||
+      text.includes('dj')
+    ) {
+      tags = 'concert,music';
+    } else if (
+      text.includes('fiesta') ||
+      text.includes('patronal') ||
+      text.includes('patronales')
+    ) {
+      tags = 'festival,party';
     }
 
+    return 'https://loremflickr.com/800/600/' + tags + '?lock=' + Math.floor(Math.random() * 999999);
+  }
+
+  function generateAIImage() {
+    const title = String(form.title || '').trim();
+
+    if (!title) {
+      showToast('Escribe un título primero', 'error');
+      return;
+    }
+
+    if (isGenerating) {
+      showToast('Espera unos segundos...', 'info');
+      return;
+    }
+
+    const url = createAIImageUrl(title, form.category);
+
     setIsGenerating(true);
-    showToast('Generando imagen con IA...', 'info');
+    showToast('⏳ Generando imagen con IA...', 'info');
 
-    const cleanTitle = editForm.title
-        .trim()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/ñ/g, 'n')
-        .replace(/[^a-zA-Z0-9\s]/g, '')
-        .replace(/\s+/g, '-')
-        .toLowerCase();
+    // Limpia la imagen anterior para que no se quede atascada
+    setForm((prev) => ({
+      ...prev,
+      image_url: ''
+    }));
 
-    const timestamp = Date.now();
-    const randomSeed = Math.floor(Math.random() * 999999);
-
-    const imageUrl = `https://image.pollinations.ai/prompt/${cleanTitle}-event-photo?width=800&height=600&seed=${randomSeed}&nologo=true&t=${timestamp}`;
-
-    setEditForm(prev => ({ ...prev, image_url: imageUrl }));
-
+    // Pone la nueva imagen
     setTimeout(() => {
-        setIsGenerating(false);
-        showToast('Imagen generada', 'success');
-    }, 4000);
-}
+      setForm((prev) => ({
+        ...prev,
+        image_url: url
+      }));
+    }, 150);
+
+    // Seguridad: aunque la IA tarde o falle, desbloquea el botón
+    setTimeout(() => {
+      setIsGenerating(false);
+      showToast('✅ Imagen solicitada. Si no se ve, pulsa IA FOTO otra vez.', 'success');
+    }, 8000);
+  }
+
+  function generateAIImageEdit() {
+    const title = String(editForm.title || '').trim();
+
+    if (!title) {
+      showToast('Escribe un título primero', 'error');
+      return;
+    }
+
+    if (isGenerating) {
+      showToast('Espera unos segundos...', 'info');
+      return;
+    }
+
+    const url = createAIImageUrl(title, editForm.category);
+
+    setIsGenerating(true);
+    showToast('⏳ Generando imagen con IA...', 'info');
+
+    // Limpia la imagen anterior para que no se quede atascada
+    setEditForm((prev) => ({
+      ...prev,
+      image_url: ''
+    }));
+
+    // Pone la nueva imagen
+    setTimeout(() => {
+      setEditForm((prev) => ({
+        ...prev,
+        image_url: url
+      }));
+    }, 150);
+
+    // Seguridad: aunque la IA tarde o falle, desbloquea el botón
+    setTimeout(() => {
+      setIsGenerating(false);
+      showToast('✅ Imagen solicitada. Si no se ve, pulsa NUEVA IA otra vez.', 'success');
+    }, 8000);
+  }
+  
   // =====================================================
 
   function geocodeAddress(address, localidad, city) {
@@ -1211,20 +1329,10 @@ function generateAIImageEdit() {
         )}
 
         {/* CREAR EVENTO */}
-        {view === 'create' && (
-          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
-            <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 15, borderRadius: 20, gap: 8, display: 'flex', flexDirection: 'column' }}>
-              <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 14 }}>AÑADIR EVENTO</h2>
-              <input name="title" placeholder="TÍTULO" style={INPUT_STYLE} value={form.title} onChange={handleInputChange} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 6 }}>
-                <input name="city" placeholder="CIUDAD" style={INPUT_STYLE} value={form.city} onChange={handleInputChange} />
-                <select name="category" style={INPUT_STYLE} value={form.category} onChange={handleInputChange}>
-                  <option value="MUSICA">MUSICA</option>
-                  <option value="GASTRONOMIA">GASTRONOMIA</option>
-                  <option value="TAURINO">TAURINO</option>
-                  <option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option>
-                  <option value="OTROS">OTROS</option>
-                </select>
+    <button onClick={generateAIImage} disabled={isGenerating} style={{ padding: 10, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}>
+  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
+  {isGenerating ? 'GENERANDO...' : 'IA FOTO'}
+</button>
               </div>
               <input name="localidad" placeholder="LOCALIDAD" style={INPUT_STYLE} value={form.localidad} onChange={handleInputChange} />
               <input name="address" placeholder="DIRECCIÓN" style={INPUT_STYLE} value={form.address} onChange={handleInputChange} />
@@ -1266,7 +1374,22 @@ function generateAIImageEdit() {
                 </label>
               </div>
               {form.image_url && (
-                <SafeImg src={form.image_url} alt="Preview" style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 10 }} />
+  <img
+    key={form.image_url}
+    src={form.image_url}
+    alt=""
+    style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 10 }}
+    onLoad={() => {
+      setIsGenerating(false);
+    }}
+    onError={(e) => {
+      e.currentTarget.onerror = null;
+      e.currentTarget.src = getEmergencyImage(form.category, form.title);
+      setIsGenerating(false);
+      showToast('La IA está saturada. Se muestra una imagen temporal.', 'error');
+    }}
+  />
+)}
               )}
               <button onClick={handleSubmitEvent} disabled={isSubmitting} style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
                 {isSubmitting ? 'Enviando...' : 'ENVIAR REVISIÓN'}
@@ -1284,15 +1407,10 @@ function generateAIImageEdit() {
 
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 15, borderRadius: 20, gap: 8, display: 'flex', flexDirection: 'column' }}>
               <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 15 }}>EDITAR EVENTO</h2>
-              <input name="title" placeholder="TÍTULO" style={INPUT_STYLE} value={editForm.title} onChange={handleEditInputChange} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 6 }}>
-                <input name="city" placeholder="CIUDAD" style={INPUT_STYLE} value={editForm.city} onChange={handleEditInputChange} />
-                <select name="category" style={INPUT_STYLE} value={editForm.category} onChange={handleEditInputChange}>
-                  <option value="MUSICA">MUSICA</option>
-                  <option value="GASTRONOMIA">GASTRONOMIA</option>
-                  <option value="TAURINO">TAURINO</option>
-                  <option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option>
-                  <option value="OTROS">OTROS</option>
+              <button onClick={generateAIImageEdit} disabled={isGenerating} style={{ padding: 10, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}>
+  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
+  {isGenerating ? 'GENERANDO...' : 'NUEVA IA'}
+</button>
                 </select>
               </div>
               <input name="localidad" placeholder="LOCALIDAD" style={INPUT_STYLE} value={editForm.localidad} onChange={handleEditInputChange} />
@@ -1313,10 +1431,23 @@ function generateAIImageEdit() {
                 <span style={{ fontSize: 12, fontWeight: 900, color: editForm.featured ? '#22c55e' : 'inherit' }}>MARCAR COMO DESTACADO</span>
               </label>
 
-              <input name="image_url" placeholder="URL DE IMAGEN" style={INPUT_STYLE} value={editForm.image_url} onChange={handleEditInputChange} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                <button onClick={generateAIImageEdit} disabled={isGenerating} style={{ padding: 10, background: isGenerating ? '#6366f1' : '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: isGenerating ? 'wait' : 'pointer', opacity: isGenerating ? 0.8 : 1 }}>
-                  {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
+              <input name="image_url" placeholder="URL DE IMAGEN" style={INPUT_STYLE} value={editForm.image_url && (
+  <img
+    key={editForm.image_url}
+    src={editForm.image_url}
+    alt=""
+    style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 12 }}
+    onLoad={() => {
+      setIsGenerating(false);
+    }}
+    onError={(e) => {
+      e.currentTarget.onerror = null;
+      e.currentTarget.src = getEmergencyImage(editForm.category, editForm.title);
+      setIsGenerating(false);
+      showToast('La IA está saturada. Se muestra una imagen temporal.', 'error');
+    }}
+  />
+)}
                   {isGenerating ? 'GENERANDO...' : 'NUEVA IA'}
                 </button>
                 <label style={{ padding: 10, background: '#1e293b', color: 'white', textAlign: 'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>
