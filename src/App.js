@@ -748,6 +748,26 @@ export default function App() {
       showToast('✅ Imagen generada. Si no se ve, espera unos segundos.', 'success');
     }, 3000);
   }
+
+  function generateAIImageBackup() {
+    if (!form.title) { 
+      showToast('Escribe un título primero', 'error'); 
+      return; 
+    }
+    
+    setIsGenerating(true);
+    showToast('Buscando imagen de stock...', 'info');
+    
+    const query = encodeURIComponent(form.title.trim());
+    // Unsplash es más fiable que Pollinations
+    const url = `https://source.unsplash.com/800x600/?${query},event`;
+    
+    setTimeout(() => {
+      setForm((prev) => ({ ...prev, image_url: url }));
+      setIsGenerating(false);
+      showToast('✅ Imagen encontrada', 'success');
+    }, 1000);
+}
   // =====================================================
 
   function geocodeAddress(address, localidad, city) {
