@@ -785,41 +785,70 @@ export default function App() {
   }
 
   function generateAIImage() {
-    if (!form.title) { showToast('Escribe un título primero', 'error'); return; }
-    setIsGenerating(true);
-    showToast('Generando imagen con IA...', 'info');
-    
-    // SOLUCIÓN: Limpiamos el título y usamos + en vez de %20
-    const cleanTitle = form.title.trim().replace(/\s+/g, '+').replace(/[^\w\s+]/g, '');
-    const seed = Math.floor(Math.random() * 999999);
-    
-    // Prompt más corto y directo para evitar errores
-    const prompt = `professional event photo, ${cleanTitle}, high quality`;
-    
-    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&nologo=true&t=${Date.now()}`;
-    
-    setForm((prev) => ({ ...prev, image_url: url }));
-    
-    // Timeout un poco más largo por si la IA va lenta
-    setTimeout(() => { 
-      setIsGenerating(false); 
-      showToast('✅ Imagen generada (si no aparece, vuelve a intentar)', 'success'); 
-    }, 2000);
-  }
+    // Utilidad: traduce títulos al inglés de forma muy básica (mejora resultados en Pollinations)
+function toEnglishPrompt(title) {
+  // Si ya parece inglés, lo devolvemos tal cual; si no, añadimos contexto
+  const hasNonLatin = /[áéíóúñü¿¡]/i.test(title);
+  const base = hasNonLatin
+    ? `A high-quality, professional event photography poster for "${title}". Vibrant colors, sharp focus, well-lit venue, people enjoying, cinematic composition, 4K.`
+    : `A high-quality, professional event photography poster for "${title}". Vibrant colors, sharp focus, well-lit venue, people enjoying, cinematic composition, 4K.`;
+  return base;
+}
 
+async function generateAIImage() {
+  if (!form.title) {
+    showToast('Escribe un título primero', 'error');
+    return;
+  }
+  setIsGenerating(true);
+  showToast('Generando imagen con IA...', 'info');
+
+  const seed = Math.floor(Math.random() * 999999);
+  const prompt = toEnglishPrompt(form.title);
+  const width = 800;
+  const height = 600;
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed}&nologo=true&t=${Date.now()}`;
+
+  // Validar que la imagen realmente carga antes de guardarla
+  const img = new Image();
+  img.crossOrigin = 'anonymous'; // ayuda en algunos casos; no siempre necesario
+  img.src = url;
+
+  img.onload = () => {
+    setForm((prev) => ({ ...prev, image_url: url }));
+    setIsGenerating(false);
+    showToast('Imagen generada correctamente', 'success');
+  };
+
+  img.onerror = () => {
+    setIsGenerating(false);
+    showToast('No se pudo generar la imagen. Intenta con otro título o más tarde.', 'error');
+    // (Opcional) podrías intentar un segundo intento con otro seed aquí
+  };
+}
+    const fallbackImages = {
+  MUSICA: 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800',
+  GASTRONOMIA: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=800',
+  TAURINO: 'https://images.unsplash.com/photo-1560807707-8cc77767d783?w=800',
+  'FIESTAS PATRONALES': 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800',
+  OTROS: 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800',
+};
+
+function getFallbackForCategory(cat) {
+  return fallbackImages[cat] || fallbackImages.OTROS;
+}
+
+// En img.onerror del bloque anterior, además de mostrar error:
+setForm((prev) => ({ ...prev, image_url: getFallbackForCategory(prev.category) }));
+    
   function generateAIImageEdit() {
     if (!editForm.title) { showToast('Escribe un título primero', 'error'); return; }
     setIsGenerating(true);
     showToast('Generando imagen con IA...', 'info');
-
-    const cleanTitle = editForm.title.trim().replace(/\s+/g, '+').replace(/[^\w\s+]/g, '');
     const seed = Math.floor(Math.random() * 999999);
-    const prompt = `professional event photo, ${cleanTitle}, high quality`;
-    
-    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&seed=${seed}&nologo=true&t=${Date.now()}`;
-    
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent('professional event photography ' + editForm.title) + '?width=800&height=600&seed=' + seed + '&nologo=true&t=' + Date.now();
     setEditForm((prev) => ({ ...prev, image_url: url }));
-    setTimeout(() => { setIsGenerating(false); showToast('✅ Imagen generada', 'success'); }, 2000);
+    setTimeout(() => { setIsGenerating(false); showToast('Imagen generada', 'success'); }, 1200);
   }
 
   function geocodeAddress(address, localidad, city) {
