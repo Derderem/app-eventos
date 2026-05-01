@@ -660,73 +660,51 @@ export default function App() {
   // =====================================================
   // GENERACIÓN DE IMAGEN IA - CORREGIDA
   // =====================================================
-  function generateAIImage() {
+ function generateAIImage() {
     if (!form.title) { 
       showToast('Escribe un título primero', 'error'); 
       return; 
     }
     
-    // Forzar reseteo del estado por si acaso
-    setIsGenerating(false);
+    if (isGenerating) {
+      showToast('Espera a que termine la generación actual', 'info');
+      return;
+    }
     
-    // Pequeño delay para asegurar que React procese el estado
+    setIsGenerating(true);
+    showToast('⏳ Generando (tarda 5-15 segundos)...', 'info');
+    
+    // Limpiar título - SOLO letras, números y espacios
+    let cleanTitle = form.title
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // quitar acentos
+      .replace(/ñ/g, 'n')               // cambiar ñ por n
+      .replace(/[^a-z0-9\s]/g, '')     // solo letras, números y espacios
+      .replace(/\s+/g, '-')            // espacios por guiones
+      .trim();
+    
+    if (!cleanTitle || cleanTitle.length < 2) {
+      setIsGenerating(false);
+      showToast('Escribe un título más descriptivo', 'error');
+      return;
+    }
+    
+    // Usar número aleatorio para evitar caché
+    const randomNum = Math.floor(Math.random() * 999999);
+    
+    // URL CORRECTA para Pollinations
+    const imageUrl = `https://image.pollinations.ai/prompt/event-photo-${cleanTitle}-professional-quality?width=800&height=600&seed=${randomNum}&nologo=true`;
+    
+    console.log('🖼️ URL IA:', imageUrl);
+    
+    // Esperar y luego asignar la URL
     setTimeout(() => {
-      setIsGenerating(true);
-      showToast('Generando imagen con IA...', 'info');
-
-      // Limpiar título para la URL
-      const cleanTitle = form.title
-        .trim()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9\s]/g, '')
-        .replace(/\s+/g, '+')
-        .trim();
-
-      if (!cleanTitle) {
-        setIsGenerating(false);
-        showToast('El título no tiene texto válido', 'error');
-        return;
-      }
-
-      const seed = Math.floor(Math.random() * 1000000);
-      const prompt = 'professional+event+photo+' + cleanTitle + '+high+quality';
-      const url = 'https://image.pollinations.ai/prompt/' + prompt + '?width=800&height=600&seed=' + seed + '&nologo=true';
-
-      // Verificar si la imagen carga
-      const testImg = new window.Image();
-      let completed = false;
-
-      // Timeout de seguridad (15 segundos)
-      const timeout = setTimeout(() => {
-        if (!completed) {
-          completed = true;
-          setIsGenerating(false);
-          showToast('Tiempo agotado. Intenta de nuevo.', 'error');
-        }
-      }, 15000);
-
-      testImg.onload = () => {
-        if (!completed) {
-          completed = true;
-          clearTimeout(timeout);
-          setForm((prev) => ({ ...prev, image_url: url }));
-          setIsGenerating(false);
-          showToast('✅ Imagen generada correctamente', 'success');
-        }
-      };
-
-      testImg.onerror = () => {
-        if (!completed) {
-          completed = true;
-          clearTimeout(timeout);
-          setIsGenerating(false);
-          showToast('Error al generar. Pulsa de nuevo.', 'error');
-        }
-      };
-
-      testImg.src = url;
-    }, 100);
+      setForm((prev) => ({ ...prev, image_url: imageUrl }));
+      setIsGenerating(false);
+      showToast('✅ Imagen generada. Si no se ve, espera unos segundos.', 'success');
+    }, 3000); // Esperar 3 segundos para dar tiempo a la IA
   }
 
   function generateAIImageEdit() {
@@ -735,63 +713,40 @@ export default function App() {
       return; 
     }
     
-    // Forzar reseteo del estado por si acaso
-    setIsGenerating(false);
+    if (isGenerating) {
+      showToast('Espera a que termine la generación actual', 'info');
+      return;
+    }
+    
+    setIsGenerating(true);
+    showToast('⏳ Generando (tarda 5-15 segundos)...', 'info');
+    
+    let cleanTitle = editForm.title
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/ñ/g, 'n')
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, '-')
+      .trim();
+    
+    if (!cleanTitle || cleanTitle.length < 2) {
+      setIsGenerating(false);
+      showToast('Escribe un título más descriptivo', 'error');
+      return;
+    }
+    
+    const randomNum = Math.floor(Math.random() * 999999);
+    const imageUrl = `https://image.pollinations.ai/prompt/event-photo-${cleanTitle}-professional-quality?width=800&height=600&seed=${randomNum}&nologo=true`;
+    
+    console.log('🖼️ URL IA Edit:', imageUrl);
     
     setTimeout(() => {
-      setIsGenerating(true);
-      showToast('Generando imagen con IA...', 'info');
-
-      const cleanTitle = editForm.title
-        .trim()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9\s]/g, '')
-        .replace(/\s+/g, '+')
-        .trim();
-
-      if (!cleanTitle) {
-        setIsGenerating(false);
-        showToast('El título no tiene texto válido', 'error');
-        return;
-      }
-
-      const seed = Math.floor(Math.random() * 1000000);
-      const prompt = 'professional+event+photo+' + cleanTitle + '+high+quality';
-      const url = 'https://image.pollinations.ai/prompt/' + prompt + '?width=800&height=600&seed=' + seed + '&nologo=true';
-
-      const testImg = new window.Image();
-      let completed = false;
-
-      const timeout = setTimeout(() => {
-        if (!completed) {
-          completed = true;
-          setIsGenerating(false);
-          showToast('Tiempo agotado. Intenta de nuevo.', 'error');
-        }
-      }, 15000);
-
-      testImg.onload = () => {
-        if (!completed) {
-          completed = true;
-          clearTimeout(timeout);
-          setEditForm((prev) => ({ ...prev, image_url: url }));
-          setIsGenerating(false);
-          showToast('✅ Imagen generada correctamente', 'success');
-        }
-      };
-
-      testImg.onerror = () => {
-        if (!completed) {
-          completed = true;
-          clearTimeout(timeout);
-          setIsGenerating(false);
-          showToast('Error al generar. Pulsa de nuevo.', 'error');
-        }
-      };
-
-      testImg.src = url;
-    }, 100);
+      setEditForm((prev) => ({ ...prev, image_url: imageUrl }));
+      setIsGenerating(false);
+      showToast('✅ Imagen generada. Si no se ve, espera unos segundos.', 'success');
+    }, 3000);
   }
   // =====================================================
 
