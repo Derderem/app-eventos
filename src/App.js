@@ -1303,6 +1303,29 @@ export default function App() {
                 <button onClick={generateAIImage} disabled={isGenerating} style={{ padding: 10, background: isGenerating ? '#6366f1' : '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: isGenerating ? 'wait' : 'pointer', opacity: isGenerating ? 0.8 : 1 }}>
                   {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
                   {isGenerating ? 'GENERANDO...' : 'IA FOTO'}
+{/* BOTÓN DE EMERGENCIA - RESETEO MANUAL */}
+{isGenerating && (
+  <button 
+    onClick={() => {
+      setIsGenerating(false);
+      showToast('Generación cancelada. Puedes intentar de nuevo.', 'info');
+    }}
+    style={{ 
+      width: '100%', 
+      padding: 8, 
+      background: '#ef4444', 
+      color: 'white', 
+      border: 'none', 
+      borderRadius: 8, 
+      fontSize: 9, 
+      fontWeight: 900, 
+      cursor: 'pointer',
+      marginTop: 4
+    }}
+  >
+    ⚠️ CANCELAR GENERACIÓN (si se queda bloqueado)
+  </button>
+)}
                 </button>
                 <label style={{ padding: 10, background: '#1e293b', color: 'white', textAlign: 'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer' }}>
                   GALERÍA
