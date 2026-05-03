@@ -985,18 +985,15 @@ export default function App() {
   adminCitiesList.sort();
 
  var sortedFiltered = filteredEvents.slice().sort(function(a, b) {
-    var dateA = new Date(a.date).getTime();
-    var dateB = new Date(b.date).getTime();
-    return dateA - dateB;
-  });
-
-  var featuredEvent = sortedFiltered.length ? sortedFiltered[0] : null;
-  var restEvents = sortedFiltered.length ? sortedFiltered.slice(1) : [];
-  var adminFiltersActive = adminSearch.trim() || adminCityFilter !== 'TODAS';
-  var INPUT_STYLE = {
-    width: '100%', padding: 12, borderRadius: 10, border: 'none',
-    background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700
-  };
+  // 1º: Destacados arriba del todo
+  if (a.featured && !b.featured) return -1;
+  if (!a.featured && b.featured) return 1;
+  
+  // 2º: Ordena por fecha (el más cercano primero)
+  var dateA = new Date(a.date).getTime();
+  var dateB = new Date(b.date).getTime();
+  return dateA - dateB;
+});
 
   if (showSplash) return <Splash onDone={function() { setShowSplash(false); }} />;
 
