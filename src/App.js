@@ -7,10 +7,10 @@ import {
   CheckCircle, XCircle, Info, RefreshCw, Check, X, Edit3, Image as ImageIcon
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import L from 'leaflet';       
 import 'leaflet/dist/leaflet.css';
 
-delete L.Icon.Default.prototype._getIconUrl;
+delete L.Icon.Default.prototype._getIconUrl;               
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || '',
@@ -32,7 +32,7 @@ const categoryEmojis = {
 };
 
 const darkTileUrl = 'https://mt1.google.com/vt/lyrs=r&hl=es&x={x}&y={y}&z={z}';
-const lightTileUrl = 'https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}';
+const lightTileUrl = 'https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}';                
 
 const redPinIcon = L.divIcon({
   html: '<div style="width:22px;height:30px;position:relative;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));"><svg viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg"><path d="M15 0C6.7 0 0 6.7 0 15c0 11.2 13.3 23.5 14 24.4.3.4.7.4 1 0C16.7 38.5 30 26.2 30 15 30 6.7 23.3 0 15 0z" fill="#ef4444"/><circle cx="15" cy="14" r="5" fill="white"/></svg></div>',
@@ -993,8 +993,6 @@ export default function App() {
   var featuredEvent = sortedFiltered.length ? sortedFiltered[0] : null;
   var restEvents = sortedFiltered.length ? sortedFiltered.slice(1) : [];
   var adminFiltersActive = adminSearch.trim() || adminCityFilter !== 'TODAS';
-  });
-
   var INPUT_STYLE = {
     width: '100%', padding: 12, borderRadius: 10, border: 'none',
     background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700
