@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
- import {
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, Trash2,
   Map as MapIcon, Clock, Copy, LayoutList, ShieldCheck, Sparkles,
   Loader2, ArrowLeft, Search, Share2, Star, Download,
@@ -558,7 +557,6 @@ export default function App() {
       if (cached) setEvents(JSON.parse(cached));
     } catch {}
 
-    // Detección de modo offline
     if (!navigator.onLine) {
       showToast('Sin conexión. Mostrando eventos guardados', 'warning');
       return;
@@ -658,9 +656,6 @@ export default function App() {
     }
   }
 
-  // =====================================================
-  // CATÁLOGO DE FOTOS DESDE SUPABASE STORAGE
-  // =====================================================
   async function handleOpenPicker(isEdit) {
     const category = isEdit ? editForm.category : form.category;
     const title = isEdit ? editForm.title : form.title;
@@ -709,16 +704,12 @@ export default function App() {
     showToast('Foto seleccionada del catálogo', 'success');
   }
 
-  // =====================================================
-  // VALIDACIÓN OBLIGATORIA CON FOTO
-  // =====================================================
   function handleSubmitEvent() {
     if (!form.title || !form.date || !form.city || !form.address) {
       showToast('Faltan campos: título, ciudad, fecha y dirección', 'error');
       return;
     }
     
-    // VALIDACIÓN OBLIGATORIA: Debe tener foto
     if (!form.image_url) {
       showToast('Debes añadir una foto: elige del catálogo o sube una tuya', 'error');
       return;
@@ -865,14 +856,10 @@ export default function App() {
     }, 600);
   }
 
-  // =====================================================
-  // COMPARTIR NATIVO EN MÓVIL + FALLBACK
-  // =====================================================
   async function shareEvent(ev) {
     const shareUrl = APP_URL + '/evento/' + ev.id;
     const shareText = '¡No te pierdas ' + ev.title + '! ' + shareUrl;
 
-    // Intentar compartir nativo primero (móviles)
     if (navigator.share) {
       try {
         await navigator.share({
@@ -888,7 +875,6 @@ export default function App() {
       }
     }
 
-    // Fallback para PC
     const shareModal = document.createElement('div');
     shareModal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
 
@@ -1023,7 +1009,6 @@ export default function App() {
   events.forEach(function(e) { if (e.city && adminCitiesList.indexOf(e.city) === -1) adminCitiesList.push(e.city); });
   adminCitiesList.sort();
 
-  // ORDENAMIENTO: Solo por fecha (más cercano primero), sin destacados primero
   var sortedFiltered = filteredEvents.slice().sort(function(a, b) {
     var dateA = new Date(a.date).getTime();
     var dateB = new Date(b.date).getTime();
@@ -1045,7 +1030,6 @@ export default function App() {
     <div className={isDark ? 'dark-theme' : 'light-theme'} style={{ width: '100vw', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Toast toast={toast} />
 
-      {/* MODAL DE CATÁLOGO DE FOTOS */}
       {pickerConfig.show && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 999999, background: 'rgba(0,0,0,0.85)',
@@ -1114,7 +1098,6 @@ export default function App() {
         @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
       `}</style>
 
-      {/* NAVBAR */}
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
         <div style={{ cursor: 'pointer' }} onClick={goHome}>
           <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENTORA%20%282%29-XHiy1tMtbcc21CX0wfbs51THTEjOvx.png" alt="Eventora" style={{ height: 18, width: 'auto' }} />
@@ -1138,10 +1121,8 @@ export default function App() {
         </div>
       </nav>
 
-      {/* MAIN */}
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
 
-        {/* MAPA */}
         {view === 'map' && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
             <div style={{ position: 'absolute', top: 15, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
@@ -1166,7 +1147,6 @@ export default function App() {
           </div>
         )}
 
-        {/* HOME */}
         {view === 'home' && !selectedEvent && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '8px 12px', flexShrink: 0, background: isDark ? '#020617' : '#f8fafc' }}>
@@ -1207,7 +1187,6 @@ export default function App() {
           </div>
         )}
 
-        {/* DETALLE EVENTO */}
         {selectedEvent && !selectedPendingEvent && !editingEvent && (
           <>
             {isPhotoZoomed ? (
@@ -1264,40 +1243,24 @@ export default function App() {
                       <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
                     </div>
 
-                   {/* BOTONES COMPARTIR Y COPIAR */}
-<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
-  <button onClick={function() { shareEvent(selectedEvent); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>
-    <Share2 size={14} /> COMPARTIR
-  </button>
-  <button onClick={async function() { 
-    const url = APP_URL + '/evento/' + selectedEvent.id;
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast('✅ Enlace copiado', 'success');
-    } catch (err) {
-      showToast('No se pudo copiar', 'error');
-    }
-  }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(99,102,241,.1)', border: '1px dashed #6366f1', borderRadius: 8, color: '#6366f1', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>
-    <Copy size={14} /> COPIAR LINK
-  </button>
-</div>
-JavaScript
+                    {/* BOTONES COMPARTIR Y COPIAR - CORREGIDO */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                      <button onClick={function() { shareEvent(selectedEvent); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>
+                        <Share2 size={14} /> COMPARTIR
+                      </button>
+                      <button onClick={async function() { 
+                        const url = APP_URL + '/evento/' + selectedEvent.id;
+                        try {
+                          await navigator.clipboard.writeText(url);
+                          showToast('✅ Enlace copiado', 'success');
+                        } catch (err) {
+                          showToast('No se pudo copiar', 'error');
+                        }
+                      }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(99,102,241,.1)', border: '1px dashed #6366f1', borderRadius: 8, color: '#6366f1', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>
+                        <Copy size={14} /> COPIAR LINK
+                      </button>
+                    </div>
 
-<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-  <button onClick={function() { shareEvent(selectedEvent); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
-    <Share2 size={14} /> COMPARTIR
-  </button>
-  <button onClick={async function() { 
-    const url = APP_URL + '/evento/' + selectedEvent.id;
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast('✅ Enlace copiado al portapapeles', 'success');
-    } catch (err) {
-      showToast('No se pudo copiar. Intenta de nuevo.', 'error');
-    }
-  }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(99,102,241,.1)', border: '1px dashed #6366f1', borderRadius: 8, color: '#6366f1', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
-    <Copy size={14} /> COPIAR LINK
-                    </button>
                   </div>
                 </div>
               </div>
@@ -1305,7 +1268,6 @@ JavaScript
           </>
         )}
 
-        {/* CREAR EVENTO */}
         {view === 'create' && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 15, borderRadius: 20, gap: 8, display: 'flex', flexDirection: 'column' }}>
@@ -1351,7 +1313,6 @@ JavaScript
           </div>
         )}
 
-        {/* ADMIN - EDITAR */}
         {view === 'admin' && editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={cancelEditEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
@@ -1415,7 +1376,6 @@ JavaScript
           </div>
         )}
 
-        {/* ADMIN - PANEL */}
         {view === 'admin' && !selectedPendingEvent && !editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
@@ -1495,7 +1455,6 @@ JavaScript
           </div>
         )}
 
-        {/* ADMIN - DETALLE PENDIENTE */}
         {view === 'admin' && selectedPendingEvent && !editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={function() { setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
@@ -1523,7 +1482,6 @@ JavaScript
           </div>
         )}
 
-        {/* FAVORITOS */}
         {view === 'favorites' && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16 }}>MIS GUARDADOS ({favoriteEvents.length})</h2>
@@ -1548,7 +1506,6 @@ JavaScript
           </div>
         )}
 
-        {/* PERFIL */}
         {view === 'profile' && (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 22, borderRadius: 35, width: '100%', maxWidth: 300, textAlign: 'center' }}>
@@ -1572,7 +1529,6 @@ JavaScript
         )}
       </main>
 
-      {/* BARRA INFERIOR */}
       <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,.4)', zIndex: 3000, background: isDark ? 'rgba(15,23,42,.95)' : 'rgba(255,255,255,.95)' }}>
         <button onClick={goHome} style={{ background: 'none', border: 'none', color: (view === 'home' || currentPath.startsWith('/evento/')) ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <LayoutList size={22} />
