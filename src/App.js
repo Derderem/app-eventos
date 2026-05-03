@@ -985,9 +985,11 @@ export default function App() {
   adminCitiesList.sort();
 
   var sortedFiltered = filteredEvents.slice().sort(function(a, b) {
-    // 1º Pone los Destacados arriba del todo
-    if (a.featured && !b.featured) return -1;
-    if (!a.featured && b.featured) return 1;
+  // Ordena solo por fecha (el más cercano primero)
+  var dateA = new Date(a.date).getTime();
+  var dateB = new Date(b.date).getTime();
+  return dateA - dateB;
+});
     
     // 2º Ordena por fecha: el más cercano a HOY va primero
     var dateA = new Date(a.date).getTime();
