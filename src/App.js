@@ -7,10 +7,10 @@ import {
   CheckCircle, XCircle, Info, RefreshCw, Check, X, Edit3, Image as ImageIcon
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';       
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-delete L.Icon.Default.prototype._getIconUrl;               
+delete L.Icon.Default.prototype._getIconUrl;
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || '',
@@ -32,7 +32,7 @@ const categoryEmojis = {
 };
 
 const darkTileUrl = 'https://mt1.google.com/vt/lyrs=r&hl=es&x={x}&y={y}&z={z}';
-const lightTileUrl = 'https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}';                
+const lightTileUrl = 'https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}';
 
 const redPinIcon = L.divIcon({
   html: '<div style="width:22px;height:30px;position:relative;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));"><svg viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg"><path d="M15 0C6.7 0 0 6.7 0 15c0 11.2 13.3 23.5 14 24.4.3.4.7.4 1 0C16.7 38.5 30 26.2 30 15 30 6.7 23.3 0 15 0z" fill="#ef4444"/><circle cx="15" cy="14" r="5" fill="white"/></svg></div>',
@@ -557,6 +557,12 @@ export default function App() {
       if (cached) setEvents(JSON.parse(cached));
     } catch {}
 
+    // Detección de modo offline
+    if (!navigator.onLine) {
+      showToast('Sin conexión. Mostrando eventos guardados', 'warning');
+      return;
+    }
+
     supabase.from('events').select('*').order('date', { ascending: true }).then((res) => {
       if (res.error) { console.error('Error cargando eventos:', res.error); return; }
       const data = res.data || [];
@@ -564,6 +570,9 @@ export default function App() {
       try { localStorage.setItem('eventora_cache_events_v1', JSON.stringify(data)); } catch {}
       const validIds = data.map((e) => e.id);
       setFavorites((prev) => prev.filter((id) => validIds.indexOf(id) !== -1));
+    }).catch((err) => {
+      console.error('Error de red:', err);
+      showToast('Problemas de conexión. Usando datos guardados', 'warning');
     });
   }
 
@@ -649,7 +658,7 @@ export default function App() {
   }
 
   // =====================================================
-  // LEER FOTOS DESDE SUPABASE (CATÁLOGO)
+  // CATÁLOGO DE FOTOS DESDE SUPABASE STORAGE
   // =====================================================
   async function handleOpenPicker(isEdit) {
     const category = isEdit ? editForm.category : form.category;
@@ -672,7 +681,6 @@ export default function App() {
 
       if (error) throw error;
 
-      // Filtrar y obtener URLs públicas
       const urls = (data || [])
         .filter(file => file.name.match(/\.(jpg|jpeg|png|webp)$/i))
         .map(file => {
@@ -701,71 +709,55 @@ export default function App() {
   }
 
   // =====================================================
-
-  function geocodeAddress(address, localidad, city) {
-    const fullAddress = [address, localidad, city, 'España'].filter(Boolean).join(', ');
-    return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(fullAddress))
-      .then((r) => r.json())
-      .then((data) => {
-        if (data && data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-        return fetch('https://nominatim.openstreetmap.org/search?format=json&accept-language=es&q=' + encodeURIComponent(city + ', España'))
-          .then((r2) => r2.json())
-          .then((data2) => {
-            if (data2 && data2[0]) return { lat: parseFloat(data2[0].lat), lng: parseFloat(data2[0].lon) };
-            return { lat: null, lng: null };
-          });
-      })
-      .catch(() => ({ lat: null, lng: null }));
-  }
-
- function handleSubmitEvent() {
-  // Validación completa de campos obligatorios
-  if (!form.title || !form.date || !form.city || !form.address) {
-    showToast('Faltan campos: título, ciudad, fecha y dirección', 'error');
-    return;
-  }
-  
-  // VALIDACIÓN NUEVA: Debe tener foto (del catálogo o subida)
-  if (!form.image_url) {
-    showToast('Debes añadir una foto: elige del catálogo o sube una tuya', 'error');
-    return;
-  }
-
-  setIsSubmitting(true);
-  showToast('Enviando evento a revisión...', 'info');
-
-  geocodeAddress(form.address, form.localidad, form.city).then((coords) => {
-    const eventToInsert = {
-      title: form.title.trim(), 
-      category: form.category, 
-      city: form.city.trim(),
-      localidad: form.localidad ? form.localidad.trim() : null, 
-      address: form.address.trim(),
-      date: form.date, 
-      time: form.time || '21:00', 
-      image_url: cleanImageUrl(form.image_url),
-      status: 'pending', 
-      lat: coords.lat, 
-      lng: coords.lng, 
-      featured: false
-    };
-    return supabase.from('events').insert([eventToInsert]);
-  }).then((res) => {
-    if (res.error) { 
-      console.error(res.error); 
-      showToast('Error: ' + (res.error.message || 'No se pudo guardar'), 'error'); 
-      return; 
+  // VALIDACIÓN OBLIGATORIA CON FOTO
+  // =====================================================
+  function handleSubmitEvent() {
+    if (!form.title || !form.date || !form.city || !form.address) {
+      showToast('Faltan campos: título, ciudad, fecha y dirección', 'error');
+      return;
     }
-    showToast('Evento enviado a revisión correctamente', 'success');
-    setForm(INITIAL_FORM); 
-    goHome(); 
-    fetchEvents();
-  }).catch((err) => { 
-    console.error(err); 
-    showToast('Error al enviar', 'error'); 
-  })
-  .finally(() => setIsSubmitting(false));
-}
+    
+    // VALIDACIÓN OBLIGATORIA: Debe tener foto
+    if (!form.image_url) {
+      showToast('Debes añadir una foto: elige del catálogo o sube una tuya', 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
+    showToast('Enviando evento a revisión...', 'info');
+
+    geocodeAddress(form.address, form.localidad, form.city).then((coords) => {
+      const eventToInsert = {
+        title: form.title.trim(), 
+        category: form.category, 
+        city: form.city.trim(),
+        localidad: form.localidad ? form.localidad.trim() : null, 
+        address: form.address.trim(),
+        date: form.date, 
+        time: form.time || '21:00', 
+        image_url: cleanImageUrl(form.image_url),
+        status: 'pending', 
+        lat: coords.lat, 
+        lng: coords.lng, 
+        featured: false
+      };
+      return supabase.from('events').insert([eventToInsert]);
+    }).then((res) => {
+      if (res.error) { 
+        console.error(res.error); 
+        showToast('Error: ' + (res.error.message || 'No se pudo guardar'), 'error'); 
+        return; 
+      }
+      showToast('Evento enviado a revisión correctamente', 'success');
+      setForm(INITIAL_FORM); 
+      goHome(); 
+      fetchEvents();
+    }).catch((err) => { 
+      console.error(err); 
+      showToast('Error al enviar', 'error'); 
+    })
+    .finally(() => setIsSubmitting(false));
+  }
 
   function startEditEvent(ev) {
     setEditingEvent(ev); setSelectedEvent(null); setSelectedPendingEvent(null);
@@ -872,10 +864,30 @@ export default function App() {
     }, 600);
   }
 
-  function shareEvent(ev) {
+  // =====================================================
+  // COMPARTIR NATIVO EN MÓVIL + FALLBACK
+  // =====================================================
+  async function shareEvent(ev) {
     const shareUrl = APP_URL + '/evento/' + ev.id;
     const shareText = '¡No te pierdas ' + ev.title + '! ' + shareUrl;
 
+    // Intentar compartir nativo primero (móviles)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: ev.title,
+          text: shareText,
+          url: shareUrl
+        });
+        return;
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.log('Error en share nativo:', err);
+        }
+      }
+    }
+
+    // Fallback para PC
     const shareModal = document.createElement('div');
     shareModal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
 
@@ -1010,19 +1022,23 @@ export default function App() {
   events.forEach(function(e) { if (e.city && adminCitiesList.indexOf(e.city) === -1) adminCitiesList.push(e.city); });
   adminCitiesList.sort();
 
- var sortedFiltered = filteredEvents.slice().sort(function(a, b) {
-  if (a.featured && !b.featured) return -1;
-  if (!a.featured && b.featured) return 1;
-  var dateA = new Date(a.date).getTime();
-  var dateB = new Date(b.date).getTime();
-  return dateA - dateB;
-});
+  // ORDENAMIENTO: Solo por fecha (más cercano primero), sin destacados primero
+  var sortedFiltered = filteredEvents.slice().sort(function(a, b) {
+    var dateA = new Date(a.date).getTime();
+    var dateB = new Date(b.date).getTime();
+    return dateA - dateB;
+  });
 
-var featuredEvent = sortedFiltered.length ? sortedFiltered[0] : null;
-var restEvents = sortedFiltered.length ? sortedFiltered.slice(1) : [];
-var adminFiltersActive = adminSearch.trim() || adminCityFilter !== 'TODAS';
+  var featuredEvent = sortedFiltered.length ? sortedFiltered[0] : null;
+  var restEvents = sortedFiltered.length ? sortedFiltered.slice(1) : [];
+  var adminFiltersActive = adminSearch.trim() || adminCityFilter !== 'TODAS';
 
-if (showSplash) return <Splash onDone={function() { setShowSplash(false); }} />;
+  var INPUT_STYLE = {
+    width: '100%', padding: 12, borderRadius: 10, border: 'none',
+    background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700
+  };
+
+  if (showSplash) return <Splash onDone={function() { setShowSplash(false); }} />;
 
   return (
     <div className={isDark ? 'dark-theme' : 'light-theme'} style={{ width: '100vw', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -1280,7 +1296,6 @@ if (showSplash) return <Splash onDone={function() { setShowSplash(false); }} />;
                 <input name="time" type="time" style={{ ...INPUT_STYLE, padding: 8 }} value={form.time} onChange={handleInputChange} />
               </div>
               
-              {/* BOTONES CATÁLOGO Y GALERÍA */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                 <button onClick={() => handleOpenPicker(false)} style={{ padding: 10, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}>
                   <ImageIcon size={14} /> ELEGIR DEL CATÁLOGO
@@ -1293,7 +1308,6 @@ if (showSplash) return <Splash onDone={function() { setShowSplash(false); }} />;
                 </label>
               </div>
 
-              {/* PREVISUALIZACIÓN */}
               {form.image_url && (
                 <img key={form.image_url} src={form.image_url} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 10 }} />
               )}
@@ -1343,7 +1357,6 @@ if (showSplash) return <Splash onDone={function() { setShowSplash(false); }} />;
                 <span style={{ fontSize: 12, fontWeight: 900, color: editForm.featured ? '#22c55e' : 'inherit' }}>MARCAR COMO DESTACADO</span>
               </label>
               
-              {/* BOTONES CATÁLOGO Y GALERÍA EN EDICIÓN */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 5 }}>
                 <button onClick={() => handleOpenPicker(true)} style={{ padding: 10, background: '#4f46e5', color: 'white', border: 'none', borderRadius: 10, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}>
                   <ImageIcon size={14} /> ELEGIR DEL CATÁLOGO
@@ -1356,7 +1369,6 @@ if (showSplash) return <Splash onDone={function() { setShowSplash(false); }} />;
                 </label>
               </div>
 
-              {/* PREVISUALIZACIÓN IMAGEN */}
               {editForm.image_url && (
                 <img key={editForm.image_url} src={editForm.image_url} alt="" style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 12 }} />
               )}
