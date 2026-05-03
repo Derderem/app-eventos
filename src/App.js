@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
   Heart, MapPin, Calendar, Sun, Moon, PlusCircle, Trash2,
-  Map as MapIcon, Clock, LayoutList, ShieldCheck, Sparkles,
+  Map as MapIcon, Clock, Copy, LayoutList, ShieldCheck, Sparkles,
   Loader2, ArrowLeft, Search, Share2, Star, Download,
   CheckCircle, XCircle, Info, RefreshCw, Check, X, Edit3, Image as ImageIcon
 } from 'lucide-react';
@@ -1264,7 +1264,26 @@ export default function App() {
                     </div>
 
                     <button onClick={function() { shareEvent(selectedEvent); }} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
-                      <Share2 size={14} /> COMPARTIR EVENTO
+  <Share2 size={14} /> COMPARTIR EVENTO
+</button>
+Reemplázalo por esto:
+
+JavaScript
+
+<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+  <button onClick={function() { shareEvent(selectedEvent); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+    <Share2 size={14} /> COMPARTIR
+  </button>
+  <button onClick={async function() { 
+    const url = APP_URL + '/evento/' + selectedEvent.id;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('✅ Enlace copiado al portapapeles', 'success');
+    } catch (err) {
+      showToast('No se pudo copiar. Intenta de nuevo.', 'error');
+    }
+  }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(99,102,241,.1)', border: '1px dashed #6366f1', borderRadius: 8, color: '#6366f1', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+    <Copy size={14} /> COPIAR LINK
                     </button>
                   </div>
                 </div>
