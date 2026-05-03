@@ -718,28 +718,54 @@ export default function App() {
       .catch(() => ({ lat: null, lng: null }));
   }
 
-  function handleSubmitEvent() {
-    if (!form.title || !form.date || !form.city || !form.address) {
-      showToast('Faltan campos: título, ciudad, fecha y dirección', 'error'); return;
-    }
-    setIsSubmitting(true);
-    showToast('Enviando evento a revisión...', 'info');
-
-    geocodeAddress(form.address, form.localidad, form.city).then((coords) => {
-      const eventToInsert = {
-        title: form.title.trim(), category: form.category, city: form.city.trim(),
-        localidad: form.localidad ? form.localidad.trim() : null, address: form.address.trim(),
-        date: form.date, time: form.time || '21:00', image_url: cleanImageUrl(form.image_url),
-        status: 'pending', lat: coords.lat, lng: coords.lng, featured: false
-      };
-      return supabase.from('events').insert([eventToInsert]);
-    }).then((res) => {
-      if (res.error) { console.error(res.error); showToast('Error: ' + (res.error.message || 'No se pudo guardar'), 'error'); return; }
-      showToast('Evento enviado a revisión correctamente', 'success');
-      setForm(INITIAL_FORM); goHome(); fetchEvents();
-    }).catch((err) => { console.error(err); showToast('Error al enviar', 'error'); })
-    .finally(() => setIsSubmitting(false));
+ function handleSubmitEvent() {
+  // Validación completa de campos obligatorios
+  if (!form.title || !form.date || !form.city || !form.address) {
+    showToast('Faltan campos: título, ciudad, fecha y dirección', 'error');
+    return;
   }
+  
+  // VALIDACIÓN NUEVA: Debe tener foto (del catálogo o subida)
+  if (!form.image_url) {
+    showToast('Debes añadir una foto: elige del catálogo o sube una tuya', 'error');
+    return;
+  }
+
+  setIsSubmitting(true);
+  showToast('Enviando evento a revisión...', 'info');
+
+  geocodeAddress(form.address, form.localidad, form.city).then((coords) => {
+    const eventToInsert = {
+      title: form.title.trim(), 
+      category: form.category, 
+      city: form.city.trim(),
+      localidad: form.localidad ? form.localidad.trim() : null, 
+      address: form.address.trim(),
+      date: form.date, 
+      time: form.time || '21:00', 
+      image_url: cleanImageUrl(form.image_url),
+      status: 'pending', 
+      lat: coords.lat, 
+      lng: coords.lng, 
+      featured: false
+    };
+    return supabase.from('events').insert([eventToInsert]);
+  }).then((res) => {
+    if (res.error) { 
+      console.error(res.error); 
+      showToast('Error: ' + (res.error.message || 'No se pudo guardar'), 'error'); 
+      return; 
+    }
+    showToast('Evento enviado a revisión correctamente', 'success');
+    setForm(INITIAL_FORM); 
+    goHome(); 
+    fetchEvents();
+  }).catch((err) => { 
+    console.error(err); 
+    showToast('Error al enviar', 'error'); 
+  })
+  .finally(() => setIsSubmitting(false));
+}
 
   function startEditEvent(ev) {
     setEditingEvent(ev); setSelectedEvent(null); setSelectedPendingEvent(null);
