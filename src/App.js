@@ -985,17 +985,18 @@ export default function App() {
   adminCitiesList.sort();
 
  var sortedFiltered = filteredEvents.slice().sort(function(a, b) {
-  // 1º: Destacados arriba del todo
   if (a.featured && !b.featured) return -1;
   if (!a.featured && b.featured) return 1;
-  
-  // 2º: Ordena por fecha (el más cercano primero)
   var dateA = new Date(a.date).getTime();
   var dateB = new Date(b.date).getTime();
   return dateA - dateB;
 });
 
-  if (showSplash) return <Splash onDone={function() { setShowSplash(false); }} />;
+var featuredEvent = sortedFiltered.length ? sortedFiltered[0] : null;
+var restEvents = sortedFiltered.length ? sortedFiltered.slice(1) : [];
+var adminFiltersActive = adminSearch.trim() || adminCityFilter !== 'TODAS';
+
+if (showSplash) return <Splash onDone={function() { setShowSplash(false); }} />;
 
   return (
     <div className={isDark ? 'dark-theme' : 'light-theme'} style={{ width: '100vw', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
