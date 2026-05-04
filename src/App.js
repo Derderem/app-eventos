@@ -1723,11 +1723,12 @@ function confirmSubmitEvent() {
         </button>
         <button onClick={goCreate} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <PlusCircle size={22} />
-        </button>
+       </button>
         <button onClick={goMap} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <MapIcon size={22} />
         </button>
       </nav>
+
     </div>
   );
 }
