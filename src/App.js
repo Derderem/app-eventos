@@ -1480,57 +1480,83 @@ export default function App() {
         )}
 
         {view === 'admin' && !selectedPendingEvent && !editingEvent && (
-          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
-            <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
-              <ArrowLeft size={16} /> VOLVER
-            </button>
+  <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
+    <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
+      <ArrowLeft size={16} /> VOLVER
+    </button>
 
-            <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 18, padding: 12, marginBottom: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <div>
-                  <p style={{ fontSize: 15, fontWeight: 900 }}>PANEL ADMIN</p>
-                  <p style={{ fontSize: 9, opacity: 0.65 }}>{userEmail || 'No conectado'}</p>
-                </div>
-                <button onClick={function() { fetchEvents(); showToast('Eventos actualizados', 'success'); }} style={{ width: 36, height: 36, borderRadius: 12, border: 'none', background: 'rgba(99,102,241,.15)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                  <RefreshCw size={16} />
-                </button>
-              </div>
+    <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: 18, padding: 12, marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <div>
+          <p style={{ fontSize: 15, fontWeight: 900 }}>PANEL ADMIN</p>
+          <p style={{ fontSize: 9, opacity: 0.65 }}>{userEmail || 'No conectado'}</p>
+        </div>
+        <button onClick={function() { fetchEvents(); showToast('Eventos actualizados', 'success'); }} style={{ width: 36, height: 36, borderRadius: 12, border: 'none', background: 'rgba(99,102,241,.15)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <RefreshCw size={16} />
+        </button>
+      </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-                <div style={{ background: 'rgba(239,68,68,.12)', color: '#ef4444', borderRadius: 14, padding: 10, textAlign: 'center', fontWeight: 900, fontSize: 11 }}>
-                  {rawPendingEvents.length}<br /><span style={{ fontSize: 8 }}>PENDIENTES</span>
-                </div>
-                <div style={{ background: 'rgba(34,197,94,.12)', color: '#22c55e', borderRadius: 14, padding: 10, textAlign: 'center', fontWeight: 900, fontSize: 11 }}>
-                  {rawApprovedEvents.length}<br /><span style={{ fontSize: 8 }}>APROBADOS</span>
-                </div>
-              </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+        <div style={{ background: 'rgba(239,68,68,.12)', color: '#ef4444', borderRadius: 14, padding: 10, textAlign: 'center', fontWeight: 900, fontSize: 11 }}>
+          {rawPendingEvents.length}<br /><span style={{ fontSize: 8 }}>PENDIENTES</span>
+        </div>
+        <div style={{ background: 'rgba(34,197,94,.12)', color: '#22c55e', borderRadius: 14, padding: 10, textAlign: 'center', fontWeight: 900, fontSize: 11 }}>
+          {rawApprovedEvents.length}<br /><span style={{ fontSize: 8 }}>APROBADOS</span>
+        </div>
+      </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 12, padding: '6px 10px', marginBottom: 8 }}>
-                <Search size={15} color="#6366f1" />
-                <input value={adminSearch} onChange={function(e) { setAdminSearch(e.target.value); }} placeholder="Buscar por título, ciudad, dirección..." style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', color: 'inherit', fontWeight: 800, fontSize: 10 }} />
-                {adminSearch && <button onClick={function() { setAdminSearch(''); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontWeight: 900 }}>X</button>}
-              </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 12, padding: '6px 10px', marginBottom: 8 }}>
+        <Search size={15} color="#6366f1" />
+        <input value={adminSearch} onChange={function(e) { setAdminSearch(e.target.value); }} placeholder="Buscar por título, ciudad, dirección..." style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', color: 'inherit', fontWeight: 800, fontSize: 10 }} />
+        {adminSearch && <button onClick={function() { setAdminSearch(''); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontWeight: 900 }}>X</button>}
+      </div>
 
-              <select value={adminCityFilter} onChange={function(e) { setAdminCityFilter(e.target.value); }} style={{ width: '100%', padding: 10, borderRadius: 12, border: 'none', outline: 'none', background: isDark ? '#1e293b' : '#e2e8f0', color: 'inherit', fontWeight: 900, fontSize: 10 }}>
-                <option value="TODAS">TODAS LAS CIUDADES</option>
-                {adminCitiesList.map(function(city) { return <option key={city} value={city}>{city}</option>; })}
-              </select>
+      <select value={adminCityFilter} onChange={function(e) { setAdminCityFilter(e.target.value); }} style={{ width: '100%', padding: 10, borderRadius: 12, border: 'none', outline: 'none', background: isDark ? '#1e293b' : '#e2e8f0', color: 'inherit', fontWeight: 900, fontSize: 10 }}>
+        <option value="TODAS">TODAS LAS CIUDADES</option>
+        {adminCitiesList.map(function(city) { return <option key={city} value={city}>{city}</option>; })}
+      </select>
 
-              {adminFiltersActive && (
-                <button onClick={function() { setAdminSearch(''); setAdminCityFilter('TODAS'); }} style={{ width: '100%', marginTop: 8, padding: 8, borderRadius: 10, border: 'none', background: 'rgba(99,-header102,241,.12)', color: '#6366-headerf1', fontWeight: 900, fontSize: 9, cursor: 'pointer' }}>
-                  LIMPIAR FILT
-                </button>
-              )}
-            </div>
+      {adminFiltersActive && (
+        <button onClick={function() { setAdminSearch(''); setAdminCityFilter('TODAS'); }} style={{ width: '100%', marginTop: 8, padding: 8, borderRadius: 10, border: 'none', background: 'rgba(99,102,241,.12)', color: '#6366f1', fontWeight: 900, fontSize: 9, cursor: 'pointer' }}>
+          LIMPIAR FILTROS
+        </button>
+      )}
+    </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8,,-bottom-style: '1fr 1fr', gap: 8,-display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-              <button onClick={function() { setAdminTab('pending'); fetchEvents(); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'pending' ? '#4f46e5' : ( is-dark ? '#1e293b' : '#e-e8f0', color: adminTab === 'pending' ? 'white' : 'inherit', fontWeight: 900,: 11, cursor: ': 'pointer' }}>
-                PENDIENTES ({pendingEvents.length}{adminFiltersActive ? '/' + rawPendingEvents.length : ''})
-              </button>
-              <button onClick={function() { setAdminTab('approved'); fetchEvents(); }} style-style-address-style-style-button-style={{ padding: 10,-style: 1-modal-border: -modal-modal: '10', borderRadius: 12, border: 'none', background: adminTab === 'approved' ? '#22c-5e' : (-dark-dark-dark ? '#1e293b': '#e2e8f', color: adminTab === 'approved' ? 'white' : 'inherit', fontWeight: 900: 11, cursor: 'pointer' }}>
-                APROBADOS ({approved-approveEvents.length}{adminFiltersActive ? '/' + rawApprovedEvents.length : ''})
-              </button>
-            </div>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+      <button onClick={function() { setAdminTab('pending'); fetchEvents(); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'pending' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'pending' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+        PENDIENTES ({pendingEvents.length}{adminFiltersActive ? '/' + rawPendingEvents.length : ''})
+      </button>
+      <button onClick={function() { setAdminTab('approved'); fetchEvents(); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'approved' ? '#22c55e' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'approved' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+        APROBADOS ({approvedEvents.length}{adminFiltersActive ? '/' + rawApprovedEvents.length : ''})
+      </button>
+    </div>
+
+    {adminTab === 'approved' && approvedEvents.length > 0 && (
+      <button onClick={function() { exportToCSV(approvedEvents); }} style={{ width: '100%', padding: 10, borderRadius: 10, border: 'none', background: 'rgba(99,102,241,.1)', color: '#6366f1', fontWeight: 900, fontSize: 10, cursor: 'pointer', marginBottom: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <Download size={14} /> EXPORTAR RESULTADOS A CSV
+      </button>
+    )}
+
+    {adminTab === 'pending' && pendingEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS PENDIENTES</p>}
+    {adminTab === 'pending' && pendingEvents.map(function(ev) {
+      return <AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="pending"
+        onClick={function() { setSelectedPendingEvent(ev); }}
+        onApprove={function() { handleApproveEvent(ev.id); }}
+        onReject={function() { handleRejectEvent(ev.id); }}
+        onDelete={function() { handleDeleteEvent(ev.id); }} />;
+    })}
+
+    {adminTab === 'approved' && approvedEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS APROBADOS</p>}
+    {adminTab === 'approved' && approvedEvents.map(function(ev) {
+      return <AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="approved"
+        onClick={function() { openEvent(ev); }}
+        onView={function() { openEvent(ev); }}
+        onEdit={function() { startEditEvent(ev); }}
+        onDelete={function() { handleDeleteEvent(ev.id); }} />;
+    })}
+  </div>
+)}
 
             {adminTab === 'approved' && approvedEvents.length > 0 && (
               <button onClick={function() exportToCSV(approvedEvents); }}-address-style={{ width: '100%', padding: 10,:: ': '10', borderRadius: 10-required: 'none', background: 'rgba(99,102,241,.1)', color: '#6366f1', fontWeight: 900, fontSize: 10, cursor: '-pointer', marginBottom: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
