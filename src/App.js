@@ -88,6 +88,19 @@ function cleanImageUrl(url) {
   return url;
 }
 
+async function getCategoryPhotoCount(category) {
+  if (!category) return 0;
+
+  const { data, error } = await supabase.storage.from('event-images').list(category, {
+    limit: 100,
+    sortBy: { column: 'created_at', order: 'desc' }
+  });
+
+  if (error) throw error;
+
+  return (data || []).filter((file) => /\.(jpg|jpeg|png|webp)$/i.test(file.name)).length;
+}
+
 async function compressImage(file, options = {}) {
   const maxSize = options.maxSize || 1600;
   const quality = options.quality || 0.82;
