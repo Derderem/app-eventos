@@ -1,154 +1,117 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import {
-  Heart, MapPin, Calendar, Sun, Moon, PlusCircle, Trash2,
-  Map as MapIcon, Clock, Copy, LayoutList, ShieldCheck, Sparkles,
-  Loader2, ArrowLeft, Search, Share2, Star, Download,
-  CheckCircle, XCircle, Info, RefreshCw, Check, X, Edit3, Image as ImageIcon
-} from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+export default function App() {
+  const [events, setEvents] = useState([]);
+  const [view, setView] = useState('home');
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [userEmail, setUserEmail] = useState('');
+  const [profile, setProfile] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-delete L.Icon.Default.prototype._getIconUrl;
+  const showToast = (m, t = 'info') => { setToast({ message: m, type: t }); setTimeout(() => setToast(null), 3000); };
 
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL || '',
-  process.env.REACT_APP_SUPABASE_ANON_KEY || ''
-);
-
-const ADMIN_EMAILS = ['garverjacobo@gmail.com', 'jacobogarver@gmail.com'];
-const APP_URL = 'https://app-eventos-pro-final.vercel.app';
-const FALLBACK_IMG = 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800';
-
-const INITIAL_FORM = {
-  title: '', city: '', localidad: '', address: '',
-  time: '21:00', date: '', category: 'MUSICA', image_url: '', featured: false
-};
-
-const categoryEmojis = {
-  MUSICA: '🎵', GASTRONOMIA: '🍽️', TAURINO: '🐂',
-  'FIESTAS PATRONALES': '🎉', OTROS: '📌'
-};
-
-const darkTileUrl = 'https://mt1.google.com/vt/lyrs=r&hl=es&x={x}&y={y}&z={z}';
-const lightTileUrl = 'https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}';
-
-const redPinIcon = L.divIcon({
-  html: '<div style="width:22px;height:30px;position:relative;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));"><svg viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg"><path d="M15 0C6.7 0 0 6.7 0 15c0 11.2 13.3 23.5 14 24.4.3.4.7.4 1 0C16.7 38.5 30 26.2 30 15 30 6.7 23.3 0 15 0z" fill="#ef4444"/><circle cx="15" cy="14" r="5" fill="white"/></svg></div>',
-  iconSize: [22, 30], iconAnchor: [11, 30], popupAnchor: [0, -30], className: ''
-});
-
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  const parts = String(dateStr).split('-');
-  if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
-  return dateStr;
-}
-
-function formatDateTime(dateStr) {
-  if (!dateStr) return '';
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleString('es-ES', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setUserEmail(session.user.email);
+        if (ADMIN_EMAILS.includes(session.user.email)) setProfile({ role: 'admin' });
+      }
     });
-  } catch {
-    return '';
-  }
-}
+    fetchEvents();
+  }, []);
 
-function normalizeText(value) {
-  return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function getDaysLeft(dateStr) {
-  if (!dateStr) return null;
-  const eventDate = new Date(dateStr + 'T23:59:59');
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
-}
-
-function getDaysLabel(dateStr) {
-  const days = getDaysLeft(dateStr);
-  if (days === null) return null;
-  if (days === 0) return { text: 'HOY', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
-  if (days === 1) return { text: 'MAÑANA', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' };
-  if (days <= 3) return { text: 'EN ' + days + ' DÍAS', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
-  if (days <= 7) return { text: 'EN ' + days + ' DÍAS', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' };
-  return { text: 'EN ' + days + ' DÍAS', color: '#6366f1', bg: 'rgba(99,102,241,0.15)' };
-}
-
-function cleanImageUrl(url) {
-  if (!url) return null;
-  if (String(url).indexOf('data:image') === 0) return null;
-  if (String(url).length > 1900) return null;
-  return url;
-}
-
-async function getCategoryPhotoCount(category) {
-  if (!category) return 0;
-
-  const { data, error } = await supabase.storage.from('event-images').list(category, {
-    limit: 100,
-    sortBy: { column: 'created_at', order: 'desc' }
-  });
-
-  if (error) throw error;
-
-  return (data || []).filter((file) => /\.(jpg|jpeg|png|webp)$/i.test(file.name)).length;
-}
-
-async function compressImage(file, options = {}) {
-  const maxSize = options.maxSize || 1600;
-  const quality = options.quality || 0.82;
-
-  if (!file || !file.type || file.type.indexOf('image/') !== 0) {
-    throw new Error('Archivo no válido');
+  async function fetchEvents() {
+    const { data } = await supabase.from('events').select('*');
+    if (data) setEvents(data);
   }
 
-  let img;
-  if (typeof createImageBitmap === 'function') {
-    img = await createImageBitmap(file);
-  } else {
-    img = await new Promise((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = reject;
-      image.src = URL.createObjectURL(file);
+  async function openImagePicker() {
+    if (!form.category) { showToast('Selecciona categoría', 'error'); return; }
+    const folder = form.category === 'FIESTAS PATRONALES' ? 'FIESTAS POPULARES' : form.category;
+    setIsGenerating(true);
+    const { data } = await supabase.storage.from('event-images').list(folder);
+    setIsGenerating(false);
+    
+    if (!data || data.length === 0) { showToast('No hay fotos en esta carpeta', 'error'); return; }
+
+    const modal = document.createElement('div');
+    modal.id = 'picker-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    
+    let html = `<div style="background:#1e293b;padding:20px;border-radius:20px;width:90%;max-width:400px;max-height:80vh;overflow:auto;color:white;">
+                  <h3 style="text-align:center;margin-bottom:15px;">Elige una foto</h3>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">`;
+    
+    data.forEach(f => {
+       const { data: u } = supabase.storage.from('event-images').getPublicUrl(folder + '/' + f.name);
+       html += `<img src="${u.publicUrl}" style="width:100%;height:100px;object-fit:cover;cursor:pointer;border-radius:10px;" onclick="window.pickImage('${u.publicUrl}')" />`;
     });
+    
+    html += '</div><button id="close" style="width:100%;margin-top:15px;padding:10px;background:#ef4444;border:none;color:white;border-radius:10px;cursor:pointer;">Cerrar</button></div>';
+    modal.innerHTML = html; document.body.appendChild(modal);
+
+    window.pickImage = (url) => { setForm(p => ({...p, image_url: url })); modal.remove(); delete window.pickImage; };
+    document.getElementById('close').onclick = () => { modal.remove(); delete window.pickImage; };
   }
 
-  let targetWidth = img.width;
-  let targetHeight = img.height;
-
-  if (img.width > maxSize || img.height > maxSize) {
-    if (img.width > img.height) {
-      targetWidth = maxSize;
-      targetHeight = Math.round((img.height * maxSize) / img.width);
-    } else {
-      targetHeight = maxSize;
-      targetWidth = Math.round((img.width * maxSize) / img.height);
+  async function handleSubmitEvent() {
+    if (!form.title || !form.date || !form.city || !form.address) { showToast('Faltan campos', 'error'); return; }
+    if (!form.image_url) { showToast('Debes añadir una foto', 'error'); return; }
+    
+    setIsSubmitting(true);
+    const { error } = await supabase.from('events').insert([{ ...form, status: 'pending', created_by: userEmail }]);
+    
+    if (error) { 
+        showToast('Error: ' + error.message, 'error'); 
+        setIsSubmitting(false); 
+    } else { 
+        showToast('Evento enviado', 'success'); 
+        setForm(INITIAL_FORM); 
+        setView('home'); 
+        fetchEvents(); 
+        setIsSubmitting(false); 
     }
   }
 
-  const canvas = document.createElement('canvas');
-  canvas.width = targetWidth;
-  canvas.height = targetHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-
-  const webpBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', quality));
-  if (webpBlob && webpBlob.size > 0) {
-    return { blob: webpBlob, extension: 'webp', type: 'image/webp', originalSize: file.size, compressedSize: webpBlob.size };
-  }
-
-  const jpegBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
-  if (jpegBlob && jpegBlob.size > 0) {
-    return { blob: jpegBlob, extension: 'jpg', type: 'image/jpeg', originalSize: file.size, compressedSize: jpegBlob.size };
-  }
+  return (
+    <div style={{ width: '100%', minHeight: '100vh', background: '#020617', color: 'white' }}>
+      <Toast toast={toast} />
+      <main style={{ padding: 20 }}>
+        {view === 'home' && (
+           <div>
+             {events.filter(e => e.status === 'approved').sort((a,b) => new Date(a.date) - new Date(b.date)).map(ev => (
+               <div key={ev.id} style={{ padding: 15, borderRadius: 20, marginBottom: 10, background: '#1e293b' }}>
+                 <img src={ev.image_url} style={{ width: '100%', borderRadius: 10 }} alt="event"/>
+                 <h3>{ev.title}</h3>
+               </div>
+             ))}
+           </div>
+        )}
+        {view === 'create' && (
+           <div style={{ padding: 20, background: '#1e293b', borderRadius: 20 }}>
+             <input name="title" value={form.title} onChange={(e) => setForm({...form, title: e.target.value})} placeholder="Título" style={{ width: '100%', padding: 10, marginBottom: 10 }} />
+             <select name="category" value={form.category} onChange={(e) => setForm({...form, category: e.target.value})} style={{ width: '100%', padding: 10 }}>
+                <option value="MUSICA">MUSICA</option>
+                <option value="GASTRONOMIA">GASTRONOMIA</option>
+                <option value="TAURINO">TAURINO</option>
+                <option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option>
+                <option value="OTROS">OTROS</option>
+             </select>
+             <button onClick={openImagePicker} style={{ marginTop: 10, width: '100%', padding: 10 }}>ELEGIR FOTO CATÁLOGO</button>
+             {form.image_url && <img src={form.image_url} style={{ width: '100%', marginTop: 10, borderRadius: 10 }} alt="prev"/>}
+             <button onClick={handleSubmitEvent} style={{ marginTop: 20, width: '100%', padding: 15, background: '#4f46e5', color: 'white', borderRadius: 10, border: 'none' }}>
+                {isSubmitting ? 'Enviando...' : 'ENVIAR REVISIÓN'}
+             </button>
+           </div>
+        )}
+      </main>
+      <nav style={{ position: 'fixed', bottom: 0, width: '100%', display: 'flex', justifyContent: 'space-around', padding: 15, background: '#1e293b' }}>
+        <button onClick={() => setView('home')}><LayoutList color="white" /></button>
+        <button onClick={() => setView('create')}><PlusCircle color="white" /></button>
+      </nav>
+    </div>
+  );
+}
 
   return { blob: file, extension: file.name.split('.').pop() || 'jpg', type: file.type, originalSize: file.size, compressedSize: file.size };
 }
