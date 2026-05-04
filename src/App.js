@@ -706,92 +706,78 @@ export default function App() {
   }
 
   function handleSubmitEvent() {
- if (isSubmitting) return;
+  if (isSubmitting) return;
 
- if (!form.title || !form.date || !form.city || !form.address) {
- showToast('Faltan campos: título, ciudad, fecha y dirección', 'error');
- return;
- }
+  if (!form.title || !form.date || !form.city || !form.address) {
+    showToast('Faltan campos: título, ciudad, fecha y dirección', 'error');
+    return;
+  }
 
- if (!form.image_url) {
- showToast('Debes añadir una foto: elige del catálogo o sube una tuya', 'error');
- return;
- }
+  if (!form.image_url) {
+    showToast('Debes añadir una foto: elige del catálogo o sube una tuya', 'error');
+    return;
+  }
 
- // En vez de enviar directamente, mostramos un resumen para confirmar
- setShowSubmitConfirm(true);
+  setShowSubmitConfirm(true);
 }
 
 function confirmSubmitEvent() {
- if (isSubmitting) return;
+  if (isSubmitting) return;
 
- setShowSubmitConfirm(false);
- setIsSubmitting(true);
- showToast('Enviando evento a revisión...', 'info');
+  setShowSubmitConfirm(false);
+  setIsSubmitting(true);
+  showToast('Enviando evento a revisión...', 'info');
 
- // Timeout de seguridad: si tarda más de 15 segundos, cancelamos
- const timeoutPromise = new Promise((_, reject) => {
- setTimeout(() => reject(new Error('Timeout')), 15000);
- });
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Timeout')), 15000);
+  });
 
- // Carrera entre la geocodificación y el timeout
- Promise.race([
- geocodeAddress(form.address, form.localidad, form.city),
- timeoutPromise
- ])
- .catch(() => {
- // Si falla o hace timeout, usamos coordenadas nulas
- showToast('No se pudo obtener GPS, se guardará sin mapa', 'warning');
- return { lat: null, lng: null };
- })
- .then((coords) => {
- const eventToInsert = {
- title: form.title.trim(),
- category: form.category,
- city: form.city.trim(),
- localidad: form.localidad ? form.localidad.trim() : null,
- address: form.address.trim(),
- date: form.date,
- time: form.time || '21:00',
- image_url: cleanImageUrl(form.image_url),
- status: 'pending',
- lat: coords.lat,
- lng: coords.lng,
- featured: false
- };
+  Promise.race([
+    geocodeAddress(form.address, form.localidad, form.city),
+    timeoutPromise
+  ])
+    .catch(() => {
+      showToast('No se pudo obtener GPS, se guardará sin mapa', 'warning');
+      return { lat: null, lng: null };
+    })
+    .then((coords) => {
+      const eventToInsert = {
+        title: form.title.trim(),
+        category: form.category,
+        city: form.city.trim(),
+        localidad: form.localidad ? form.localidad.trim() : null,
+        address: form.address.trim(),
+        date: form.date,
+        time: form.time || '21:00',
+        image_url: cleanImageUrl(form.image_url),
+        status: 'pending',
+        lat: coords.lat,
+        lng: coords.lng,
+        featured: false
+      };
 
- return supabase.from('events').insert([eventToInsert]);
- })
- .then((res) => {
- if (res.error) {
- console.error(res.error);
- showToast('Error: ' + (res.error.message || 'No se pudo guardar'), 'error');
- return;
- }
+      return supabase.from('events').insert([eventToInsert]);
+    })
+    .then((res) => {
+      if (res.error) {
+        console.error(res.error);
+        showToast('Error: ' + (res.error.message || 'No se pudo guardar'), 'error');
+        return;
+      }
 
- showToast('Evento enviado a revisión correctamente', 'success');
- setForm(INITIAL_FORM);
- goHome();
- fetchEvents();
- })
- .catch((err) => {
- console.error('Error completo:', err);
- showToast('Error de conexión. Intenta de nuevo.', 'error');
- })
- .finally(() => {
- setIsSubmitting(false);
- });
-
-  function startEditEvent(ev) {
-    setEditingEvent(ev); setSelectedEvent(null); setSelectedPendingEvent(null);
-    setEditForm({
-      title: ev.title || '', city: ev.city || '', localidad: ev.localidad || '',
-      address: ev.address || '', date: ev.date || '',
-      time: ev.time ? String(ev.time).slice(0, 5) : '21:00',
-      category: ev.category || 'MUSICA', image_url: ev.image_url || '',
-      featured: ev.featured === true
+      showToast('Evento enviado a revisión correctamente', 'success');
+      setForm(INITIAL_FORM);
+      goHome();
+      fetchEvents();
+    })
+    .catch((err) => {
+      console.error('Error completo:', err);
+      showToast('Error de conexión. Intenta de nuevo.', 'error');
+    })
+    .finally(() => {
+      setIsSubmitting(false);
     });
-  }
+}
 
   function cancelEditEvent() { setEditingEvent(null); setEditForm(INITIAL_FORM); }
 
