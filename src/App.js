@@ -374,6 +374,7 @@ export default function App() {
   const [pickerConfig, setPickerConfig] = useState({ show: false, images: [], loading: false, isEdit: false });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
   const [userEmail, setUserEmail] = useState('');
   const [selectedPendingEvent, setSelectedPendingEvent] = useState(null);
@@ -705,70 +706,81 @@ export default function App() {
   }
 
   function handleSubmitEvent() {
-    if (!form.title || !form.date || !form.city || !form.address) {
-      showToast('Faltan campos: título, ciudad, fecha y dirección', 'error');
-      return;
-    }
-    
-    if (!form.image_url) {
-      showToast('Debes añadir una foto: elige del catálogo o sube una tuya', 'error');
-      return;
-    }
+ if (isSubmitting) return;
 
-    setIsSubmitting(true);
-    showToast('Enviando evento a revisión...', 'info');
+ if (!form.title || !form.date || !form.city || !form.address) {
+ showToast('Faltan campos: título, ciudad, fecha y dirección', 'error');
+ return;
+ }
 
-    // Timeout de seguridad: si tarda más de 15 segundos, cancelamos
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Timeout')), 15000);
-    });
+ if (!form.image_url) {
+ showToast('Debes añadir una foto: elige del catálogo o sube una tuya', 'error');
+ return;
+ }
 
-    // Carrera entre la geocodificación y el timeout
-    Promise.race([
-      geocodeAddress(form.address, form.localidad, form.city),
-      timeoutPromise
-    ])
-    .catch(() => {
-      // Si falla o hace timeout, usamos coordenadas nulas (null)
-      showToast('No se pudo obtener GPS, se guardará sin mapa', 'warning');
-      return { lat: null, lng: null };
-    })
-    .then((coords) => {
-      const eventToInsert = {
-        title: form.title.trim(), 
-        category: form.category, 
-        city: form.city.trim(),
-        localidad: form.localidad ? form.localidad.trim() : null, 
-        address: form.address.trim(),
-        date: form.date, 
-        time: form.time || '21:00', 
-        image_url: cleanImageUrl(form.image_url),
-        status: 'pending', 
-        lat: coords.lat, 
-        lng: coords.lng, 
-        featured: false
-      };
-      return supabase.from('events').insert([eventToInsert]);
-    })
-    .then((res) => {
-      if (res.error) { 
-        console.error(res.error); 
-        showToast('Error: ' + (res.error.message || 'No se pudo guardar'), 'error'); 
-        return; 
-      }
-      showToast('Evento enviado a revisión correctamente', 'success');
-      setForm(INITIAL_FORM); 
-      goHome(); 
-      fetchEvents();
-    })
-    .catch((err) => { 
-      console.error('Error completo:', err); 
-      showToast('Error de conexión. Intenta de nuevo.', 'error'); 
-    })
-    .finally(() => {
-      setIsSubmitting(false);
-    });
-  }
+ // En vez de enviar directamente, mostramos un resumen para confirmar
+ setShowSubmitConfirm(true);
+}
+
+function confirmSubmitEvent() {
+ if (isSubmitting) return;
+
+ setShowSubmitConfirm(false);
+ setIsSubmitting(true);
+ showToast('Enviando evento a revisión...', 'info');
+
+ // Timeout de seguridad: si tarda más de 15 segundos, cancelamos
+ const timeoutPromise = new Promise((_, reject) => {
+ setTimeout(() => reject(new Error('Timeout')), 15000);
+ });
+
+ // Carrera entre la geocodificación y el timeout
+ Promise.race([
+ geocodeAddress(form.address, form.localidad, form.city),
+ timeoutPromise
+ ])
+ .catch(() => {
+ // Si falla o hace timeout, usamos coordenadas nulas
+ showToast('No se pudo obtener GPS, se guardará sin mapa', 'warning');
+ return { lat: null, lng: null };
+ })
+ .then((coords) => {
+ const eventToInsert = {
+ title: form.title.trim(),
+ category: form.category,
+ city: form.city.trim(),
+ localidad: form.localidad ? form.localidad.trim() : null,
+ address: form.address.trim(),
+ date: form.date,
+ time: form.time || '21:00',
+ image_url: cleanImageUrl(form.image_url),
+ status: 'pending',
+ lat: coords.lat,
+ lng: coords.lng,
+ featured: false
+ };
+
+ return supabase.from('events').insert([eventToInsert]);
+ })
+ .then((res) => {
+ if (res.error) {
+ console.error(res.error);
+ showToast('Error: ' + (res.error.message || 'No se pudo guardar'), 'error');
+ return;
+ }
+
+ showToast('Evento enviado a revisión correctamente', 'success');
+ setForm(INITIAL_FORM);
+ goHome();
+ fetchEvents();
+ })
+ .catch((err) => {
+ console.error('Error completo:', err);
+ showToast('Error de conexión. Intenta de nuevo.', 'error');
+ })
+ .finally(() => {
+ setIsSubmitting(false);
+ })
 
   function startEditEvent(ev) {
     setEditingEvent(ev); setSelectedEvent(null); setSelectedPendingEvent(null);
@@ -1048,6 +1060,157 @@ export default function App() {
   return (
     <div className={isDark ? 'dark-theme' : 'light-theme'} style={{ width: '100vw', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Toast toast={toast} />
+  {showSubmitConfirm && (
+ <div style={{
+ position: 'fixed',
+ inset: 0,
+ zIndex: 999999,
+ background: 'rgba(0,0,0,0.82)',
+ display: 'flex',
+ alignItems: 'center',
+ justifyContent: 'center',
+ padding: 15
+ }}>
+ <div className={isDark ? 'card-dark' : 'card-light'} style={{
+ width: '100%',
+ maxWidth: 420,
+ maxHeight: '90vh',
+ overflowY: 'auto',
+ borderRadius: 22,
+ padding: 18,
+ boxShadow: '0 20px 60px rgba(0,0,0,0.45)'
+ }}>
+ <h3 style={{
+ textAlign: 'center',
+ fontSize: 16,
+ fontWeight: 900,
+ marginBottom: 6
+ }}>
+ CONFIRMAR ENVÍO
+ </h3>
+
+ <p style={{
+ textAlign: 'center',
+ fontSize: 11,
+ opacity: 0.7,
+ marginBottom: 15,
+ lineHeight: 1.4
+ }}>
+ Revisa que todos los datos sean correctos antes de enviar el evento a revisión.
+ </p>
+
+ {form.image_url && (
+ <SafeImg
+ src={form.image_url}
+ alt=""
+ style={{
+ width: '100%',
+ height: 150,
+ objectFit: 'cover',
+ borderRadius: 14,
+ marginBottom: 14
+ }}
+ />
+ )}
+
+ <div style={{ display: 'grid', gap: 10, marginBottom: 15 }}>
+ <div style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 12 }}>
+ <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 900 }}>TÍTULO</p>
+ <p style={{ fontSize: 13, fontWeight: 900 }}>{form.title || '-'}</p>
+ </div>
+
+ <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+ <div style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 12 }}>
+ <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 900 }}>CIUDAD</p>
+ <p style={{ fontSize: 12, fontWeight: 800 }}>{form.city || '-'}</p>
+ </div>
+
+ <div style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 12 }}>
+ <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 900 }}>CATEGORÍA</p>
+ <p style={{ fontSize: 12, fontWeight: 800 }}>{form.category || '-'}</p>
+ </div>
+ </div>
+
+ <div style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 12 }}>
+ <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 900 }}>LOCALIDAD</p>
+ <p style={{ fontSize: 12, fontWeight: 800 }}>{form.localidad || '-'}</p>
+ </div>
+
+ <div style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 12 }}>
+ <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 900 }}>DIRECCIÓN</p>
+ <p style={{ fontSize: 12, fontWeight: 800 }}>{form.address || '-'}</p>
+ </div>
+
+ <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+ <div style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 12 }}>
+ <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 900 }}>FECHA</p>
+ <p style={{ fontSize: 12, fontWeight: 800 }}>{formatDate(form.date) || '-'}</p>
+ </div>
+
+ <div style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 12 }}>
+ <p style={{ fontSize: 9, color: '#6366f1', fontWeight: 900 }}>HORA</p>
+ <p style={{ fontSize: 12, fontWeight: 800 }}>{form.time || '-'}</p>
+ </div>
+ </div>
+ </div>
+
+ <div style={{
+ background: 'rgba(245,158,11,.12)',
+ color: '#f59e0b',
+ padding: 10,
+ borderRadius: 12,
+ fontSize: 10,
+ fontWeight: 800,
+ lineHeight: 1.4,
+ marginBottom: 15
+ }}>
+ El evento se enviará a revisión. No aparecerá públicamente hasta que sea aprobado.
+ </div>
+
+ <div style={{
+ display: 'grid',
+ gridTemplateColumns: '1fr 1fr',
+ gap: 8
+ }}>
+ <button
+ onClick={() => setShowSubmitConfirm(false)}
+ disabled={isSubmitting}
+ style={{
+ padding: 13,
+ background: '#64748b',
+ color: 'white',
+ border: 'none',
+ borderRadius: 12,
+ fontWeight: 900,
+ fontSize: 11,
+ cursor: isSubmitting ? 'not-allowed' : 'pointer',
+ opacity: isSubmitting ? 0.7 : 1
+ }}
+ >
+ EDITAR
+ </button>
+
+ <button
+ onClick={confirmSubmitEvent}
+ disabled={isSubmitting}
+ style={{
+ padding: 13,
+ background: '#22c55e',
+ color: 'white',
+ border: 'none',
+ borderRadius: 12,
+ fontWeight: 900,
+ fontSize: 11,
+ cursor: isSubmitting ? 'not-allowed' : 'pointer',
+ opacity: isSubmitting ? 0.7 : 1
+ }}
+ >
+ {isSubmitting ? 'ENVIANDO...' : 'CONFIRMAR ENVÍO'}
+ </button>
+ </div>
+ </div>
+ </div>
+)}
 
       {pickerConfig.show && (
         <div style={{
