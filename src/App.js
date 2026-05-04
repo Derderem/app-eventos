@@ -721,64 +721,73 @@ export default function App() {
   setShowSubmitConfirm(true);
 }
 
-function confirmSubmitEvent() {
-  if (isSubmitting) return;
+async function confirmSubmitEvent() {
+ if (isSubmitting) return;
 
-  setShowSubmitConfirm(false);
-  setIsSubmitting(true);
-  showToast('Enviando evento a revisión...', 'info');
+ setShowSubmitConfirm(false);
+ setIsSubmitting(true);
+ showToast('Enviando evento a revisión...', 'info');
 
-  const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('Timeout')), 15000);
-  });
+ try {
+   let coords = { lat: null, lng: null };
 
-  Promise.race([
-    geocodeAddress(form.address, form.localidad, form.city),
-    timeoutPromise
-  ])
-    .catch(() => {
-      showToast('No se pudo obtener GPS, se guardará sin mapa', 'warning');
-      return { lat: null, lng: null };
-    })
-    .then((coords) => {
-      const eventToInsert = {
-        title: form.title.trim(),
-        category: form.category,
-        city: form.city.trim(),
-        localidad: form.localidad ? form.localidad.trim() : null,
-        address: form.address.trim(),
-        date: form.date,
-        time: form.time || '21:00',
-        image_url: cleanImageUrl(form.image_url),
-        status: 'pending',
-        lat: coords.lat,
-        lng: coords.lng,
-        featured: false
-      };
+   // 1. Intentamos sacar las coordenadas GPS de forma segura
+   try {
+     const timeoutPromise = new Promise((_, reject) => {
+       setTimeout(() => reject(new Error('Timeout')), 15000);
+     });
 
-      return supabase.from('events').insert([eventToInsert]);
-    })
-    .then((res) => {
-      if (res.error) {
-        console.error(res.error);
-        showToast('Error: ' + (res.error.message || 'No se pudo guardar'), 'error');
-        return;
-      }
+     // Comprobamos si la función de geolocalización existe para evitar cuelgues
+     if (typeof geocodeAddress === 'function') {
+       coords = await Promise.race([
+         geocodeAddress(form.address, form.localidad, form.city),
+         timeoutPromise
+       ]);
+     }
+   } catch (gpsError) {
+     console.warn("Aviso GPS:", gpsError);
+     showToast('No se pudo obtener GPS, se guardará sin mapa', 'warning');
+   }
 
-      showToast('Evento enviado a revisión correctamente', 'success');
-      setForm(INITIAL_FORM);
-      goHome();
-      fetchEvents();
-    })
-    .catch((err) => {
-      console.error('Error completo:', err);
-      showToast('Error de conexión. Intenta de nuevo.', 'error');
-    })
-    .finally(() => {
-      setIsSubmitting(false);
-    });
+   // 2. Preparamos los datos del evento
+   const eventToInsert = {
+     title: form.title.trim(),
+     category: form.category,
+     city: form.city.trim(),
+     localidad: form.localidad ? form.localidad.trim() : null,
+     address: form.address.trim(),
+     date: form.date,
+     time: form.time || '21:00',
+     image_url: cleanImageUrl(form.image_url),
+     status: 'pending',
+     lat: coords.lat,
+     lng: coords.lng,
+     featured: false
+   };
+
+   // 3. Enviamos a Supabase
+   const { error } = await supabase.from('events').insert([eventToInsert]);
+
+   if (error) {
+     console.error("Error de Supabase:", error);
+     showToast('Error: ' + (error.message || 'No se pudo guardar'), 'error');
+     return; // Salimos, pero el finally desbloqueará el botón
+   }
+
+   // 4. Si todo va bien
+   showToast('Evento enviado a revisión correctamente', 'success');
+   setForm(INITIAL_FORM);
+   goHome();
+   fetchEvents();
+
+ } catch (err) {
+   console.error('Error catastrófico:', err);
+   showToast('Error inesperado al enviar. Revisa tu conexión.', 'error');
+ } finally {
+   // 5. PASE LO QUE PASE, apagamos el estado "Enviando..."
+   setIsSubmitting(false);
+ }
 }
-
   function cancelEditEvent() { setEditingEvent(null); setEditForm(INITIAL_FORM); }
 
   function handleSaveEditEvent() {
