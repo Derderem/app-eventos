@@ -780,7 +780,7 @@ function confirmSubmitEvent() {
  })
  .finally(() => {
  setIsSubmitting(false);
- })
+ });
 
   function startEditEvent(ev) {
     setEditingEvent(ev); setSelectedEvent(null); setSelectedPendingEvent(null);
