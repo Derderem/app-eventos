@@ -718,7 +718,22 @@ export default function App() {
     setIsSubmitting(true);
     showToast('Enviando evento a revisión...', 'info');
 
-    geocodeAddress(form.address, form.localidad, form.city).then((coords) => {
+    // Timeout de seguridad: si tarda más de 15 segundos, cancelamos
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout')), 15000);
+    });
+
+    // Carrera entre la geocodificación y el timeout
+    Promise.race([
+      geocodeAddress(form.address, form.localidad, form.city),
+      timeoutPromise
+    ])
+    .catch(() => {
+      // Si falla o hace timeout, usamos coordenadas nulas (null)
+      showToast('No se pudo obtener GPS, se guardará sin mapa', 'warning');
+      return { lat: null, lng: null };
+    })
+    .then((coords) => {
       const eventToInsert = {
         title: form.title.trim(), 
         category: form.category, 
@@ -734,7 +749,8 @@ export default function App() {
         featured: false
       };
       return supabase.from('events').insert([eventToInsert]);
-    }).then((res) => {
+    })
+    .then((res) => {
       if (res.error) { 
         console.error(res.error); 
         showToast('Error: ' + (res.error.message || 'No se pudo guardar'), 'error'); 
@@ -744,11 +760,14 @@ export default function App() {
       setForm(INITIAL_FORM); 
       goHome(); 
       fetchEvents();
-    }).catch((err) => { 
-      console.error(err); 
-      showToast('Error al enviar', 'error'); 
     })
-    .finally(() => setIsSubmitting(false));
+    .catch((err) => { 
+      console.error('Error completo:', err); 
+      showToast('Error de conexión. Intenta de nuevo.', 'error'); 
+    })
+    .finally(() => {
+      setIsSubmitting(false);
+    });
   }
 
   function startEditEvent(ev) {
