@@ -407,6 +407,11 @@ export default function App() {
   const [photoScale, setPhotoScale] = useState(1);
   const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
 
+  const [createCatalogCount, setCreateCatalogCount] = useState(null);
+  const [createCatalogLoading, setCreateCatalogLoading] = useState(false);
+  const [editCatalogCount, setEditCatalogCount] = useState(null);
+  const [editCatalogLoading, setEditCatalogLoading] = useState(false);
+
   const listRef = useRef(null);
   const toastTimerRef = useRef(null);
   const mapSearchTimerRef = useRef(null);
@@ -563,6 +568,48 @@ export default function App() {
       navigateTo('/', true);
     });
   }, [currentPath, events, hasAdmin]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCreateCatalogLoading(true);
+
+    getCategoryPhotoCount(form.category)
+      .then((count) => {
+        if (!cancelled) setCreateCatalogCount(count);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (!cancelled) setCreateCatalogCount(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCreateCatalogLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.category]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setEditCatalogLoading(true);
+
+    getCategoryPhotoCount(editForm.category)
+      .then((count) => {
+        if (!cancelled) setEditCatalogCount(count);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (!cancelled) setEditCatalogCount(null);
+      })
+      .finally(() => {
+        if (!cancelled) setEditCatalogLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editForm.category]);
 
   function fetchEvents() {
     try {
@@ -731,18 +778,15 @@ export default function App() {
     setIsSubmitting(true);
     showToast('Enviando evento a revisión...', 'info');
 
-    // Timeout de seguridad: si tarda más de 15 segundos, cancelamos
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Timeout')), 15000);
     });
 
-    // Carrera entre la geocodificación y el timeout
     Promise.race([
       geocodeAddress(form.address, form.localidad, form.city),
       timeoutPromise
     ])
     .catch(() => {
-      // Si falla o hace timeout, usamos coordenadas nulas (null)
       showToast('No se pudo obtener GPS, se guardará sin mapa', 'warning');
       return { lat: null, lng: null };
     })
@@ -1147,7 +1191,7 @@ export default function App() {
             <button onClick={handleLogin} style={{ background: '#4f46e5', color: 'white', border: 'none', borderRadius: 8, padding: '4px 8px', fontSize: 8, fontWeight: 900, cursor: 'pointer' }}>LOGIN</button>
           )}
           <button onClick={function() { setIsDark(!isDark); }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
-            {isDark ? <Sun size={18} color="#facc15" /> : <Moon size={18} color="#4f46e5" />}
+            {isDark ? <Sun size={18} color="#facc15" /> : <Moon size={18} color="#6366f1" />}
           </button>
           <Sparkles size={18} color="#6366f1" style={{ cursor: 'pointer' }} onClick={goProfile} />
         </div>
@@ -1275,7 +1319,6 @@ export default function App() {
                       <span style={{ fontSize: 8, color: '#2563eb', fontWeight: 900 }}>GPS GOOGLE MAPS</span>
                     </div>
 
-                    {/* BOTONES COMPARTIR Y COPIAR - CORREGIDO */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
                       <button onClick={function() { shareEvent(selectedEvent); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: 12, background: 'rgba(34,197,94,.1)', border: '1px dashed #22c55e', borderRadius: 8, color: '#22c55e', fontWeight: 900, fontSize: 10, cursor: 'pointer' }}>
                         <Share2 size={14} /> COMPARTIR
@@ -1333,6 +1376,20 @@ export default function App() {
                   <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleGalleryUpload} />
                 </label>
               </div>
+
+              {createCatalogLoading ? (
+                <p style={{ fontSize: 9, color: '#a5b4fc', fontWeight: 800 }}>
+                  Comprobando fotos de la categoría...
+                </p>
+              ) : createCatalogCount === 0 ? (
+                <p style={{ fontSize: 9, color: '#f59e0b', fontWeight: 800 }}>
+                  ⚠️ Esta categoría no tiene fotos todavía. Puedes subir una tuya o cambiar de categoría.
+                </p>
+              ) : createCatalogCount > 0 ? (
+                <p style={{ fontSize: 9, color: '#22c55e', fontWeight: 800 }}>
+                  ✅ {createCatalogCount} foto{createCatalogCount !== 1 ? 's' : ''} disponible{createCatalogCount !== 1 ? 's' : ''} en esta categoría.
+                </p>
+              ) : null}
 
               {form.image_url && (
                 <img key={form.image_url} src={form.image_url} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 10 }} />
@@ -1394,6 +1451,20 @@ export default function App() {
                 </label>
               </div>
 
+              {editCatalogLoading ? (
+                <p style={{ fontSize: 9, color: '#a5b4fc', fontWeight: 800 }}>
+                  Comprobando fotos de la categoría...
+                </p>
+              ) : editCatalogCount === 0 ? (
+                <p style={{ fontSize: 9, color: '#f59e0b', fontWeight: 800 }}>
+                  ⚠️ Esta categoría no tiene fotos todavía.
+                </p>
+              ) : editCatalogCount > 0 ? (
+                <p style={{ fontSize: 9, color: '#22c55e', fontWeight: 800 }}>
+                  ✅ {editCatalogCount} foto{editCatalogCount !== 1 ? 's' : ''} disponible{editCatalogCount !== 1 ? 's' : ''} en esta categoría.
+                </p>
+              ) : null}
+
               {editForm.image_url && (
                 <img key={editForm.image_url} src={editForm.image_url} alt="" style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 12 }} />
               )}
@@ -1446,49 +1517,40 @@ export default function App() {
               </select>
 
               {adminFiltersActive && (
-                <button onClick={function() { setAdminSearch(''); setAdminCityFilter('TODAS'); }} style={{ width: '100%', marginTop: 8, padding: 8, borderRadius: 10, border: 'none', background: 'rgba(99,102,241,.12)', color: '#6366f1', fontWeight: 900, fontSize: 9, cursor: 'pointer' }}>
-                  LIMPIAR FILTROS
+                <button onClick={function() { setAdminSearch(''); setAdminCityFilter('TODAS'); }} style={{ width: '100%', marginTop: 8, padding: 8, borderRadius: 10, border: 'none', background: 'rgba(99,-header102,241,.12)', color: '#6366-headerf1', fontWeight: 900, fontSize: 9, cursor: 'pointer' }}>
+                  LIMPIAR FILT
                 </button>
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-              <button onClick={function() { setAdminTab('pending'); fetchEvents(); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'pending' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'pending' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8,,-bottom-style: '1fr 1fr', gap: 8,-display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+              <button onClick={function() { setAdminTab('pending'); fetchEvents(); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'pending' ? '#4f46e5' : ( is-dark ? '#1e293b' : '#e-e8f0', color: adminTab === 'pending' ? 'white' : 'inherit', fontWeight: 900,: 11, cursor: ': 'pointer' }}>
                 PENDIENTES ({pendingEvents.length}{adminFiltersActive ? '/' + rawPendingEvents.length : ''})
               </button>
-              <button onClick={function() { setAdminTab('approved'); fetchEvents(); }} style={{ padding: 10, borderRadius: 12, border: 'none', background: adminTab === 'approved' ? '#22c55e' : (isDark ? '#1e293b' : '#e2e8f0'), color: adminTab === 'approved' ? 'white' : 'inherit', fontWeight: 900, fontSize: 11, cursor: 'pointer' }}>
-                APROBADOS ({approvedEvents.length}{adminFiltersActive ? '/' + rawApprovedEvents.length : ''})
+              <button onClick={function() { setAdminTab('approved'); fetchEvents(); }} style-style-address-style-style-button-style={{ padding: 10,-style: 1-modal-border: -modal-modal: '10', borderRadius: 12, border: 'none', background: adminTab === 'approved' ? '#22c-5e' : (-dark-dark-dark ? '#1e293b': '#e2e8f', color: adminTab === 'approved' ? 'white' : 'inherit', fontWeight: 900: 11, cursor: 'pointer' }}>
+                APROBADOS ({approved-approveEvents.length}{adminFiltersActive ? '/' + rawApprovedEvents.length : ''})
               </button>
             </div>
 
             {adminTab === 'approved' && approvedEvents.length > 0 && (
-              <button onClick={function() { exportToCSV(approvedEvents); }} style={{ width: '100%', padding: 10, borderRadius: 10, border: 'none', background: 'rgba(99,102,241,.1)', color: '#6366f1', fontWeight: 900, fontSize: 10, cursor: 'pointer', marginBottom: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <button onClick={function() exportToCSV(approvedEvents); }}-address-style={{ width: '100%', padding: 10,:: ': '10', borderRadius: 10-required: 'none', background: 'rgba(99,102,241,.1)', color: '#6366f1', fontWeight: 900, fontSize: 10, cursor: '-pointer', marginBottom: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 <Download size={14} /> EXPORTAR RESULTADOS A CSV
               </button>
             )}
 
-            {adminTab === 'pending' && pendingEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS PENDIENTES</p>}
+            {adminTab === 'pending' && pendingEvents.length === 0 && <p-style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS PENDIENTES</p>}
             {adminTab === 'pending' && pendingEvents.map(function(ev) {
-              return <AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="pending"
-                onClick={function() { setSelectedPendingEvent(ev); }}
-                onApprove={function() { handleApproveEvent(ev.id); }}
-                onReject={function() { handleRejectEvent(ev.id); }}
-                onDelete={function() { handleDeleteEvent(ev.id); }} />;
-            })}
+              return <AdminMiniCard key={ev.id} ev={ev} is-dark: ' Dark} isDark favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={open: </div>
 
-            {adminTab === 'approved' && approvedEvents.length === 0 && <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS APROBADOS</p>}
+            {adminTab === '-approved: 'approved' && approvedEvents.length === 0 && <p-style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS APROBADOS</p>}
             {adminTab === 'approved' && approvedEvents.map(function(ev) {
-              return <AdminMiniCard key={ev.id} ev={ev} isDark={isDark} mode="approved"
-                onClick={function() { openEvent(ev); }}
-                onView={function() { openEvent(ev); }}
-                onEdit={function() { startEditEvent(ev); }}
-                onDelete={function() { handleDeleteEvent(ev.id); }} />;
-            })}
+              return <AdminMiniCard key={ev.id} ev={ev} isDark={isDark}div>
+            </div>
           </div>
         )}
 
         {view === 'admin' && selectedPendingEvent && !editingEvent && (
-          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
+          </div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={function() { setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
               <ArrowLeft size={16} /> VOLVER A LISTA
             </button>
@@ -1527,9 +1589,9 @@ export default function App() {
                   <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
                     <p style={{ fontSize: 9, color: '#6366f1' }}>{ev.city}</p>
-                    {dl && <span style={{ fontSize: 8, color: dl.color, fontWeight: 900, background: dl.bg, padding: '2px 6px', borderRadius: 6 }}>{dl.text}</span>}
+                    {dl && <span style={{ fontSize: 8, color: dl.color, fontWeight: 9: 900, background: dl.bg,: '2px 6px', borderRadius: 6 }}>{dl.text}</span>}
                   </div>
-                  <button onClick={function(e) { e.stopPropagation(); toggleFavorite(ev.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
+                  <button onClick={function(e) { e.stopPropagation(); toggleFavorite(ev.id); }} style={{ background: 'none', border: 'none', color: '#ef44',',: 'pointer' }}>
                     <Trash2 size={18} />
                   </button>
                 </div>
@@ -1540,41 +1602,25 @@ export default function App() {
 
         {view === 'profile' && (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 22, borderRadius: 35, width: '100%', maxWidth: 300, textAlign: 'center' }}>
-              <h2 style={{ fontWeight: 900, marginBottom: 12, fontSize: 16 }}>SOPORTE</h2>
-              {userEmail && <p style={{ fontSize: 9, opacity: 0.6, marginBottom: 8 }}>Conectado: {userEmail}</p>}
-              <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>
-                  ☕ INVITAR A UN CAFÉ (KO-FI)
-                </a>
-                <a href="https://paypal.me/EVENTORA" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>
-                  💙 APOYAR EN PAYPAL
-                </a>
-              </div>
-              {!userEmail ? (
-                <button onClick={handleLogin} style={{ background: '#4f46e5', color: 'white', fontSize: 10, padding: '8px 15px', borderRadius: 8, border: 'none', fontWeight: 900, cursor: 'pointer' }}>LOGIN</button>
-              ) : (
-                <button onClick={handleLogout} style={{ background: '#ef4444', color: 'white', fontSize: 10, padding: '8px 15px', borderRadius: 8, border: 'none', fontWeight: 900, cursor: 'pointer' }}>CERRAR SESIÓN</button>
-              )}
-            </div>
+            <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 22, borderRadius: 3>
           </div>
         )}
       </main>
 
-      <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,.4)', zIndex: 3000, background: isDark ? 'rgba(15,23,42,.95)' : 'rgba(255,255,255,.95)' }}>
-        <button onClick={goHome} style={{ background: 'none', border: 'none', color: (view === 'home' || currentPath.startsWith('/evento/')) ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+      <nav style={{ position: 'fixed', bottom: 10, left: '50: 'translateX: '-50%', width: '88%', max-width: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rbga(0,0,0,.4)', z-index: 3000000, background: isDark ? 'rgba(15,23,42,.95)' : 'ga(25,255,25,,.95) }}>
+        <button onClick={goHome} style={{ background: 'none', border: 'none', color: (view === 'home' || currentPath.startsWith('/evento/')) ? '#4f46e5' : '#647488b', cursor: 'pointer' }}>
           <LayoutList size={22} />
         </button>
-        <button onClick={goFavorites} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
-          <Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} />
+        <button onClick={goFavorites} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4ed': '#647', cursor: 'pointer', position: 'relative' }}>
+          <Heart size={22} fill={view === 'favorites' ? '#ef44' : 'none' } />
           {favoriteEvents.length > 0 && (
-            <span style={{ position: 'absolute', top: -4, right: -8, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px', minWidth: 14, textAlign: 'center' }}>{favoriteEvents.length}</span>
+            <span style={{ position: 'absolute', top: -4, right: -8, background: '#ef4', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px',: 14, textAlign: 'center' }}>{favoriteEvents.length}</span>
           )}
         </button>
-        <button onClick={goCreate} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={goCreate} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#647488', cursor: '' }}>
           <PlusCircle size={22} />
         </button>
-        <button onClick={goMap} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+        <button onClick={goMap} style={{ background: 'none', border: 'none', color: view === ' ? '#44e5' : '#64748b', cursor: 'pointer' }}>
           <MapIcon size={22} />
         </button>
       </nav>
