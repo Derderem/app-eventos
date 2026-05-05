@@ -35,8 +35,31 @@ const darkTileUrl = 'https://mt1.google.com/vt/lyrs=r&hl=es&x={x}&y={y}&z={z}';
 const lightTileUrl = 'https://mt1.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}';
 
 const redPinIcon = L.divIcon({
-  html: '<div style="width:22px;height:30px;position:relative;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));"><svg viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg"><path d="M15 0C6.7 0 0 6.7 0 15c0 11.2 13.3 23.5 14 24.4.3.4.7.4 1 0C16.7 38.5 30 26.2 30 15 30 6.7 23.3 0 15 0z" fill="#ef4444"/><circle cx="15" cy="14" r="5" fill="white"/></svg></div>',
-  iconSize: [22, 30], iconAnchor: [11, 30], popupAnchor: [0, -30], className: ''
+  html: `
+    <div style="
+      width:28px;
+      height:28px;
+      background:#ef4444;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:0 8px 20px rgba(0,0,0,0.4);
+      border:3px solid white;
+      animation: pulsePin 2s infinite;
+    ">
+      <div style="
+        width:10px;
+        height:10px;
+        background:white;
+        border-radius:50%;
+      "></div>
+    </div>
+  `,
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+  popupAnchor: [0, -14],
+  className: ''
 });
 
 function formatDate(dateStr) {
@@ -1377,6 +1400,11 @@ async function confirmSubmitEvent() {
 }
         .heart-pop { animation:heartPop .6s ease-out; }
         @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+        @keyframes pulsePin {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
       `}</style>
 
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
@@ -1407,20 +1435,90 @@ async function confirmSubmitEvent() {
         {view === 'map' && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
             <div style={{ position: 'absolute', top: 15, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
-              <div style={{ background: '#fff', borderRadius: 15, padding: '4px 12px', display: 'flex', alignItems: 'center', boxShadow: '0 10px 25px rgba(0,0,0,.2)' }}>
+              <<div style={{
+  background: 'rgba(255,255,255,0.95)',
+  backdropFilter: 'blur(10px)',
+  borderRadius: 20,
+  padding: '6px 14px',
+  display: 'flex',
+  alignItems: 'center',
+  boxShadow: '0 15px 30px rgba(0,0,0,.25)',
+  border: '1px solid rgba(0,0,0,0.05)'
+}}>
                 <Search size={16} color="#6366f1" />
                 <input type="text" value={mapSearch} onChange={handleMapSearchChange} placeholder="Buscar ciudad, pueblo o lugar..." style={{ width: '100%', padding: 10, border: 'none', outline: 'none', fontWeight: 700, fontSize: 12, color: '#0f172a', background: 'transparent' }} />
                 {mapSearch && <button onClick={function() { setMapSearch(''); setMapCenter(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontWeight: 900 }}>X</button>}
               </div>
             </div>
-            <MapContainer center={[40.41, -3.70]} zoom={6} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+            <MapContainer
+<button
+  onClick={() => setMapCenter([40.41, -3.70])}
+  style={{
+    position: 'absolute',
+    bottom: 90,
+    right: 20,
+    zIndex: 1000,
+    background: '#4f46e5',
+    color: 'white',
+    border: 'none',
+    width: 45,
+    height: 45,
+    borderRadius: '50%',
+    boxShadow: '0 10px 25px rgba(0,0,0,.4)',
+    cursor: 'pointer',
+    fontWeight: 900
+  }}
+>
+  ⌖
+</button>
+  center={[40.41, -3.70]} 
+  zoom={6} 
+  style={{ 
+    height: '100%', 
+    width: '100%',
+    borderRadius: 20,
+    overflow: 'hidden'
+  }} 
+  scrollWheelZoom={true}
+  zoomControl={false}
+>
               <MapResizer center={mapCenter} />
               <TileLayer url={isDark ? darkTileUrl : lightTileUrl} attribution="Google Maps" maxZoom={20} />
               {publicEvents.map(function(ev) {
                 if (!ev.lat || !ev.lng) return null;
                 return (
                   <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={redPinIcon}>
-                    <Popup><b>{ev.title}</b><br />{ev.address}, {ev.localidad || ''} - {ev.city}<br />{formatDate(ev.date)}</Popup>
+                    <Popup>
+  <div style={{
+    minWidth: 200,
+    padding: 5
+  }}>
+    <p style={{
+      fontWeight: 900,
+      fontSize: 14,
+      marginBottom: 6,
+      color: '#0f172a'
+    }}>
+      {ev.title}
+    </p>
+
+    <p style={{
+      fontSize: 11,
+      marginBottom: 4,
+      color: '#334155'
+    }}>
+      📍 {ev.city}
+    </p>
+
+    <p style={{
+      fontSize: 11,
+      fontWeight: 700,
+      color: '#6366f1'
+    }}>
+      📅 {formatDate(ev.date)}
+    </p>
+  </div>
+</Popup>
                   </Marker>
                 );
               })}
