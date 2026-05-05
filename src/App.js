@@ -1508,27 +1508,31 @@ async function confirmSubmitEvent() {
 
     {/* Botón centrar mapa */}
     <button
-      onClick={() => setMapCenter([40.41, -3.70])}
-      style={{
-        position: 'absolute',
-        bottom: 90,
-        right: 20,
-        zIndex: 1000,
-        background: '#4f46e5',
-        color: 'white',
-        border: 'none',
-        width: 45,
-        height: 45,
-        borderRadius: '50%',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
-        cursor: 'pointer',
-        fontWeight: 900
-      }}
-    >
-      ⌂
-    </button>
-  </div>
-)}
+      </MapContainer>
+
+      <button
+        onClick={() => setMapCenter([40.41, -3.70])}
+        style={{
+          position: 'absolute',
+          bottom: 90,
+          right: 20,
+          zIndex: 1000,
+          background: '#4f46e5',
+          color: 'white',
+          border: 'none',
+          width: 45,
+          height: 45,
+          borderRadius: '50%',
+          boxShadow: '0 10px 25px rgba(0,0,0,.4)',
+          cursor: 'pointer',
+          fontWeight: 900
+        }}
+      >
+        ⌖
+      </button>
+
+    </div>
+  )}
   ⌖
 <MapContainer
   center={[40.41, -3.70]}
