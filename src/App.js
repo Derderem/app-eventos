@@ -1433,76 +1433,95 @@ async function confirmSubmitEvent() {
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
 
         {view === 'map' && (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
-            <div style={{ position: 'absolute', top: 15, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
-              
-                <Search size={16} color="#6366f1" />
-                <input type="text" value={mapSearch} onChange={handleMapSearchChange} placeholder="Buscar ciudad, pueblo o lugar..." style={{ width: '100%', padding: 10, border: 'none', outline: 'none', fontWeight: 700, fontSize: 12, color: '#0f172a', background: 'transparent' }} />
-               </div>
-</div>
+  <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+    
+    {/* === BARRA DE BÚSQUEDA === */}
+    <div style={{
+      position: 'absolute',
+      top: 15,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 1000,
+      width: '85%',
+      maxWidth: 320
+    }}>
+      <Search size={16} color="#6366f1" />
+      <input
+        type="text"
+        value={mapSearch}
+        onChange={handleMapSearchChange}
+        placeholder="Buscar ciudad, pueblo o lugar..."
+        style={{
+          width: '100%',
+          padding: 10,
+          border: 'none',
+          outline: 'none',
+          fontWeight: 700,
+          fontSize: 12,
+          color: '#0f172a',
+          background: 'transparent'
+        }}
+      />
+      {mapSearch && (
+        <button
+          onClick={() => {
+            setMapSearch('');
+            setMapCenter(null);
+          }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#6366f1',
+            cursor: 'pointer',
+            fontWeight: 900
+          }}
+        >
+          X
+        </button>
+      )}
+    </div>
 
-<MapContainer
-  center={[40.41, -3.70]}
-  zoom={6}
-  style={{
-    height: '100%',
-    width: '100%',
-    borderRadius: 20,
-    overflow: 'hidden'
-  }}
-  scrollWheelZoom={true}
-  zoomControl={false}
->
+    {/* === MAPA === */}
+    <MapContainer
+      center={[40.41, -3.70]}
+      zoom={6}
+      style={{ height: '100%', width: '100%' }}
+    >
+      <TileLayer
+        url={isDark ? darkTileUrl : lightTileUrl}
+        attribution="© OpenStreetMap contributors"
+      />
+      {publicEvents.map(ev => (
+        ev.lat && ev.lng && (
+          <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={customPinIcon}>
+            <Popup>
+              <b>{ev.title}</b><br />
+              {ev.address}, {ev.localidad}
+            </Popup>
+          </Marker>
+        )
+      ))}
+    </MapContainer>
 
-  <MapResizer center={mapCenter} />
-
-  <TileLayer
-    url={isDark ? darkTileUrl : lightTileUrl}
-    attribution="Google Maps"
-    maxZoom={20}
-  />
-
-  {publicEvents.map(function(ev) {
-    if (!ev.lat || !ev.lng) return null;
-    return (
-      <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={redPinIcon}>
-        <Popup>
-          <div style={{ minWidth: 200 }}>
-            <p style={{ fontWeight: 900, fontSize: 14, marginBottom: 6 }}>
-              {ev.title}
-            </p>
-            <p style={{ fontSize: 11, marginBottom: 4 }}>
-              📍 {ev.city}
-            </p>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#6366f1' }}>
-              📅 {formatDate(ev.date)}
-            </p>
-          </div>
-        </Popup>
-      </Marker>
-    );
-  })}
-
-</MapContainer>
-
-<button
-  onClick={() => setMapCenter([40.41, -3.70])}
-  style={{
-    position: 'absolute',
-    bottom: 90,
-    right: 20,
-    zIndex: 1000,
-    background: '#4f46e5',
-    color: 'white',
-    border: 'none',
-    width: 45,
-    height: 45,
-    borderRadius: '50%',
-    boxShadow: '0 10px 25px rgba(0,0,0,.4)',
-    cursor: 'pointer',
-    fontWeight: 900
-  }}
->
+    {/* === BOTÓN CENTRAR MAPA === */}
+    <button
+      onClick={() => setMapCenter([40.41, -3.70])}
+      style={{
+        position: 'absolute',
+        bottom: 90,
+        right: 20,
+        zIndex: 1000,
+        background: '#4f46e5',
+        color: 'white',
+        border: 'none',
+        width: 45,
+        height: 45,
+        borderRadius: '50%',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
+        cursor: 'pointer',
+        fontWeight: 900
+      }}
+    >
   ⌖
 </button>
 >
