@@ -711,6 +711,7 @@ async function uploadImageToStorage(file) {
     } else {
       setForm(prev => ({ ...prev, image_url: url }));
     }
+    setSelectedPickerImage(null);
     setPickerConfig({ show: false, images: [], loading: false, isEdit: false });
     showToast('Foto seleccionada del catálogo', 'success');
   }
@@ -1342,7 +1343,10 @@ async function confirmSubmitEvent() {
             )}
 
             <button
-              onClick={() => setPickerConfig({ show: false, images: [], loading: false, isEdit: false })}
+              onClick={() => {
+    setPickerConfig({ show: false, images: [], loading: false, isEdit: false });
+    setSelectedPickerImage(null);
+  }}
               style={{ width: '100%', padding: 12, background: '#ef4444', color: 'white', border: 'none', borderRadius: 12, fontWeight: 900, marginTop: 15, cursor: 'pointer' }}
             >
               CANCELAR
@@ -1366,6 +1370,11 @@ async function confirmSubmitEvent() {
         @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
         .pulse-admin { animation:admin-pulse 1.4s infinite; }
         @keyframes heartPop { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(.9);} 100%{transform:scale(1);} }
+        @keyframes popIn {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
         .heart-pop { animation:heartPop .6s ease-out; }
         @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
       `}</style>
