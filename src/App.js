@@ -1523,7 +1523,44 @@ async function confirmSubmitEvent() {
                 <label style={{ padding: 10, background: '#1e293b', color: 'white', textAlign: 'center', borderRadius: 10, fontSize: 9, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                   {isUploading ? <Loader2 className="animate-spin" size={14} /> : <Sparkles size={14} />}
                   {isUploading ? 'SUBIENDO...' : 'SUBIR MI FOTO'}
-                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleGalleryUpload} />
+                  <input 
+  type="file" 
+  accept="image/*" 
+  style={{ display: 'none' }} 
+  onChange={async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    // Validar que sea imagen
+    if (!file.type.startsWith('image/')) {
+      showToast('El archivo seleccionado no es una imagen.', 'error');
+      e.target.value = '';
+      return;
+    }
+
+    // Validar tamaño máximo (8MB)
+    if (file.size > 8 * 1024 * 1024) {
+      showToast(`La foto es demasiado grande (${(file.size / 1024 / 1024).toFixed(1)}MB). Máximo 8MB.`, 'error');
+      e.target.value = '';
+      return;
+    }
+
+    setIsUploading(true);
+    showToast('Optimizando imagen...', 'info');
+
+    try {
+      const result = await uploadImageToStorage(file);
+      setForm((prev) => ({ ...prev, image_url: result.url }));
+      showToast('Imagen subida (' + Math.round(result.compressedSize / 1024) + 'KB)', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || 'Error al subir la imagen', 'error');
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  }} 
+/>
                 </label>
               </div>
 
