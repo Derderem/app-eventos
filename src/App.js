@@ -1438,10 +1438,53 @@ async function confirmSubmitEvent() {
               
                 <Search size={16} color="#6366f1" />
                 <input type="text" value={mapSearch} onChange={handleMapSearchChange} placeholder="Buscar ciudad, pueblo o lugar..." style={{ width: '100%', padding: 10, border: 'none', outline: 'none', fontWeight: 700, fontSize: 12, color: '#0f172a', background: 'transparent' }} />
-                {mapSearch && <button onClick={function() { setMapSearch(''); setMapCenter(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontWeight: 900 }}>X</button>}
-              </div>
-            </div>
-            <MapContainer
+               </div>
+</div>
+
+<MapContainer
+  center={[40.41, -3.70]}
+  zoom={6}
+  style={{
+    height: '100%',
+    width: '100%',
+    borderRadius: 20,
+    overflow: 'hidden'
+  }}
+  scrollWheelZoom={true}
+  zoomControl={false}
+>
+
+  <MapResizer center={mapCenter} />
+
+  <TileLayer
+    url={isDark ? darkTileUrl : lightTileUrl}
+    attribution="Google Maps"
+    maxZoom={20}
+  />
+
+  {publicEvents.map(function(ev) {
+    if (!ev.lat || !ev.lng) return null;
+    return (
+      <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={redPinIcon}>
+        <Popup>
+          <div style={{ minWidth: 200 }}>
+            <p style={{ fontWeight: 900, fontSize: 14, marginBottom: 6 }}>
+              {ev.title}
+            </p>
+            <p style={{ fontSize: 11, marginBottom: 4 }}>
+              📍 {ev.city}
+            </p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#6366f1' }}>
+              📅 {formatDate(ev.date)}
+            </p>
+          </div>
+        </Popup>
+      </Marker>
+    );
+  })}
+
+</MapContainer>
+
 <button
   onClick={() => setMapCenter([40.41, -3.70])}
   style={{
@@ -1459,6 +1502,9 @@ async function confirmSubmitEvent() {
     cursor: 'pointer',
     fontWeight: 900
   }}
+>
+  ⌖
+</button>
 >
   ⌖
 </button>
