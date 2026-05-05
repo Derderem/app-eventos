@@ -1519,15 +1519,67 @@ async function confirmSubmitEvent() {
               </div>
 
               {form.image_url && (
-                <img key={form.image_url} src={form.image_url} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 10 }} />
-              )}
-              
-              <button onClick={handleSubmitEvent} disabled={isSubmitting} style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
-                {isSubmitting ? 'Enviando...' : 'ENVIAR REVISIÓN'}
-              </button>
-            </div>
-          </div>
-        )}
+  <div style={{ position: 'relative', marginTop: 6 }}>
+    <img
+      key={form.image_url}
+      src={form.image_url}
+      alt=""
+      style={{
+        width: '100%',
+        height: 130,
+        objectFit: 'cover',
+        borderRadius: 12,
+        display: 'block'
+      }}
+    />
+
+    {/* BOTÓN QUITAR FOTO */}
+    <button
+      onClick={() => {
+        setForm(prev => ({ ...prev, image_url: '' }));
+        showToast('Foto eliminada', 'info');
+      }}
+      style={{
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        background: 'rgba(239,68,68,0.95)',
+        color: 'white',
+        border: '2px solid white',
+        borderRadius: '50%',
+        width: 32,
+        height: 32,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+        padding: 0
+      }}
+      title="Quitar foto"
+    >
+      <X size={16} strokeWidth={3} />
+    </button>
+
+    {/* INDICADOR FOTO LISTA */}
+    <div style={{
+      position: 'absolute',
+      bottom: 8,
+      left: 8,
+      background: 'rgba(34,197,94,0.95)',
+      color: 'white',
+      padding: '3px 8px',
+      borderRadius: 6,
+      fontSize: 9,
+      fontWeight: 900,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4
+    }}>
+      <CheckCircle size={11} /> FOTO LISTA
+    </div>
+  </div>
+)}
 
         {view === 'admin' && editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
