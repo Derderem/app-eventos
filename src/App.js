@@ -1094,7 +1094,7 @@ async function confirmSubmitEvent() {
  Revisa que todos los datos sean correctos antes de enviar el evento a revisión.
  </p>
 
- {form.image_url && (
+{form.image_url && (
   <div style={{ position: 'relative', marginTop: 4 }}>
     <img
       key={form.image_url}
@@ -1146,6 +1146,13 @@ async function confirmSubmitEvent() {
     </div>
   </div>
 )}
+
+          <button onClick={handleSubmitEvent} disabled={isSubmitting} style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
+            {isSubmitting ? 'Enviando...' : 'ENVIAR REVISIÓN'}
+          </button>
+        </div>
+      </div>
+    )}
 
  <div style={{ display: 'grid', gap: 10, marginBottom: 15 }}>
  <div style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 12 }}>
