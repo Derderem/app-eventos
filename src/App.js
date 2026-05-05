@@ -1435,16 +1435,7 @@ async function confirmSubmitEvent() {
         {view === 'map' && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
             <div style={{ position: 'absolute', top: 15, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
-              <<div style={{>
-  background: 'rgba(255,255,255,0.95)',
-  backdropFilter: 'blur(10px)',
-  borderRadius: 20,
-  padding: '6px 14px',
-  display: 'flex',
-  alignItems: 'center',
-  boxShadow: '0 15px 30px rgba(0,0,0,.25)',
-  border: '1px solid rgba(0,0,0,0.05)'
-}}>
+              
                 <Search size={16} color="#6366f1" />
                 <input type="text" value={mapSearch} onChange={handleMapSearchChange} placeholder="Buscar ciudad, pueblo o lugar..." style={{ width: '100%', padding: 10, border: 'none', outline: 'none', fontWeight: 700, fontSize: 12, color: '#0f172a', background: 'transparent' }} />
                 {mapSearch && <button onClick={function() { setMapSearch(''); setMapCenter(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontWeight: 900 }}>X</button>}
