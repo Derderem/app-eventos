@@ -372,6 +372,7 @@ export default function App() {
   
   const [isUploading, setIsUploading] = useState(false);
   const [pickerConfig, setPickerConfig] = useState({ show: false, images: [], loading: false, isEdit: false });
+  const [selectedPickerImage, setSelectedPickerImage] = useState(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
@@ -1280,15 +1281,27 @@ async function confirmSubmitEvent() {
               </div>
             ) : (
               <div className="no-scrollbar" style={{
-                display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10,
+                display: 'grid', gridTemplateColumns: '1fr', gap: 14,
                 overflowY: 'auto', flex: 1, paddingBottom: 10
               }}>
                 {pickerConfig.images.map((url, i) => (
-                  <div key={i}
-                    onClick={() => handleSelectPickerImage(url)}
-                    style={{ borderRadius: 12, overflow: 'hidden', cursor: 'pointer', border: '2px solid transparent' }}
-                  >
-                    <img src={url} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }} />
+                  <div
+  key={i}
+  onClick={() => {
+    setSelectedPickerImage(url);
+    handleSelectPickerImage(url);
+  }}
+  style={{
+    borderRadius: 18,
+    overflow: 'hidden',
+    cursor: 'pointer',
+    border: selectedPickerImage === url
+      ? '4px solid #bef264'
+      : '3px solid transparent',
+    transition: 'all 0.2s ease'
+  }}
+>
+                    <img src={url} alt="" style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
                   </div>
                 ))}
               </div>
