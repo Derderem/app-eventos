@@ -1281,29 +1281,63 @@ async function confirmSubmitEvent() {
               </div>
             ) : (
               <div className="no-scrollbar" style={{
-                display: 'grid', gridTemplateColumns: '1fr', gap: 14,
+                display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10,
                 overflowY: 'auto', flex: 1, paddingBottom: 10
               }}>
-                {pickerConfig.images.map((url, i) => (
-                  <div
-  key={i}
-  onClick={() => {
-    setSelectedPickerImage(url);
-    handleSelectPickerImage(url);
-  }}
-  style={{
-    borderRadius: 18,
-    overflow: 'hidden',
-    cursor: 'pointer',
-    border: selectedPickerImage === url
-      ? '4px solid #bef264'
-      : '3px solid transparent',
-    transition: 'all 0.2s ease'
-  }}
->
-                    <img src={url} alt="" style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
-                  </div>
-                ))}
+                {pickerConfig.images.map((url, i) => {
+  const isSelected = selectedPickerImage === url;
+  return (
+    <div
+      key={i}
+      onClick={() => {
+        setSelectedPickerImage(url);
+        setTimeout(() => handleSelectPickerImage(url), 200);
+      }}
+      style={{
+        position: 'relative',
+        borderRadius: 14,
+        overflow: 'hidden',
+        cursor: 'pointer',
+        border: isSelected ? '4px solid #bef264' : '3px solid transparent',
+        boxShadow: isSelected
+          ? '0 0 0 4px rgba(190,242,100,0.35), 0 8px 20px rgba(0,0,0,0.4)'
+          : '0 4px 12px rgba(0,0,0,0.3)',
+        transform: isSelected ? 'scale(0.96)' : 'scale(1)',
+        transition: 'all 0.25s ease'
+      }}
+    >
+      <img
+        src={url}
+        alt=""
+        style={{
+          width: '100%',
+          height: 150,
+          objectFit: 'cover',
+          display: 'block'
+        }}
+      />
+      {isSelected && (
+        <div style={{
+          position: 'absolute',
+          top: 6,
+          right: 6,
+          background: '#bef264',
+          color: '#0f172a',
+          borderRadius: '50%',
+          width: 28,
+          height: 28,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 4px 10px rgba(0,0,0,0.4)',
+          animation: 'popIn 0.25s ease-out'
+        }}>
+          <CheckCircle size={20} strokeWidth={3} />
+        </div>
+      )}
+    </div>
+  );
+})}
               </div>
             )}
 
