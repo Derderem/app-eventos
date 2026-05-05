@@ -1435,7 +1435,7 @@ async function confirmSubmitEvent() {
         {view === 'map' && (
   <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
     
-    {/* === BARRA DE BÚSQUEDA === */}
+    {/* Barra de búsqueda */}
     <div style={{
       position: 'absolute',
       top: 15,
@@ -1468,42 +1468,45 @@ async function confirmSubmitEvent() {
             setMapSearch('');
             setMapCenter(null);
           }}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#6366f1',
-            cursor: 'pointer',
-            fontWeight: 900
-          }}
+          style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontWeight: 900 }}
         >
           X
         </button>
       )}
     </div>
 
-    {/* === MAPA === */}
+    {/* MAPA */}
     <MapContainer
       center={[40.41, -3.70]}
       zoom={6}
       style={{ height: '100%', width: '100%' }}
+      scrollWheelZoom={true}
     >
       <TileLayer
         url={isDark ? darkTileUrl : lightTileUrl}
-        attribution="© OpenStreetMap contributors"
+        attribution='© OpenStreetMap'
       />
-      {publicEvents.map(ev => (
-        ev.lat && ev.lng && (
+
+      {publicEvents.map(ev => {
+        if (!ev.lat || !ev.lng) return null;
+        return (
           <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={customPinIcon}>
             <Popup>
-              <b>{ev.title}</b><br />
-              {ev.address}, {ev.localidad}
+              <div style={{ minWidth: 200 }}>
+                <p style={{ fontWeight: 900, marginBottom: 4 }}>{ev.title}</p>
+                <p style={{ fontSize: 13, color: '#64748b' }}>
+                  {ev.address}, {ev.localidad}
+                </p>
+              </div>
             </Popup>
           </Marker>
-        )
-      ))}
+        );
+      })}
+
+      <MapResizer center={mapCenter} />
     </MapContainer>
 
-    {/* === BOTÓN CENTRAR MAPA === */}
+    {/* Botón centrar mapa */}
     <button
       onClick={() => setMapCenter([40.41, -3.70])}
       style={{
@@ -1522,9 +1525,10 @@ async function confirmSubmitEvent() {
         fontWeight: 900
       }}
     >
-  ⌖
-</button>
->
+      ⌂
+    </button>
+  </div>
+)}
   ⌖
 </button>
   center={[40.41, -3.70]} 
