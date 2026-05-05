@@ -89,8 +89,9 @@ function cleanImageUrl(url) {
 }
 
 async function compressImage(file, options = {}) {
-  const maxSize = options.maxSize || 1600;
-  const quality = options.quality || 0.82;
+  const maxSize = options.maxSize || 1280;        // antes 1600 → ahora más pequeño
+  const quality = options.quality || 0.72;        // antes 0.82 → más compresión
+  const maxFinalSizeKB = options.maxFinalSizeKB || 500; // objetivo: máx 500KB
 
   if (!file || !file.type || file.type.indexOf('image/') !== 0) {
     throw new Error('Archivo no válido');
@@ -107,6 +108,72 @@ async function compressImage(file, options = {}) {
       image.src = URL.createObjectURL(file);
     });
   }
+
+  let targetWidth = img.width;
+  let targetHeight = img.height;
+
+  if (img.width > maxSize || img.height > maxSize) {
+    if (img.width > img.height) {
+      targetWidth = maxSize;
+      targetHeight = Math.round((img.height * maxSize) / img.width);
+    } else {
+      targetHeight = maxSize;
+      targetWidth = Math.round((img.width * maxSize) / img.height);
+    }
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+  // Intentamos varias calidades hasta lograr el objetivo de tamaño
+  let currentQuality = quality;
+  let blob = null;
+  let extension = 'webp';
+  let type = 'image/webp';
+
+  for (let i = 0; i < 4; i++) {
+    blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, 'image/webp', currentQuality)
+    );
+
+    if (blob && blob.size / 1024 <= maxFinalSizeKB) break;
+    currentQuality -= 0.15; // bajamos calidad si pesa mucho
+    if (currentQuality < 0.3) currentQuality = 0.3;
+  }
+
+  // Si no se pudo generar webp, probamos jpeg
+  if (!blob || blob.size === 0) {
+    blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', quality)
+    );
+    extension = 'jpg';
+    type = 'image/jpeg';
+  }
+
+  if (!blob) {
+    return {
+      blob: file,
+      extension: file.name.split('.').pop() || 'jpg',
+      type: file.type,
+      originalSize: file.size,
+      compressedSize: file.size
+    };
+  }
+
+  return {
+    blob,
+    extension,
+    type,
+    originalSize: file.size,
+    compressedSize: blob.size
+  };
+}
+
 
   let targetWidth = img.width;
   let targetHeight = img.height;
@@ -604,58 +671,113 @@ export default function App() {
   }
 
   async function uploadImageToStorage(file) {
-    if (!file) throw new Error('No hay imagen');
-    if (!file.type || file.type.indexOf('image/') !== 0) throw new Error('Selecciona una imagen válida');
-    if (file.size > 12 * 1024 * 1024) throw new Error('La imagen es demasiado grande. Máximo 12MB');
-
-    const optimized = await compressImage(file, { maxSize: 1600, quality: 0.82 });
-    const safeName = Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + optimized.extension;
-    const path = 'uploads/' + safeName;
-
-    const upload = await supabase.storage.from('event-images').upload(path, optimized.blob, {
-      cacheControl: '3600', upsert: false, contentType: optimized.type
-    });
-    if (upload.error) throw upload.error;
-
-    const publicUrlData = supabase.storage.from('event-images').getPublicUrl(path);
-    return { url: publicUrlData.data.publicUrl, originalSize: optimized.originalSize, compressedSize: optimized.compressedSize };
+  if (!file) throw new Error('No hay imagen');
+  if (!file.type || file.type.indexOf('image/') !== 0) {
+    throw new Error('Selecciona una imagen válida (JPG, PNG o WEBP)');
   }
+
+  const sizeMB = file.size / (1024 * 1024);
+
+  // Bloqueamos imágenes demasiado grandes
+  if (sizeMB > 15) {
+    throw new Error('La imagen pesa ' + sizeMB.toFixed(1) + 'MB. Máximo permitido: 15MB');
+  }
+
+  // Aviso si es muy grande (pero aún se puede comprimir)
+  if (sizeMB > 8) {
+    showToast('Imagen muy grande (' + sizeMB.toFixed(1) + 'MB), comprimiendo al máximo...', 'warning');
+  }
+
+  const optimized = await compressImage(file, {
+    maxSize: 1280,
+    quality: 0.72,
+    maxFinalSizeKB: 500
+  });
+
+  // Si después de comprimir sigue siendo enorme, avisamos
+  const finalKB = optimized.compressedSize / 1024;
+  if (finalKB > 800) {
+    showToast('La foto sigue pesando ' + Math.round(finalKB) + 'KB. Considera usar otra.', 'warning');
+  }
+
+  const safeName = Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + optimized.extension;
+  const path = 'uploads/' + safeName;
+
+  const upload = await supabase.storage.from('event-images').upload(path, optimized.blob, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: optimized.type
+  });
+
+  if (upload.error) throw upload.error;
+
+  const publicUrlData = supabase.storage.from('event-images').getPublicUrl(path);
+  return {
+    url: publicUrlData.data.publicUrl,
+    originalSize: optimized.originalSize,
+    compressedSize: optimized.compressedSize
+  };
+}
 
   async function handleGalleryUpload(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    setIsUploading(true);
-    showToast('Optimizando imagen...', 'info');
-    try {
-      const result = await uploadImageToStorage(file);
-      setForm((prev) => ({ ...prev, image_url: result.url }));
-      showToast('Imagen subida (' + Math.round(result.compressedSize / 1024) + 'KB)', 'success');
-    } catch (err) {
-      console.error(err);
-      showToast(err.message || 'Error subiendo imagen', 'error');
-    } finally {
-      setIsUploading(false);
-      e.target.value = '';
-    }
-  }
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
 
-  async function handleEditGalleryUpload(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    setIsUploading(true);
-    showToast('Optimizando nueva imagen...', 'info');
-    try {
-      const result = await uploadImageToStorage(file);
-      setEditForm((prev) => ({ ...prev, image_url: result.url }));
-      showToast('Nueva imagen subida (' + Math.round(result.compressedSize / 1024) + 'KB)', 'success');
-    } catch (err) {
-      console.error(err);
-      showToast(err.message || 'Error subiendo imagen', 'error');
-    } finally {
-      setIsUploading(false);
-      e.target.value = '';
-    }
+  const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+
+  setIsUploading(true);
+  showToast('Procesando imagen (' + sizeMB + 'MB)...', 'info');
+
+  try {
+    const result = await uploadImageToStorage(file);
+    setForm((prev) => ({ ...prev, image_url: result.url }));
+
+    const originalKB = Math.round(result.originalSize / 1024);
+    const finalKB = Math.round(result.compressedSize / 1024);
+    const reduction = Math.round((1 - result.compressedSize / result.originalSize) * 100);
+
+    showToast(
+      'Foto lista: ' + originalKB + 'KB → ' + finalKB + 'KB (-' + reduction + '%)',
+      'success'
+    );
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || 'Error subiendo imagen', 'error');
+  } finally {
+    setIsUploading(false);
+    e.target.value = '';
   }
+}
+
+async function handleEditGalleryUpload(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+
+  const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+
+  setIsUploading(true);
+  showToast('Procesando nueva imagen (' + sizeMB + 'MB)...', 'info');
+
+  try {
+    const result = await uploadImageToStorage(file);
+    setEditForm((prev) => ({ ...prev, image_url: result.url }));
+
+    const originalKB = Math.round(result.originalSize / 1024);
+    const finalKB = Math.round(result.compressedSize / 1024);
+    const reduction = Math.round((1 - result.compressedSize / result.originalSize) * 100);
+
+    showToast(
+      'Nueva foto lista: ' + originalKB + 'KB → ' + finalKB + 'KB (-' + reduction + '%)',
+      'success'
+    );
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || 'Error subiendo imagen', 'error');
+  } finally {
+    setIsUploading(false);
+    e.target.value = '';
+  }
+}
 
   async function handleOpenPicker(isEdit) {
     const category = isEdit ? editForm.category : form.category;
