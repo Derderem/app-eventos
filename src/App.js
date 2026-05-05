@@ -1094,7 +1094,7 @@ async function confirmSubmitEvent() {
  Revisa que todos los datos sean correctos antes de enviar el evento a revisión.
  </p>
 
-{form.image_url && (
+ {form.image_url && (
   <div style={{ position: 'relative', marginTop: 4 }}>
     <img
       key={form.image_url}
@@ -1146,13 +1146,6 @@ async function confirmSubmitEvent() {
     </div>
   </div>
 )}
-
-          <button onClick={handleSubmitEvent} disabled={isSubmitting} style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
-            {isSubmitting ? 'Enviando...' : 'ENVIAR REVISIÓN'}
-          </button>
-        </div>
-      </div>
-    )}
 
  <div style={{ display: 'grid', gap: 10, marginBottom: 15 }}>
  <div style={{ background: 'rgba(99,102,241,.1)', padding: 10, borderRadius: 12 }}>
@@ -1526,57 +1519,15 @@ async function confirmSubmitEvent() {
               </div>
 
               {form.image_url && (
-  <div style={{ position: 'relative', marginTop: 4 }}>
-    <img
-      key={form.image_url}
-      src={form.image_url}
-      alt=""
-      style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 10, display: 'block' }}
-    />
-    <button
-      onClick={() => {
-        setForm((prev) => ({ ...prev, image_url: '' }));
-        showToast('Foto eliminada', 'info');
-      }}
-      style={{
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        background: 'rgba(239,68,68,0.95)',
-        color: 'white',
-        border: '2px solid white',
-        borderRadius: '50%',
-        width: 32,
-        height: 32,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-        padding: 0
-      }}
-      title="Quitar foto"
-    >
-      <X size={16} strokeWidth={3} />
-    </button>
-    <div style={{
-      position: 'absolute',
-      bottom: 8,
-      left: 8,
-      background: 'rgba(34,197,94,0.95)',
-      color: 'white',
-      padding: '3px 8px',
-      borderRadius: 6,
-      fontSize: 9,
-      fontWeight: 900,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 4
-    }}>
-      <CheckCircle size={11} /> FOTO LISTA
-    </div>
-  </div>
-)}
+                <img key={form.image_url} src={form.image_url} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 10 }} />
+              )}
+              
+              <button onClick={handleSubmitEvent} disabled={isSubmitting} style={{ width: '100%', background: '#4f46e5', color: 'white', padding: 13, borderRadius: 10, border: 'none', fontWeight: 900, fontSize: 11, cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
+                {isSubmitting ? 'Enviando...' : 'ENVIAR REVISIÓN'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {view === 'admin' && editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
