@@ -633,22 +633,38 @@ async function uploadImageToStorage(file) {
 }
 
   async function handleEditGalleryUpload(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    setIsUploading(true);
-    showToast('Optimizando nueva imagen...', 'info');
-    try {
-      const result = await uploadImageToStorage(file);
-      setEditForm((prev) => ({ ...prev, image_url: result.url }));
-      showToast('Nueva imagen subida (' + Math.round(result.compressedSize / 1024) + 'KB)', 'success');
-    } catch (err) {
-      console.error(err);
-      showToast(err.message || 'Error subiendo imagen', 'error');
-    } finally {
-      setIsUploading(false);
-      e.target.value = '';
-    }
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+
+  // Mismas validaciones previas para la pantalla de edición
+  if (!file.type.startsWith('image/')) {
+    showToast('El archivo seleccionado no es una imagen.', 'error');
+    e.target.value = '';
+    return;
   }
+
+  const MAX_MB = 8;
+  if (file.size > MAX_MB * 1024 * 1024) {
+    showToast(`La foto pesa demasiado (${(file.size / 1024 / 1024).toFixed(1)}MB). El máximo es ${MAX_MB}MB.`, 'error');
+    e.target.value = '';
+    return;
+  }
+
+  setIsUploading(true);
+  showToast('Reduciendo y optimizando foto...', 'info');
+  
+  try {
+    const result = await uploadImageToStorage(file);
+    setEditForm((prev) => ({ ...prev, image_url: result.url }));
+    showToast('Nueva imagen subida (' + Math.round(result.compressedSize / 1024) + 'KB)', 'success');
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || 'Error subiendo imagen', 'error');
+  } finally {
+    setIsUploading(false);
+    e.target.value = '';
+  }
+}
 
   async function handleOpenPicker(isEdit) {
     const category = isEdit ? editForm.category : form.category;
