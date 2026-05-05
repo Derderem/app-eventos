@@ -1435,7 +1435,7 @@ async function confirmSubmitEvent() {
         {view === 'map' && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
             <div style={{ position: 'absolute', top: 15, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '85%', maxWidth: 320 }}>
-              <<div style={{
+              <<div style={{>
   background: 'rgba(255,255,255,0.95)',
   backdropFilter: 'blur(10px)',
   borderRadius: 20,
