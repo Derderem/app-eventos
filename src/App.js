@@ -9,7 +9,7 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import Calendar from 'react-calendar';
+import ReactCalendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -1684,7 +1684,7 @@ async function confirmSubmitEvent() {
 
       </div>
 
-      <Calendar
+      <ReactCalendar
         locale="es-ES"
         showDoubleView={true}
         prev2Label={null}
