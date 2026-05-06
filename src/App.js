@@ -2377,7 +2377,6 @@ async function confirmSubmitEvent() {
 </div>
 </div>
 )}
-</main>
 
       <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,.4)', zIndex: 3000, background: isDark ? 'rgba(15,23,42,.95)' : 'rgba(255,255,255,.95)' }}>
         <button onClick={goHome} style={{ background: 'none', border: 'none', color: (view === 'home' || currentPath.startsWith('/evento/')) ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
@@ -2397,6 +2396,8 @@ async function confirmSubmitEvent() {
         </button>
       </nav>
 
-    </div>
-  );
+</main>
+
+</div>
+);
 }
