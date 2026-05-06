@@ -1823,6 +1823,33 @@ async function confirmSubmitEvent() {
 
   })}
 
+  <div style={{ display: 'flex', gap: 6, padding: '6px 12px', flexShrink: 0 }}>
+
+  {[{ k: 'all', l: 'TODOS' }, { k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }].map(function(f) {
+
+    return (
+      <button
+        key={f.k}
+        onClick={function() {
+          setDateFilter(f.k);
+        }}
+        style={{
+          padding: '5px 10px',
+          borderRadius: 10,
+          border: 'none',
+          background: dateFilter === f.k ? '#22c55e' : 'transparent',
+          color: dateFilter === f.k ? 'white' : '#6366f1',
+          fontSize: 8,
+          fontWeight: 900,
+          cursor: 'pointer'
+        }}
+      >
+        {f.l}
+      </button>
+    );
+
+  })}
+
   <button
     onClick={() => setShowCalendar(true)}
     style={{
@@ -1840,9 +1867,6 @@ async function confirmSubmitEvent() {
   </button>
 
 </div>
-                return <button key={f.k} onClick={function() { setDateFilter(f.k); }} style={{ padding: '5px 10px', borderRadius: 10, border: 'none', background: dateFilter === f.k ? '#22c55e' : 'transparent', color: dateFilter === f.k ? 'white' : '#6366f1', fontSize: 8, fontWeight: 900, cursor: 'pointer' }}>{f.l}</button>;
-              })}
-            </div>
 
             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, padding: '8px 12px', overflowX: 'auto', flexShrink: 0 }}>
               {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINO', 'FIESTAS PATRONALES', 'OTROS'].map(function(cat) {
