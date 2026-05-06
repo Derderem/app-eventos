@@ -1797,21 +1797,49 @@ async function confirmSubmitEvent() {
             </div>
 
             <div style={{ display: 'flex', gap: 6, padding: '6px 12px', flexShrink: 0 }}>
-              {[{ k: 'all', l: 'TODOS' }, { k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }].map(function(f)<button
-  onClick={() => setShowCalendar(true)}
-  style={{
-    padding: '5px 10px',
-    borderRadius: 10,
-    border: 'none',
-    background: '#4f46e5',
-    color: 'white',
-    fontSize: 8,
-    fontWeight: 900,
-    cursor: 'pointer'
-  }}
->
-  CALENDARIO
-</button> {
+
+  {[{ k: 'all', l: 'TODOS' }, { k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }].map(function(f) {
+
+    return (
+      <button
+        key={f.k}
+        onClick={function() {
+          setDateFilter(f.k);
+        }}
+        style={{
+          padding: '5px 10px',
+          borderRadius: 10,
+          border: 'none',
+          background: dateFilter === f.k ? '#22c55e' : 'transparent',
+          color: dateFilter === f.k ? 'white' : '#6366f1',
+          fontSize: 8,
+          fontWeight: 900,
+          cursor: 'pointer'
+        }}
+      >
+        {f.l}
+      </button>
+    );
+
+  })}
+
+  <button
+    onClick={() => setShowCalendar(true)}
+    style={{
+      padding: '5px 10px',
+      borderRadius: 10,
+      border: 'none',
+      background: '#4f46e5',
+      color: 'white',
+      fontSize: 8,
+      fontWeight: 900,
+      cursor: 'pointer'
+    }}
+  >
+    CALENDARIO
+  </button>
+
+</div>
                 return <button key={f.k} onClick={function() { setDateFilter(f.k); }} style={{ padding: '5px 10px', borderRadius: 10, border: 'none', background: dateFilter === f.k ? '#22c55e' : 'transparent', color: dateFilter === f.k ? 'white' : '#6366f1', fontSize: 8, fontWeight: 900, cursor: 'pointer' }}>{f.l}</button>;
               })}
             </div>
