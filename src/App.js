@@ -1570,48 +1570,53 @@ async function confirmSubmitEvent() {
       </Marker>
     );
   })}
+{publicEvents.map(function(ev) {
+  if (!ev.lat || !ev.lng) return null;
+
+  return (
+    <Marker
+      key={ev.id}
+      position={[ev.lat, ev.lng]}
+      icon={redPinIcon}
+    >
+      <Popup>
+        <div style={{
+          minWidth: 200,
+          padding: 5
+        }}>
+          <p style={{
+            fontWeight: 900,
+            fontSize: 14,
+            marginBottom: 6,
+            color: '#0f172a'
+          }}>
+            {ev.title}
+          </p>
+
+          <p style={{
+            fontSize: 11,
+            marginBottom: 4,
+            color: '#334155'
+          }}>
+            {ev.city}
+          </p>
+
+          <p style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: '#6366f1'
+          }}>
+            {formatDate(ev.date)}
+          </p>
+        </div>
+      </Popup>
+    </Marker>
+  );
+})}
+
 </MapContainer>
-              {publicEvents.map(function(ev) {
-                if (!ev.lat || !ev.lng) return null;
-                return (
-                  <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={redPinIcon}>
-                    <Popup>
-  <div style={{
-    minWidth: 200,
-    padding: 5
-  }}>
-    <p style={{
-      fontWeight: 900,
-      fontSize: 14,
-      marginBottom: 6,
-      color: '#0f172a'
-    }}>
-      {ev.title}
-    </p>
-
-    <p style={{
-      fontSize: 11,
-      marginBottom: 4,
-      color: '#334155'
-    }}>
-      📍 {ev.city}
-    </p>
-
-    <p style={{
-      fontSize: 11,
-      fontWeight: 700,
-      color: '#6366f1'
-    }}>
-      📅 {formatDate(ev.date)}
-    </p>
-  </div>
-</Popup>
-                  </Marker>
-                );
-              })}
-            </MapContainer>
-          </div>
-        )}
+</div>
+)}
 
         {view === 'home' && !selectedEvent && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
