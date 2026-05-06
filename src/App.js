@@ -9,6 +9,8 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import Calendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
 
 delete L.Icon.Default.prototype._getIconUrl;
 
@@ -416,6 +418,8 @@ export default function App() {
   });
 
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
   const [photoScale, setPhotoScale] = useState(1);
   const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
 
@@ -1417,7 +1421,29 @@ async function confirmSubmitEvent() {
   50% { transform: scale(1.15); }
   100% { transform: scale(1); }
 }
-      `}</style>
+      .react-calendar {
+  width: 100%;
+  border: none;
+  border-radius: 16px;
+  padding: 10px;
+  background: transparent;
+  font-family: inherit;
+}
+
+.react-calendar__tile {
+  border-radius: 10px;
+}
+
+.react-calendar__tile--active {
+  background: #4f46e5 !important;
+  color: white !important;
+}
+
+.react-calendar__navigation button {
+  font-weight: 900;
+  color: #6366f1;
+}
+`}</style>
 
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
         <div style={{ cursor: 'pointer' }} onClick={goHome}>
@@ -1600,7 +1626,167 @@ async function confirmSubmitEvent() {
   </div>
 )}
 
-        {view === 'home' && !selectedEvent && (
+        {showCalendar && (
+  <div style={{
+    position: 'fixed',
+    inset: 0,
+    zIndex: 999999,
+    background: 'rgba(0,0,0,0.82)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12
+  }}>
+
+    <div
+      className={isDark ? 'card-dark' : 'card-light'}
+      style={{
+        width: '100%',
+        maxWidth: 430,
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        borderRadius: 20,
+        padding: 15
+      }}
+    >
+
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15
+      }}>
+
+        <h2 style={{
+          fontSize: 15,
+          fontWeight: 900
+        }}>
+          CALENDARIO EVENTOS
+        </h2>
+
+        <button
+          onClick={() => {
+            setShowCalendar(false);
+            setSelectedCalendarDate(null);
+          }}
+          style={{
+            background: '#ef4444',
+            color: 'white',
+            border: 'none',
+            borderRadius: 10,
+            padding: '6px 10px',
+            fontWeight: 900,
+            cursor: 'pointer'
+          }}
+        >
+          X
+        </button>
+
+      </div>
+
+      <Calendar
+        locale="es-ES"
+        showDoubleView={true}
+        prev2Label={null}
+        next2Label={null}
+
+        onClickDay={(date) => {
+          setSelectedCalendarDate(date);
+        }}
+
+        tileContent={({ date, view }) => {
+
+          if (view !== 'month') return null;
+
+          const formatted =
+            date.toISOString().split('T')[0];
+
+          const hasEvents = publicEvents.some(
+            ev => ev.date === formatted
+          );
+
+          if (!hasEvents) return null;
+
+          return (
+            <div style={{
+              marginTop: 2,
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#22c55e',
+              marginLeft: 'auto',
+              marginRight: 'auto'
+            }} />
+          );
+        }}
+      />
+
+      {selectedCalendarDate && (
+
+        <div style={{ marginTop: 20 }}>
+
+          <h3 style={{
+            fontSize: 13,
+            fontWeight: 900,
+            marginBottom: 10
+          }}>
+            EVENTOS DEL DÍA
+          </h3>
+
+          {publicEvents
+            .filter(ev => {
+
+              const selected =
+                selectedCalendarDate
+                  .toISOString()
+                  .split('T')[0];
+
+              return ev.date === selected;
+            })
+            .map(ev => (
+
+              <div
+                key={ev.id}
+                onClick={() => {
+                  setShowCalendar(false);
+                  openEvent(ev);
+                }}
+                style={{
+                  padding: 10,
+                  borderRadius: 12,
+                  marginBottom: 8,
+                  background: 'rgba(99,102,241,.1)',
+                  cursor: 'pointer'
+                }}
+              >
+
+                <p style={{
+                  fontWeight: 900,
+                  fontSize: 12
+                }}>
+                  {ev.title}
+                </p>
+
+                <p style={{
+                  fontSize: 10,
+                  color: '#6366f1'
+                }}>
+                  {ev.city} · {ev.time}
+                </p>
+
+              </div>
+
+          ))}
+
+        </div>
+
+      )}
+
+    </div>
+
+  </div>
+)}
+{view === 'home' && !selectedEvent && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '8px 12px', flexShrink: 0, background: isDark ? '#020617' : '#f8fafc' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 12, padding: '6px 12px' }}>
@@ -1611,7 +1797,21 @@ async function confirmSubmitEvent() {
             </div>
 
             <div style={{ display: 'flex', gap: 6, padding: '6px 12px', flexShrink: 0 }}>
-              {[{ k: 'all', l: 'TODOS' }, { k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }].map(function(f) {
+              {[{ k: 'all', l: 'TODOS' }, { k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }].map(function(f)<button
+  onClick={() => setShowCalendar(true)}
+  style={{
+    padding: '5px 10px',
+    borderRadius: 10,
+    border: 'none',
+    background: '#4f46e5',
+    color: 'white',
+    fontSize: 8,
+    fontWeight: 900,
+    cursor: 'pointer'
+  }}
+>
+  CALENDARIO
+</button> {
                 return <button key={f.k} onClick={function() { setDateFilter(f.k); }} style={{ padding: '5px 10px', borderRadius: 10, border: 'none', background: dateFilter === f.k ? '#22c55e' : 'transparent', color: dateFilter === f.k ? 'white' : '#6366f1', fontSize: 8, fontWeight: 900, cursor: 'pointer' }}>{f.l}</button>;
               })}
             </div>
