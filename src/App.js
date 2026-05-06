@@ -1434,7 +1434,7 @@ async function confirmSubmitEvent() {
 
         {view === 'map' && (
   <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
-    
+
     {/* Barra de búsqueda */}
     <div style={{
       position: 'absolute',
@@ -1443,9 +1443,17 @@ async function confirmSubmitEvent() {
       transform: 'translateX(-50%)',
       zIndex: 1000,
       width: '85%',
-      maxWidth: 320
+      maxWidth: 320,
+      background: 'white',
+      borderRadius: 12,
+      display: 'flex',
+      alignItems: 'center',
+      padding: '0 10px',
+      boxShadow: '0 4px 15px rgba(0,0,0,0.15)'
     }}>
+
       <Search size={16} color="#6366f1" />
+
       <input
         type="text"
         value={mapSearch}
@@ -1462,51 +1470,100 @@ async function confirmSubmitEvent() {
           background: 'transparent'
         }}
       />
+
       {mapSearch && (
         <button
           onClick={() => {
             setMapSearch('');
             setMapCenter(null);
           }}
-          style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontWeight: 900 }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#6366f1',
+            cursor: 'pointer',
+            fontWeight: 900
+          }}
         >
           X
         </button>
       )}
+
     </div>
 
     {/* MAPA */}
     <MapContainer
       center={[40.41, -3.70]}
       zoom={6}
-      style={{ height: '100%', width: '100%' }}
+      style={{
+        height: '100%',
+        width: '100%'
+      }}
       scrollWheelZoom={true}
+      zoomControl={false}
     >
+
+      <MapResizer center={mapCenter} />
+
       <TileLayer
         url={isDark ? darkTileUrl : lightTileUrl}
-        attribution='© OpenStreetMap'
+        attribution="OpenStreetMap"
+        maxZoom={20}
       />
 
-      {publicEvents.map(ev => {
+      {publicEvents.map(function(ev) {
+
         if (!ev.lat || !ev.lng) return null;
+
         return (
-          <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={customPinIcon}>
+          <Marker
+            key={ev.id}
+            position={[ev.lat, ev.lng]}
+            icon={redPinIcon}
+          >
+
             <Popup>
-              <div style={{ minWidth: 200 }}>
-                <p style={{ fontWeight: 900, marginBottom: 4 }}>{ev.title}</p>
-                <p style={{ fontSize: 13, color: '#64748b' }}>
-                  {ev.address}, {ev.localidad}
+              <div style={{
+                minWidth: 200,
+                padding: 5
+              }}>
+
+                <p style={{
+                  fontWeight: 900,
+                  fontSize: 14,
+                  marginBottom: 6,
+                  color: '#0f172a'
+                }}>
+                  {ev.title}
                 </p>
+
+                <p style={{
+                  fontSize: 11,
+                  marginBottom: 4,
+                  color: '#334155'
+                }}>
+                  {ev.city}
+                </p>
+
+                <p style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: '#6366f1'
+                }}>
+                  {formatDate(ev.date)}
+                </p>
+
               </div>
             </Popup>
+
           </Marker>
         );
+
       })}
 
-    {/* Botón centrar mapa */}
     </MapContainer>
 
-{/* Botón centrar mapa */}
+    {/* Botón centrar mapa */}
     <button
       onClick={() => setMapCenter([40.41, -3.70])}
       style={{
@@ -1529,93 +1586,6 @@ async function confirmSubmitEvent() {
     </button>
 
   </div>
-)}
-
-  center={[40.41, -3.70]}
-  zoom={6}
-  style={{
-    height: '100%',
-    width: '100%',
-    borderRadius: 20,
-    overflow: 'hidden'
-  }}
-  scrollWheelZoom={true}
-  zoomControl={false}
->
-  <MapResizer center={mapCenter} />
-
-  <TileLayer
-    url={isDark ? darkTileUrl : lightTileUrl}
-    attribution="Google Maps"
-    maxZoom={20}
-  />
-
-  {publicEvents.map(function(ev) {
-    if (!ev.lat || !ev.lng) return null;
-    return (
-      <Marker key={ev.id} position={[ev.lat, ev.lng]} icon={redPinIcon}>
-        <Popup>
-          <div style={{ minWidth: 200, padding: 5 }}>
-            <p style={{ fontWeight: 900, fontSize: 14, marginBottom: 6 }}>
-              {ev.title}
-            </p>
-            <p style={{ fontSize: 11, marginBottom: 4 }}>
-              📍 {ev.city}
-            </p>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#6366f1' }}>
-              📅 {formatDate(ev.date)}
-            </p>
-          </div>
-        </Popup>
-      </Marker>
-    );
-  })}
-{publicEvents.map(function(ev) {
-  if (!ev.lat || !ev.lng) return null;
-
-  return (
-    <Marker
-      key={ev.id}
-      position={[ev.lat, ev.lng]}
-      icon={redPinIcon}
-    >
-      <Popup>
-        <div style={{
-          minWidth: 200,
-          padding: 5
-        }}>
-          <p style={{
-            fontWeight: 900,
-            fontSize: 14,
-            marginBottom: 6,
-            color: '#0f172a'
-          }}>
-            {ev.title}
-          </p>
-
-          <p style={{
-            fontSize: 11,
-            marginBottom: 4,
-            color: '#334155'
-          }}>
-            {ev.city}
-          </p>
-
-          <p style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: '#6366f1'
-          }}>
-            {formatDate(ev.date)}
-          </p>
-        </div>
-      </Popup>
-    </Marker>
-  );
-})}
-
-</MapContainer>
-</div>
 )}
 
         {view === 'home' && !selectedEvent && (
