@@ -1503,9 +1503,6 @@ async function confirmSubmitEvent() {
         );
       })}
 
-      <MapResizer center={mapCenter} />
-    </MapContainer>
-
     {/* Botón centrar mapa */}
     </MapContainer>
 
