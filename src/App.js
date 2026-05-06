@@ -2360,6 +2360,7 @@ async function confirmSubmitEvent() {
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 22, borderRadius: 35, width: '100%', maxWidth: 300, textAlign: 'center' }}>
               <h2 style={{ fontWeight: 900, marginBottom: 12, fontSize: 16 }}>SOPORTE</h2>
               {userEmail && <p style={{ fontSize: 9, opacity: 0.6, marginBottom: 8 }}>Conectado: {userEmail}</p>}
+              <>
               <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
                 <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>
                   ☕ INVITAR A UN CAFÉ (KO-FI)
@@ -2394,8 +2395,10 @@ async function confirmSubmitEvent() {
           <MapIcon size={22} />
         </button>
       </nav>
-
+    </div>
 
 </div>
-);
+</>    {/* ← ESTO ES LO NUEVO */}
+);      {/* Esta es tu línea 2400 */}
+}
 }
