@@ -2351,16 +2351,12 @@ async function confirmSubmitEvent() {
                     <Trash2 size={18} />
                   </button>
                 </div>
-              );
-            })}
           </div>
-        )}
 
         {view === 'profile' && (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 22, borderRadius: 35, width: '100%', maxWidth: 300, textAlign: 'center' }}>
               <h2 style={{ fontWeight: 900, marginBottom: 12, fontSize: 16 }}>SOPORTE</h2>
-<div>
               {userEmail && <p style={{ fontSize: 9, opacity: 0.6, marginBottom: 8 }}>Conectado: {userEmail}</p>}
               
               <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
