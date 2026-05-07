@@ -194,7 +194,7 @@ function Splash({ onDone }) {
     return () => clearTimeout(t);
   }, [onDone]);
 
- return (<>
+ return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 99999, background: '#020617',
       display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20
@@ -2390,7 +2390,5 @@ async function confirmSubmitEvent() {
         </button>
       </nav>
 </div>
-
-</> );
 );
 }
