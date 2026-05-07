@@ -2339,6 +2339,7 @@ async function confirmSubmitEvent() {
             ) : favoriteEvents.map(function(ev) {
               var dl = getDaysLabel(ev.date);
               return (
+                <div className="contenedor-principal">
                 <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={function() { openEvent(ev); }}>
                   <SafeImg src={ev.image_url} alt="" style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }} />
                   <div style={{ flex: 1 }}>
