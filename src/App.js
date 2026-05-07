@@ -1942,6 +1942,7 @@ async function confirmSubmitEvent() {
                 </div>
               </div>
             )}
+</>
         )}
 
         {view === 'create' && (
