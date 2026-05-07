@@ -2389,6 +2389,8 @@ async function confirmSubmitEvent() {
           <MapIcon size={22} />
         </button>
       </nav>
-</div>   
+</div>
+
+</>
 );
 }
