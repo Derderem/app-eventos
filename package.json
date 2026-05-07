@@ -2,8 +2,12 @@
   "name": "eventos-app",
   "version": "0.1.0",
   "private": true,
-
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-keywords": "^5.1.0",
     "@supabase/supabase-js": "latest",
     "lucide-react": "latest",
     "react": "18.2.0",
@@ -13,19 +17,16 @@
     "leaflet": "1.9.4",
     "react-calendar": "^4.8.0"
   },
-
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build"
   },
-
   "browserslist": {
     "production": [
       ">0.2%",
       "not dead",
       "not op_mini all"
     ],
-
     "development": [
       "last 1 chrome version",
       "last 1 firefox version",
