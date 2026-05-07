@@ -2338,8 +2338,8 @@ async function confirmSubmitEvent() {
             ) : favoriteEvents.map(function(ev) {
               var dl = getDaysLabel(ev.date);
               return (
-                <div className="contenedor-principal">
-                <div key={ev.id} className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={function() { openEvent(ev); }}>
+                <div key={ev.id} className="contenedor-principal">
+                <div className={isDark ? 'card-dark' : 'card-light'} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 18, marginBottom: 8, alignItems: 'center', cursor: 'pointer' }} onClick={function() { openEvent(ev); }}>
                   <SafeImg src={ev.image_url} alt="" style={{ width: 45, height: 45, borderRadius: 10, objectFit: 'cover' }} />
                   <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 900, fontSize: 13 }}>{ev.title}</p>
@@ -2349,7 +2349,12 @@ async function confirmSubmitEvent() {
                   <button onClick={function(e) { e.stopPropagation(); toggleFavorite(ev.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
                     <Trash2 size={18} />
                   </button>
-                </div>
+        </div>
+      </div>
+    );
+  })}
+</div>
+)}
 
         {view === 'profile' && (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
