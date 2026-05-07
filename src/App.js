@@ -1970,7 +1970,6 @@ async function confirmSubmitEvent() {
                 </div>
               </div>
             )}
-          </>
         )}
 
         {view === 'create' && (
@@ -2351,7 +2350,6 @@ async function confirmSubmitEvent() {
                     <Trash2 size={18} />
                   </button>
                 </div>
-          </div>
 
         {view === 'profile' && (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -2392,8 +2390,6 @@ async function confirmSubmitEvent() {
           <MapIcon size={22} />
         </button>
       </nav>
-
-</div>
-
 </div>   
-);    
+);
+}
