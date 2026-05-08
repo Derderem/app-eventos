@@ -992,9 +992,14 @@ async function confirmSubmitEvent() {
   }
 
   function handleCategoryChange(cat) {
-    setSelectedCategory(cat);
-    if (listRef.current) listRef.current.scrollTop = 0;
-  }
+ setSelectedCategory(cat);
+
+ if (cat === 'TODOS') {
+  setDateFilter('all');
+ }
+
+ if (listRef.current) listRef.current.scrollTop = 0;
+}
 
   function enterPhotoZoom() { setIsPhotoZoomed(true); setPhotoScale(1); setPhotoPos({ x: 0, y: 0 }); }
   function exitPhotoZoom() { setIsPhotoZoomed(false); setPhotoScale(1); setPhotoPos({ x: 0, y: 0 }); }
