@@ -1710,7 +1710,6 @@ async function confirmSubmitEvent() {
   }}
   tileContent={({ date, view }) => {
 
-        tileContent={({ date, view }) => {
 
           if (view !== 'month') return null;
 
