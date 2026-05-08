@@ -1899,8 +1899,7 @@ async function confirmSubmitEvent() {
 
   <div style={{ display: 'flex', gap: 6, padding: '6px 12px', flexShrink: 0 }}>
 
-  {[{ k: 'all', l: 'TODOS' }, { k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }].map(function(f) {
-
+  {[{ k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }].map(function(f) {
     return (
       <button
         key={f.k}
