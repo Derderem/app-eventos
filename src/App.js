@@ -2014,6 +2014,8 @@ async function confirmSubmitEvent() {
     }}
   >
     CALENDARIO
+</button>
+
 <button
   onClick={() => {
     if (!nearbyMode) {
