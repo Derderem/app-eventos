@@ -426,7 +426,9 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
   const [mapSearch, setMapSearch] = useState('');
-  
+  const [nearbyMode, setNearbyMode] = useState(false);
+const [userCoords, setUserCoords] = useState(null); // { lat, lng }
+const [isLocating, setIsLocating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [pickerConfig, setPickerConfig] = useState({ show: false, images: [], loading: false, isEdit: false });
   const [selectedPickerImage, setSelectedPickerImage] = useState(null);
@@ -941,6 +943,30 @@ async function confirmSubmitEvent() {
     });
   }
 
+  function requestUserLocation() {
+  if (!navigator.geolocation) {
+    showToast('Tu navegador no soporta geolocalización', 'error');
+    return;
+  }
+
+  setIsLocating(true);
+  showToast('Obteniendo tu ubicación...', 'info');
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      setUserCoords(coords);
+      showToast('Ubicación detectada', 'success');
+      setIsLocating(false);
+    },
+    () => {
+      showToast('No se pudo obtener tu ubicación (permiso denegado o GPS apagado)', 'error');
+      setIsLocating(false);
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+  );
+}
+  
   function handleLogout() {
     supabase.auth.signOut().then(() => {
       setUserEmail(''); setProfile(null); fetchEvents(); goHome(); setEditingEvent(null);
@@ -1978,21 +2004,28 @@ async function confirmSubmitEvent() {
     }}
   >
     CALENDARIO
-</button>
-      <button
-  onClick={() => alert('CERCA DE MI')}
+<button
+  onClick={() => {
+    const next = !nearbyMode;
+    setNearbyMode(next);
+
+    if (next && !userCoords) requestUserLocation();
+    if (!next) showToast('Filtro "Cerca de mi" desactivado', 'info');
+  }}
+  disabled={isLocating}
   style={{
     padding: '5px 10px',
     borderRadius: 10,
     border: 'none',
-    background: '#22c55e',
-    color: 'white',
+    background: nearbyMode ? '#22c55e' : 'transparent',
+    color: nearbyMode ? 'white' : '#6366f1',
     fontSize: 8,
     fontWeight: 900,
-    cursor: 'pointer'
+    cursor: isLocating ? 'not-allowed' : 'pointer',
+    opacity: isLocating ? 0.7 : 1
   }}
 >
-  CERCA DE MI
+  {isLocating ? 'GPS...' : 'CERCA DE MI'}
 </button>
 </div>
 
