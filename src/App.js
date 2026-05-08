@@ -98,13 +98,44 @@ function getDaysLeft(dateStr) {
 }
 
 function getDaysLabel(dateStr) {
-  const days = getDaysLeft(dateStr);
-  if (days === null) return null;
-  if (days === 0) return { text: 'HOY', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
-  if (days === 1) return { text: 'MAÑANA', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' };
-  if (days <= 3) return { text: 'EN ' + days + ' DÍAS', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
-  if (days <= 7) return { text: 'EN ' + days + ' DÍAS', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' };
-  return { text: 'EN ' + days + ' DÍAS', color: '#6366f1', bg: 'rgba(99,102,241,0.15)' };
+ const days = getDaysLeft(dateStr);
+ if (days === null) return null;
+ if (days === 0) return { text: 'HOY', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
+ if (days === 1) return { text: 'MAÑANA', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' };
+ if (days <= 3) return { text: 'EN ' + days + ' DÍAS', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
+ if (days <= 7) return { text: 'EN ' + days + ' DÍAS', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' };
+ return { text: 'EN ' + days + ' DÍAS', color: '#6366f1', bg: 'rgba(99,102,241,0.15)' };
+}
+
+function getDistanceKm(lat1, lng1, lat2, lng2) {
+ const nLat1 = Number(lat1);
+ const nLng1 = Number(lng1);
+ const nLat2 = Number(lat2);
+ const nLng2 = Number(lng2);
+
+ if ([nLat1, nLng1, nLat2, nLng2].some(function(v) { return Number.isNaN(v); })) {
+  return Infinity;
+ }
+
+ const R = 6371;
+
+ const toRad = function(value) {
+  return (value * Math.PI) / 180;
+ };
+
+ const dLat = toRad(nLat2 - nLat1);
+ const dLng = toRad(nLng2 - nLng1);
+
+ const a =
+  Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+  Math.cos(toRad(nLat1)) *
+  Math.cos(toRad(nLat2)) *
+  Math.sin(dLng / 2) *
+  Math.sin(dLng / 2);
+
+ const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+ return R * c;
 }
 
 function cleanImageUrl(url) {
