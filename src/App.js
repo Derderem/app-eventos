@@ -1690,51 +1690,39 @@ async function confirmSubmitEvent() {
   showNeighboringMonth={false}
   prev2Label={null}
   next2Label={null}
-  navigationLabel={({ date }) => {
-    const formatMonthYear = (d) => {
-      const text = d.toLocaleDateString('es-ES', {
+  formatMonthYear={(locale, date) => {
+    const text = date
+      .toLocaleDateString('es-ES', {
         month: 'long',
         year: 'numeric'
-      });
+      })
+      .replace(' de ', ' ');
 
-      return text.charAt(0).toUpperCase() + text.slice(1);
-    };
-
-    const nextMonth = new Date(date);
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-
-    return formatMonthYear(date) + ' - ' + formatMonthYear(nextMonth);
+    return text.charAt(0).toUpperCase() + text.slice(1);
   }}
   onClickDay={(date) => {
     setSelectedCalendarDate(date);
   }}
   tileContent={({ date, view }) => {
-
-
-          if (view !== 'month') return null;
-
-          const formatted =
-            date.toISOString().split('T')[0];
-
-          const hasEvents = publicEvents.some(
-            ev => ev.date === formatted
-          );
-
-          if (!hasEvents) return null;
-
-          return (
-            <div style={{
-              marginTop: 2,
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: '#22c55e',
-              marginLeft: 'auto',
-              marginRight: 'auto'
-            }} />
-          );
-        }}
-      />
+    if (view !== 'month') return null;
+    const formatted = date.toISOString().split('T')[0];
+    const hasEvents = publicEvents.some(
+      ev => ev.date === formatted
+    );
+    if (!hasEvents) return null;
+    return (
+      <div style={{
+        marginTop: 2,
+        width: 6,
+        height: 6,
+        borderRadius: '50%',
+        background: '#22c55e',
+        marginLeft: 'auto',
+        marginRight: 'auto'
+      }} />
+    );
+  }}
+/>
 
       {selectedCalendarDate && (
 
