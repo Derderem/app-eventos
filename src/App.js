@@ -1979,6 +1979,21 @@ async function confirmSubmitEvent() {
   >
     CALENDARIO
 </button>
+      <button
+  onClick={() => alert('CERCA DE MI')}
+  style={{
+    padding: '5px 10px',
+    borderRadius: 10,
+    border: 'none',
+    background: '#22c55e',
+    color: 'white',
+    fontSize: 8,
+    fontWeight: 900,
+    cursor: 'pointer'
+  }}
+>
+  CERCA DE MI
+</button>
 </div>
 
             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, padding: '8px 12px', overflowX: 'auto', flexShrink: 0 }}>
