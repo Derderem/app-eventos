@@ -1793,6 +1793,10 @@ async function confirmSubmitEvent() {
   showNeighboringMonth={false}
   prev2Label={null}
   next2Label={null}
+  formatShortWeekday={(locale, date) => {
+    const days = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+    return days[date.getDay()];
+  }}
   formatMonthYear={(locale, date) => {
     const text = date
       .toLocaleDateString('es-ES', {
