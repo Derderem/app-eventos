@@ -2016,26 +2016,31 @@ async function confirmSubmitEvent() {
     CALENDARIO
 <button
   onClick={() => {
-    const next = !nearbyMode;
-    setNearbyMode(next);
-
-    if (next && !userCoords) requestUserLocation();
-    if (!next) showToast('Filtro "Cerca de mi" desactivado', 'info');
+    if (!nearbyMode) {
+      requestUserLocation();
+    } else {
+      setNearbyMode(false);
+      setUserCoords(null);
+      showToast('Filtro "Cerca de mí" desactivado', 'info');
+    }
   }}
   disabled={isLocating}
   style={{
-    padding: '5px 10px',
-    borderRadius: 10,
+    padding: '8px 16px',
+    borderRadius: '10px',
     border: 'none',
-    background: nearbyMode ? '#22c55e' : 'transparent',
+    backgroundColor: nearbyMode ? '#22c55e' : 'transparent',
     color: nearbyMode ? 'white' : '#6366f1',
-    fontSize: 8,
-    fontWeight: 900,
+    fontSize: '13px',
+    fontWeight: 700,
     cursor: isLocating ? 'not-allowed' : 'pointer',
-    opacity: isLocating ? 0.7 : 1
+    opacity: isLocating ? 0.6 : 1,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px'
   }}
 >
-  {isLocating ? 'GPS...' : 'CERCA DE MI'}
+  {isLocating ? '📍 Buscando GPS...' : '📍 CERCA DE MI'}
 </button>
 </div>
 
