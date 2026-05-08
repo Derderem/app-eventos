@@ -1148,6 +1148,17 @@ async function confirmSubmitEvent() {
     return true;
   });
 
+  // Filtro de eventos cercanos
+if (nearbyMode && userCoords) {
+  filteredEvents = filteredEvents.filter(function(e) {
+    if (!e.lat || !e.lng) return false;
+    return getDistanceKm(userCoords.lat, userCoords.lng, e.lat, e.lng) <= NEARBY_RADIUS_KM;
+  }).sort(function(a, b) {
+    return getDistanceKm(userCoords.lat, userCoords.lng, a.lat, a.lng) - 
+           getDistanceKm(userCoords.lat, userCoords.lng, b.lat, b.lng);
+  });
+}
+
   var favoriteEvents = publicEvents.filter(function(e) { return favorites.indexOf(e.id) !== -1; });
   var rawPendingEvents = hasAdmin ? events.filter(function(e) { return e.status === 'pending'; }) : [];
   var rawApprovedEvents = hasAdmin ? events.filter(function(e) { return e.status === 'approved'; }) : [];
