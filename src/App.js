@@ -22,6 +22,7 @@ const supabase = createClient(
 const ADMIN_EMAILS = ['garverjacobo@gmail.com', 'jacobogarver@gmail.com'];
 const APP_URL = 'https://app-eventos-pro-final.vercel.app';
 const FALLBACK_IMG = 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800';
+const NEARBY_RADIUS_KM = 50;
 
 const INITIAL_FORM = {
   title: '', city: '', localidad: '', address: '',
