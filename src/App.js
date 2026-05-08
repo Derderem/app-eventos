@@ -1685,14 +1685,30 @@ async function confirmSubmitEvent() {
       </div>
 
       <ReactCalendar
-        locale="es-ES"
-        showDoubleView={true}
-        prev2Label={null}
-        next2Label={null}
+  locale="es-ES"
+  showDoubleView={true}
+  showNeighboringMonth={false}
+  prev2Label={null}
+  next2Label={null}
+  navigationLabel={({ date }) => {
+    const formatMonthYear = (d) => {
+      const text = d.toLocaleDateString('es-ES', {
+        month: 'long',
+        year: 'numeric'
+      });
 
-        onClickDay={(date) => {
-          setSelectedCalendarDate(date);
-        }}
+      return text.charAt(0).toUpperCase() + text.slice(1);
+    };
+
+    const nextMonth = new Date(date);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+    return formatMonthYear(date) + ' - ' + formatMonthYear(nextMonth);
+  }}
+  onClickDay={(date) => {
+    setSelectedCalendarDate(date);
+  }}
+  tileContent={({ date, view }) => {
 
         tileContent={({ date, view }) => {
 
