@@ -954,16 +954,26 @@ async function confirmSubmitEvent() {
 
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      const coords = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude
+      };
+      
       setUserCoords(coords);
-      showToast('Ubicación detectada', 'success');
+      setNearbyMode(true);
+      showToast('Ubicación detectada. Mostrando eventos cercanos', 'success');
       setIsLocating(false);
     },
-    () => {
+    (error) => {
+      console.error(error);
       showToast('No se pudo obtener tu ubicación (permiso denegado o GPS apagado)', 'error');
       setIsLocating(false);
     },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    { 
+      enableHighAccuracy: true, 
+      timeout: 10000, 
+      maximumAge: 30000 
+    }
   );
 }
   
