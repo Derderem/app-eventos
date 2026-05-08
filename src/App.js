@@ -1541,6 +1541,7 @@ async function confirmSubmitEvent() {
 .light-theme .react-calendar__month-view__days__day--weekend {
  color: #be123c !important;
 }
+`}</style>
 
       <nav style={{ height: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', zIndex: 2000, borderBottom: '1px solid rgba(128,128,128,.2)', background: isDark ? '#0f172a' : '#fff', flexShrink: 0 }}>
         <div style={{ cursor: 'pointer' }} onClick={goHome}>
