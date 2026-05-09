@@ -72,13 +72,19 @@ function formatDate(dateStr) {
   return dateStr;
 }
 
+function parseLocalDate(dateStr) {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 function formatDateTime(dateStr) {
   if (!dateStr) return '';
   try {
     const d = new Date(dateStr);
     return d.toLocaleString('es-ES', {
       day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
+      hour: '2-digit', minute: '2-digit'S
     });
   } catch {
     return '';
@@ -91,10 +97,12 @@ function normalizeText(value) {
 
 function getDaysLeft(dateStr) {
   if (!dateStr) return null;
-  const eventDate = new Date(dateStr + 'T23:59:59');
+  const eventDate = parseLocalDate(dateStr);
+  if (!eventDate) return null;
+  eventDate.setHours(23, 59, 59);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  return Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+  return Math.floor((eventDate - today) / (1000 * 60 * 60 * 24));
 }
 
 function getDaysLabel(dateStr) {
@@ -1139,7 +1147,7 @@ async function confirmSubmitEvent() {
   var filteredEvents = categoryEvents.filter(function(e) {
     if (dateFilter === 'today') return e.date === today;
     if (dateFilter === 'week') {
-      var eventDate = new Date(e.date);
+      var eventDate = parseLocalDate(e.date);
       var now = new Date();
       var weekEnd = new Date(now);
       weekEnd.setDate(weekEnd.getDate() + 7);
@@ -1892,9 +1900,10 @@ if (nearbyMode && userCoords) {
   tileContent={({ date, view }) => {
     if (view !== 'month') return null;
     const formatted = date.toISOString().split('T')[0];
-    const hasEvents = publicEvents.some(
-      ev => ev.date === formatted
-    );
+const hasEvents = publicEvents.some(ev => {
+  const eventDate = parseLocalDate(ev.date);
+  return eventDate && eventDate.toISOString().split('T')[0] === formatted;
+});
     if (!hasEvents) return null;
     return (
       <div style={{
