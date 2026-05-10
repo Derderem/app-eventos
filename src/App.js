@@ -1507,46 +1507,24 @@ if (nearbyMode && userCoords) {
         .card-light { background:white; border:1px solid #e2e8f0; color:#0f172a; box-shadow:0 4px 12px rgba(0,0,0,.05); }
         .no-scrollbar::-webkit-scrollbar { display:none; }
         .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
-        .leaflet-container img { 
- max-width:none!important; 
- max-height:none!important; 
- }
+        .leaflet-container img { max-width:none!important; max-height:none!important; }
 
- .leaflet-container { 
- border:none!important; 
- outline:none!important; 
- background: transparent!important;
- }
+/* Color del océano de fondo para camuflar grietas */
+.leaflet-container {
+ background: #aadaff !important;
+ outline: none !important;
+ border: none !important;
+}
 
- .leaflet-control-attribution { 
- display:none!important; 
- }
-
- .leaflet-tile-container {
- overflow: visible!important;
- }
-
- .leaflet-tile {
- border:0!important;
- outline:0!important;
- box-shadow:none!important;
- padding:0!important;
- width:258px!important;
- height:258px!important;
- margin-left:-1px!important;
- margin-top:-1px!important;
- backface-visibility:hidden!important;
- -webkit-backface-visibility:hidden!important;
- image-rendering:auto!important;
- }
-
- .leaflet-container .leaflet-pane,
- .leaflet-container .leaflet-tile,
- .leaflet-container .leaflet-marker-icon,
- .leaflet-container .leaflet-marker-shadow {
- transition:none!important;
- }
-
+/* Solución al bug de las líneas blancas (huecos sub-píxel) */
+.leaflet-tile {
+ width: 256.5px !important;
+ height: 256.5px !important;
+ -webkit-backface-visibility: hidden !important;
+ backface-visibility: hidden !important;
+ border: none !important;
+ outline: none !important;
+}
         @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
         .animate-spin { animation:spin 1s linear infinite; }
         @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
