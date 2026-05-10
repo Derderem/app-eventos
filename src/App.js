@@ -1509,21 +1509,21 @@ if (nearbyMode && userCoords) {
         .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
         .leaflet-container img { max-width:none!important; max-height:none!important; }
 
-/* Color del océano de fondo para camuflar grietas */
 .leaflet-container {
- background: #aadaff !important;
- outline: none !important;
- border: none !important;
+  background: #aadaff !important;
+  outline: none !important;
+  border: none !important;
 }
 
-/* Solución al bug de las líneas blancas (huecos sub-píxel) */
 .leaflet-tile {
- width: 256.5px !important;
- height: 256.5px !important;
- -webkit-backface-visibility: hidden !important;
- backface-visibility: hidden !important;
- border: none !important;
- outline: none !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  backface-visibility: hidden !important;
+  transform: translateZ(0) !important;
+  image-rendering: crisp-edges !important;
+  -webkit-image-rendering: crisp-edges !important;
+  -webkit-backface-visibility: hidden !important;
 }
         @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
         .animate-spin { animation:spin 1s linear infinite; }
