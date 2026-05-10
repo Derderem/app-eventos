@@ -461,6 +461,7 @@ const [isLocating, setIsLocating] = useState(false);
 
   const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+ const [showCategoryPicker, setShowCategoryPicker] = useState(false);
 const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
   const [photoScale, setPhotoScale] = useState(1);
   const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
@@ -2077,19 +2078,79 @@ const hasEvents = publicEvents.some(ev => {
 </button>
 </div>
 
-             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, padding: '8px 12px', overflowX: 'auto', flexShrink: 0 }}>
- <button onClick={function() { handleCategoryChange('TODOS'); }} style={{ padding: '7px 15px', borderRadius: 25, border: 'none', background: selectedCategory === 'TODOS' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory === 'TODOS' ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>
+             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, padding: '8px 12px', overflowX: 'auto', flexShrink: 0, alignItems: 'center' }}>
+ <button onClick={function() { handleCategoryChange('TODOS'); setShowCategoryPicker(false); }} style={{ padding: '7px 15px', borderRadius: 25, border: 'none', background: selectedCategory === 'TODOS' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory === 'TODOS' ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>
  TODOS
  </button>
- <select value={selectedCategory === 'TODOS' ? '' : selectedCategory} onChange={function(e) { handleCategoryChange(e.target.value); }} style={{ padding: '7px 15px', borderRadius: 25, border: 'none', outline: 'none', background: selectedCategory !== 'TODOS' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory !== 'TODOS' ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, cursor: 'pointer', flexShrink: 0 }}>
- <option value="" disabled hidden>TIPO DE EVENTOS</option>
- <option value="MUSICA" style={{color: '#0f172a', background: '#fff'}}>MÚSICA</option>
- <option value="GASTRONOMIA" style={{color: '#0f172a', background: '#fff'}}>GASTRONOMÍA</option>
- <option value="TAURINO" style={{color: '#0f172a', background: '#fff'}}>TAURINO</option>
- <option value="FIESTAS PATRONALES" style={{color: '#0f172a', background: '#fff'}}>FIESTAS PATRONALES</option>
- <option value="OTROS" style={{color: '#0f172a', background: '#fff'}}>OTROS</option>
- </select>
+ <button onClick={function() { setShowCategoryPicker(true); }} style={{ padding: '7px 15px', borderRadius: 25, border: selectedCategory !== 'TODOS' ? '2px solid #4f46e5' : 'none', background: selectedCategory !== 'TODOS' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory !== 'TODOS' ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+ {selectedCategory !== 'TODOS' ? selectedCategory : 'TIPO DE EVENTO'}
+ <span style={{ fontSize: 8 }}>▾</span>
+ </button>
  </div>
+
+ {showCategoryPicker && (
+ <div onClick={function() { setShowCategoryPicker(false); }} style={{
+ position: 'fixed', inset: 0, zIndex: 999998, background: 'rgba(0,0,0,0.6)',
+ display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
+ }}>
+ <div onClick={function(e) { e.stopPropagation(); }} style={{
+ width: '100%', maxWidth: 480,
+ background: isDark ? '#0f172a' : '#ffffff',
+ borderRadius: '24px 24px 0 0',
+ padding: '8px 0 20px',
+ boxShadow: '0 -10px 40px rgba(0,0,0,0.4)'
+ }}>
+ <div style={{ width: 40, height: 4, background: isDark ? '#334155' : '#cbd5e1', borderRadius: 4, margin: '8px auto 16px' }} />
+ <p style={{ textAlign: 'center', fontSize: 13, fontWeight: 900, marginBottom: 14, letterSpacing: 1, color: isDark ? '#94a3b8' : '#64748b' }}>
+ SELECCIONA CATEGORÍA
+ </p>
+ {[
+ { value: 'MUSICA', label: 'MÚSICA' },
+ { value: 'GASTRONOMIA', label: 'GASTRONOMÍA' },
+ { value: 'TAURINO', label: 'TAURINO' },
+ { value: 'FIESTAS PATRONALES', label: 'FIESTAS PATRONALES' },
+ { value: 'OTROS', label: 'OTROS' }
+ ].map(function(cat) {
+ var isActive = selectedCategory === cat.value;
+ return (
+ <button key={cat.value} onClick={function() { handleCategoryChange(cat.value); setShowCategoryPicker(false); }} style={{
+ width: '100%', padding: '16px 22px', border: 'none', cursor: 'pointer',
+ background: isActive ? (isDark ? 'rgba(79,70,229,0.15)' : 'rgba(79,70,229,0.08)') : 'transparent',
+ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+ borderBottom: '1px solid ' + (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'),
+ borderLeft: isActive ? '4px solid #4f46e5' : '4px solid transparent'
+ }}>
+ <span style={{
+ fontSize: 14, fontWeight: isActive ? 900 : 700,
+ color: isActive ? '#4f46e5' : (isDark ? '#94a3b8' : '#64748b'),
+ letterSpacing: 0.5
+ }}>
+ {cat.label}
+ </span>
+ {isActive && (
+ <span style={{
+ width: 24, height: 24, borderRadius: '50%', background: '#4f46e5',
+ display: 'flex', alignItems: 'center', justifyContent: 'center'
+ }}>
+ <Check size={14} color="white" strokeWidth={3} />
+ </span>
+ )}
+ </button>
+ );
+ })}
+ <div style={{ padding: '16px 22px 0' }}>
+ <button onClick={function() { setShowCategoryPicker(false); }} style={{
+ width: '100%', padding: 14, borderRadius: 16, border: 'none',
+ background: isDark ? '#1e293b' : '#f1f5f9',
+ color: isDark ? '#94a3b8' : '#64748b',
+ fontWeight: 900, fontSize: 12, cursor: 'pointer'
+ }}>
+ CERRAR
+ </button>
+ </div>
+ </div>
+ </div>
+ )}
 
             <div style={{ padding: '4px 12px', fontSize: 9, color: '#6366f1', fontWeight: 800, flexShrink: 0 }}>
               {filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''}
