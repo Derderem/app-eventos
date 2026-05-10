@@ -1145,16 +1145,27 @@ async function confirmSubmitEvent() {
   var categoryEvents = searchedEvents.filter(function(e) { return selectedCategory === 'TODOS' || e.category === selectedCategory; });
 
   var filteredEvents = categoryEvents.filter(function(e) {
-    if (dateFilter === 'today') return e.date === today;
-    if (dateFilter === 'week') {
-      var eventDate = parseLocalDate(e.date);
-      var now = new Date();
-      var weekEnd = new Date(now);
-      weekEnd.setDate(weekEnd.getDate() + 7);
-      return eventDate >= now && eventDate <= weekEnd;
-    }
-    return true;
-  });
+ if (dateFilter === 'today') return e.date === today;
+ if (dateFilter === 'week') {
+ var eventDate = parseLocalDate(e.date);
+ var now = new Date();
+ var weekEnd = new Date(now);
+ weekEnd.setDate(weekEnd.getDate() + 7);
+ return eventDate >= now && eventDate <= weekEnd;
+ }
+ if (dateFilter === 'weekend') {
+ var eventDate = parseLocalDate(e.date);
+ var now = new Date();
+ now.setHours(0,0,0,0);
+ var dayOfWeek = now.getDay();
+ var daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+ var thisSunday = new Date(now);
+ thisSunday.setDate(now.getDate() + daysToSunday);
+ var day = eventDate.getDay();
+ return eventDate >= now && eventDate <= thisSunday && (day === 5 || day === 6 || day === 0);
+ }
+ return true;
+ });
 
   // Filtro de eventos cercanos
 if (nearbyMode && userCoords) {
@@ -1996,7 +2007,7 @@ const hasEvents = publicEvents.some(ev => {
 
   <div style={{ display: 'flex', gap: 6, padding: '6px 12px', flexShrink: 0 }}>
 
-  {[{ k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }].map(function(f) {
+  {[{ k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }, { k: 'weekend', l: 'FIN DE SEMANA' }].map(function(f) {
     return (
       <button
         key={f.k}
@@ -2066,11 +2077,19 @@ const hasEvents = publicEvents.some(ev => {
 </button>
 </div>
 
-            <div className="no-scrollbar" style={{ display: 'flex', gap: 8, padding: '8px 12px', overflowX: 'auto', flexShrink: 0 }}>
-              {['TODOS', 'MUSICA', 'GASTRONOMIA', 'TAURINO', 'FIESTAS PATRONALES', 'OTROS'].map(function(cat) {
-                return <button key={cat} onClick={function() { handleCategoryChange(cat); }} style={{ padding: '7px 15px', borderRadius: 25, border: 'none', background: selectedCategory === cat ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory === cat ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>{cat}</button>;
-              })}
-            </div>
+             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, padding: '8px 12px', overflowX: 'auto', flexShrink: 0 }}>
+ <button onClick={function() { handleCategoryChange('TODOS'); }} style={{ padding: '7px 15px', borderRadius: 25, border: 'none', background: selectedCategory === 'TODOS' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory === 'TODOS' ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>
+ TODOS
+ </button>
+ <select value={selectedCategory === 'TODOS' ? '' : selectedCategory} onChange={function(e) { handleCategoryChange(e.target.value); }} style={{ padding: '7px 15px', borderRadius: 25, border: 'none', outline: 'none', background: selectedCategory !== 'TODOS' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory !== 'TODOS' ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, cursor: 'pointer', flexShrink: 0 }}>
+ <option value="" disabled hidden>TIPO DE EVENTOS</option>
+ <option value="MUSICA" style={{color: '#0f172a', background: '#fff'}}>MÚSICA</option>
+ <option value="GASTRONOMIA" style={{color: '#0f172a', background: '#fff'}}>GASTRONOMÍA</option>
+ <option value="TAURINO" style={{color: '#0f172a', background: '#fff'}}>TAURINO</option>
+ <option value="FIESTAS PATRONALES" style={{color: '#0f172a', background: '#fff'}}>FIESTAS PATRONALES</option>
+ <option value="OTROS" style={{color: '#0f172a', background: '#fff'}}>OTROS</option>
+ </select>
+ </div>
 
             <div style={{ padding: '4px 12px', fontSize: 9, color: '#6366f1', fontWeight: 800, flexShrink: 0 }}>
               {filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''}
