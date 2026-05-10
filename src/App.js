@@ -1509,22 +1509,10 @@ if (nearbyMode && userCoords) {
         .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
         .leaflet-container img { max-width:none!important; max-height:none!important; }
 
-.leaflet-container {
-  background: #aadaff !important;
-  outline: none !important;
-  border: none !important;
-}
-
-.leaflet-tile {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  backface-visibility: hidden !important;
-  transform: translateZ(0) !important;
-  image-rendering: crisp-edges !important;
-  -webkit-image-rendering: crisp-edges !important;
-  -webkit-backface-visibility: hidden !important;
-}
+.leaflet-container img { max-width:none!important; max-height:none!important; }
+ .leaflet-control-attribution { display:none!important; }
+ .leaflet-container { outline:none!important; border:none!important; background: #aadaff !important; }
+ .leaflet-tile { width: 256px !important; height: 256px !important; margin: 0 !important; padding: 0 !important; transform: scale(1.005); }
         @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
         .animate-spin { animation:spin 1s linear infinite; }
         @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
