@@ -1508,18 +1508,6 @@ if (nearbyMode && userCoords) {
         .no-scrollbar::-webkit-scrollbar { display:none; }
         .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
         .leaflet-container img { max-width:none!important; max-height:none!important; }
-
-.leaflet-container {
-  background: #aadaff !important;
-  outline: none !important;
-  border: none !important;
-}
-
-.leaflet-tile {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
         @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
         .animate-spin { animation:spin 1s linear infinite; }
         @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
@@ -2691,3 +2679,4 @@ const hasEvents = publicEvents.some(ev => {
 </div>
 );
 }
+
