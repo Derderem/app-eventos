@@ -22,6 +22,7 @@ const supabase = createClient(
 const ADMIN_EMAILS = ['garverjacobo@gmail.com', 'jacobogarver@gmail.com'];
 const APP_URL = 'https://app-eventos-pro-final.vercel.app';
 const FALLBACK_IMG = 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800';
+const NEARBY_RADIUS_KM = 50;
 
 const INITIAL_FORM = {
   title: '', city: '', localidad: '', address: '',
@@ -71,12 +72,19 @@ function formatDate(dateStr) {
   return dateStr;
 }
 
+function parseLocalDate(dateStr) {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 function formatDateTime(dateStr) {
   if (!dateStr) return '';
   try {
     const d = new Date(dateStr);
     return d.toLocaleString('es-ES', {
       day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'S
       hour: '2-digit', minute: '2-digit'
     });
   } catch {
@@ -90,20 +98,53 @@ function normalizeText(value) {
 
 function getDaysLeft(dateStr) {
   if (!dateStr) return null;
-  const eventDate = new Date(dateStr + 'T23:59:59');
+  const eventDate = parseLocalDate(dateStr);
+  if (!eventDate) return null;
+  eventDate.setHours(23, 59, 59);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  return Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+  return Math.floor((eventDate - today) / (1000 * 60 * 60 * 24));
 }
 
 function getDaysLabel(dateStr) {
-  const days = getDaysLeft(dateStr);
-  if (days === null) return null;
-  if (days === 0) return { text: 'HOY', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
-  if (days === 1) return { text: 'MAÑANA', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' };
-  if (days <= 3) return { text: 'EN ' + days + ' DÍAS', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
-  if (days <= 7) return { text: 'EN ' + days + ' DÍAS', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' };
-  return { text: 'EN ' + days + ' DÍAS', color: '#6366f1', bg: 'rgba(99,102,241,0.15)' };
+ const days = getDaysLeft(dateStr);
+ if (days === null) return null;
+ if (days === 0) return { text: 'HOY', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
+ if (days === 1) return { text: 'MAÑANA', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' };
+ if (days <= 3) return { text: 'EN ' + days + ' DÍAS', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
+ if (days <= 7) return { text: 'EN ' + days + ' DÍAS', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' };
+ return { text: 'EN ' + days + ' DÍAS', color: '#6366f1', bg: 'rgba(99,102,241,0.15)' };
+}
+
+function getDistanceKm(lat1, lng1, lat2, lng2) {
+ const nLat1 = Number(lat1);
+ const nLng1 = Number(lng1);
+ const nLat2 = Number(lat2);
+ const nLng2 = Number(lng2);
+
+ if ([nLat1, nLng1, nLat2, nLng2].some(function(v) { return Number.isNaN(v); })) {
+  return Infinity;
+ }
+
+ const R = 6371;
+
+ const toRad = function(value) {
+  return (value * Math.PI) / 180;
+ };
+
+ const dLat = toRad(nLat2 - nLat1);
+ const dLng = toRad(nLng2 - nLng1);
+
+ const a =
+  Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+  Math.cos(toRad(nLat1)) *
+  Math.cos(toRad(nLat2)) *
+  Math.sin(dLng / 2) *
+  Math.sin(dLng / 2);
+
+ const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+ return R * c;
 }
 
 function cleanImageUrl(url) {
@@ -394,7 +435,9 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
   const [mapSearch, setMapSearch] = useState('');
-
+  const [nearbyMode, setNearbyMode] = useState(false);
+const [userCoords, setUserCoords] = useState(null); // { lat, lng }
+const [isLocating, setIsLocating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [pickerConfig, setPickerConfig] = useState({ show: false, images: [], loading: false, isEdit: false });
   const [selectedPickerImage, setSelectedPickerImage] = useState(null);
@@ -909,6 +952,40 @@ async function confirmSubmitEvent() {
     });
   }
 
+  function requestUserLocation() {
+  if (!navigator.geolocation) {
+    showToast('Tu navegador no soporta geolocalización', 'error');
+    return;
+  }
+
+  setIsLocating(true);
+  showToast('Obteniendo tu ubicación...', 'info');
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const coords = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude
+      };
+
+      setUserCoords(coords);
+      setNearbyMode(true);
+      showToast('Ubicación detectada. Mostrando eventos cercanos', 'success');
+      setIsLocating(false);
+    },
+    (error) => {
+      console.error(error);
+      showToast('No se pudo obtener tu ubicación (permiso denegado o GPS apagado)', 'error');
+      setIsLocating(false);
+    },
+    { 
+      enableHighAccuracy: true, 
+      timeout: 10000, 
+      maximumAge: 30000 
+    }
+  );
+}
+
   function handleLogout() {
     supabase.auth.signOut().then(() => {
       setUserEmail(''); setProfile(null); fetchEvents(); goHome(); setEditingEvent(null);
@@ -992,9 +1069,14 @@ async function confirmSubmitEvent() {
   }
 
   function handleCategoryChange(cat) {
-    setSelectedCategory(cat);
-    if (listRef.current) listRef.current.scrollTop = 0;
-  }
+ setSelectedCategory(cat);
+
+ if (cat === 'TODOS') {
+  setDateFilter('all');
+ }
+
+ if (listRef.current) listRef.current.scrollTop = 0;
+}
 
   function enterPhotoZoom() { setIsPhotoZoomed(true); setPhotoScale(1); setPhotoPos({ x: 0, y: 0 }); }
   function exitPhotoZoom() { setIsPhotoZoomed(false); setPhotoScale(1); setPhotoPos({ x: 0, y: 0 }); }
@@ -1066,7 +1148,7 @@ async function confirmSubmitEvent() {
   var filteredEvents = categoryEvents.filter(function(e) {
     if (dateFilter === 'today') return e.date === today;
     if (dateFilter === 'week') {
-      var eventDate = new Date(e.date);
+      var eventDate = parseLocalDate(e.date);
       var now = new Date();
       var weekEnd = new Date(now);
       weekEnd.setDate(weekEnd.getDate() + 7);
@@ -1074,6 +1156,17 @@ async function confirmSubmitEvent() {
     }
     return true;
   });
+
+  // Filtro de eventos cercanos
+if (nearbyMode && userCoords) {
+  filteredEvents = filteredEvents.filter(function(e) {
+    if (!e.lat || !e.lng) return false;
+    return getDistanceKm(userCoords.lat, userCoords.lng, e.lat, e.lng) <= NEARBY_RADIUS_KM;
+  }).sort(function(a, b) {
+    return getDistanceKm(userCoords.lat, userCoords.lng, a.lat, a.lng) - 
+           getDistanceKm(userCoords.lat, userCoords.lng, b.lat, b.lng);
+  });
+}
 
   var favoriteEvents = publicEvents.filter(function(e) { return favorites.indexOf(e.id) !== -1; });
   var rawPendingEvents = hasAdmin ? events.filter(function(e) { return e.status === 'pending'; }) : [];
@@ -1422,26 +1515,124 @@ async function confirmSubmitEvent() {
   100% { transform: scale(1); }
 }
       .react-calendar {
-  width: 100%;
-  border: none;
-  border-radius: 16px;
-  padding: 10px;
-  background: transparent;
-  font-family: inherit;
+ width: 100% !important;
+ max-width: 100%;
+ border: none;
+ border-radius: 16px;
+ padding: 6px;
+ background: transparent;
+ font-family: inherit;
+ color: inherit;
+ overflow: hidden;
 }
 
-.react-calendar__tile {
-  border-radius: 10px;
+.react-calendar abbr {
+ text-decoration: none;
 }
 
-.react-calendar__tile--active {
-  background: #4f46e5 !important;
-  color: white !important;
+.react-calendar--doubleView {
+ width: 100% !important;
+}
+
+.react-calendar--doubleView .react-calendar__viewContainer {
+ display: flex;
+ gap: 8px;
+ margin: 0;
+}
+
+.react-calendar--doubleView .react-calendar__viewContainer > * {
+ width: calc(50% - 4px);
+ margin: 0;
+}
+
+.react-calendar__navigation {
+ height: auto;
+ margin-bottom: 10px;
+}
+
+.react-calendar__navigation__label {
+ white-space: nowrap;
+ font-size: 13px;
+ font-weight: 900;
+ color: #6366f1 !important;
 }
 
 .react-calendar__navigation button {
-  font-weight: 900;
-  color: #6366f1;
+ font-weight: 900;
+ color: #6366f1 !important;
+ background: transparent !important;
+ min-width: 26px;
+ padding: 4px;
+}
+
+.react-calendar__month-view__weekdays {
+ color: inherit;
+ font-weight: 900;
+ font-size: 9px;
+}
+
+.react-calendar__month-view__weekdays__weekday {
+ padding: 4px 1px;
+ text-align: center;
+}
+
+.react-calendar__tile {
+ border-radius: 10px;
+ background: transparent !important;
+ color: inherit !important;
+ padding: 7px 2px !important;
+ font-size: 11px;
+}
+
+.react-calendar__tile:enabled:hover,
+.react-calendar__tile:enabled:focus {
+ background: rgba(99,102,241,.18) !important;
+}
+
+.react-calendar__tile--now {
+ background: rgba(250,204,21,.18) !important;
+ color: inherit !important;
+}
+
+.react-calendar__tile--active {
+ background: #4f46e5 !important;
+ color: white !important;
+}
+
+.react-calendar__month-view__days__day--neighboringMonth {
+ visibility: hidden !important;
+}
+
+.dark-theme .react-calendar {
+ color: white;
+}
+
+.dark-theme .react-calendar__tile {
+ color: white !important;
+}
+
+.dark-theme .react-calendar__month-view__weekdays {
+ color: white;
+}
+
+.dark-theme .react-calendar__month-view__days__day--weekend {
+ color: #f87171 !important;
+}
+
+.dark-theme .react-calendar__navigation button {
+ color: #818cf8 !important;
+}
+
+.light-theme .react-calendar {
+ color: #0f172a;
+}
+
+.light-theme .react-calendar__tile {
+ color: #0f172a !important;
+}
+
+.light-theme .react-calendar__month-view__days__day--weekend {
+ color: #be123c !important;
 }
 `}</style>
 
@@ -1685,41 +1876,49 @@ async function confirmSubmitEvent() {
       </div>
 
       <ReactCalendar
-        locale="es-ES"
-        showDoubleView={true}
-        prev2Label={null}
-        next2Label={null}
+  locale="es-ES"
+  showDoubleView={true}
+  showNeighboringMonth={false}
+  prev2Label={null}
+  next2Label={null}
+  formatShortWeekday={(locale, date) => {
+    const days = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+    return days[date.getDay()];
+  }}
+  formatMonthYear={(locale, date) => {
+    const text = date
+      .toLocaleDateString('es-ES', {
+        month: 'long',
+        year: 'numeric'
+      })
+      .replace(' de ', ' ');
 
-        onClickDay={(date) => {
-          setSelectedCalendarDate(date);
-        }}
-
-        tileContent={({ date, view }) => {
-
-          if (view !== 'month') return null;
-
-          const formatted =
-            date.toISOString().split('T')[0];
-
-          const hasEvents = publicEvents.some(
-            ev => ev.date === formatted
-          );
-
-          if (!hasEvents) return null;
-
-          return (
-            <div style={{
-              marginTop: 2,
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: '#22c55e',
-              marginLeft: 'auto',
-              marginRight: 'auto'
-            }} />
-          );
-        }}
-      />
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }}
+  onClickDay={(date) => {
+    setSelectedCalendarDate(date);
+  }}
+  tileContent={({ date, view }) => {
+    if (view !== 'month') return null;
+    const formatted = date.toISOString().split('T')[0];
+const hasEvents = publicEvents.some(ev => {
+  const eventDate = parseLocalDate(ev.date);
+  return eventDate && eventDate.toISOString().split('T')[0] === formatted;
+});
+    if (!hasEvents) return null;
+    return (
+      <div style={{
+        marginTop: 2,
+        width: 6,
+        height: 6,
+        borderRadius: '50%',
+        background: '#22c55e',
+        marginLeft: 'auto',
+        marginRight: 'auto'
+      }} />
+    );
+  }}
+/>
 
       {selectedCalendarDate && (
 
@@ -1798,8 +1997,7 @@ async function confirmSubmitEvent() {
 
   <div style={{ display: 'flex', gap: 6, padding: '6px 12px', flexShrink: 0 }}>
 
-  {[{ k: 'all', l: 'TODOS' }, { k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }].map(function(f) {
-
+  {[{ k: 'today', l: 'HOY' }, { k: 'week', l: 'ESTA SEMANA' }].map(function(f) {
     return (
       <button
         key={f.k}
@@ -1837,6 +2035,35 @@ async function confirmSubmitEvent() {
     }}
   >
     CALENDARIO
+</button>
+
+<button
+  onClick={() => {
+    if (!nearbyMode) {
+      requestUserLocation();
+    } else {
+      setNearbyMode(false);
+      setUserCoords(null);
+      showToast('Filtro "Cerca de mí" desactivado', 'info');
+    }
+  }}
+  disabled={isLocating}
+  style={{
+    padding: '8px 16px',
+    borderRadius: '10px',
+    border: 'none',
+    backgroundColor: nearbyMode ? '#22c55e' : 'transparent',
+    color: nearbyMode ? 'white' : '#6366f1',
+    fontSize: '13px',
+    fontWeight: 700,
+    cursor: isLocating ? 'not-allowed' : 'pointer',
+    opacity: isLocating ? 0.6 : 1,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px'
+  }}
+>
+  {isLocating ? '📍 Buscando GPS...' : '📍 CERCA DE MI'}
 </button>
 </div>
 
