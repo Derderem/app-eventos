@@ -1981,11 +1981,12 @@ if (nearbyMode && userCoords) {
     setSelectedCalendarDate(date);
   }}
   tileContent={({ date, view }) => {
-    if (view !== 'month') return null;
-    const formatted = date.toISOString().split('T')[0];
-const hasEvents = publicEvents.some(ev => {
-  const eventDate = parseLocalDate(ev.date);
-  return eventDate && eventDate.toISOString().split('T')[0] === formatted;
+  if (view !== 'month') return null;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const formatted = y + '-' + m + '-' + d;
+  const hasEvents = publicEvents.some(ev => ev.date === formatted);
 });
     if (!hasEvents) return null;
     return (
@@ -2002,43 +2003,116 @@ const hasEvents = publicEvents.some(ev => {
   }}
 />
 
-      {selectedCalendarDate && (
-
-        <div style={{ marginTop: 20 }}>
-
-          <h3 style={{
-            fontSize: 13,
-            fontWeight: 900,
-            marginBottom: 10
-          }}>
-            EVENTOS DEL DÍA
-          </h3>
-
-          {publicEvents
-            .filter(ev => {
-
-              const selected =
-                selectedCalendarDate
-                  .toISOString()
-                  .split('T')[0];
-
-              return ev.date === selected;
-            })
-            .map(ev => (
-
-              <div
-                key={ev.id}
-                onClick={() => {
-                  setShowCalendar(false);
-                  openEvent(ev);
-                }}
-                style={{
-                  padding: 10,
-                  borderRadius: 12,
-                  marginBottom: 8,
-                  background: 'rgba(99,102,241,.1)',
-                  cursor: 'pointer'
-                }}
+      {selectedCalendarDate && (() => {
+  const y = selectedCalendarDate.getFullYear();
+  const m = String(selectedCalendarDate.getMonth() + 1).padStart(2, '0');
+  const d = String(selectedCalendarDate.getDate()).padStart(2, '0');
+  const selectedStr = y + '-' + m + '-' + d;
+  const eventosDelDia = publicEvents.filter(ev => ev.date === selectedStr);
+  
+  return (
+    <div style={{ marginTop: 20 }}>
+      <h3 style={{
+        fontSize: 13,
+        fontWeight: 900,
+        marginBottom: 12,
+        letterSpacing: 1
+      }}>
+        EVENTOS DEL DÍA ({eventosDelDia.length})
+      </h3>
+      
+      {eventosDelDia.length === 0 ? (
+        <div style={{
+          padding: 20,
+          borderRadius: 12,
+          background: isDark ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.05)',
+          textAlign: 'center',
+          fontSize: 11,
+          opacity: 0.6,
+          fontWeight: 700
+        }}>
+          No hay eventos este día
+        </div>
+      ) : (
+        eventosDelDia.map(ev => (
+          <div
+            key={ev.id}
+            onClick={() => {
+              setShowCalendar(false);
+              setSelectedCalendarDate(null);
+              openEvent(ev);
+            }}
+            style={{
+              padding: '14px 16px',
+              borderRadius: 14,
+              marginBottom: 10,
+              background: isDark 
+                ? 'linear-gradient(135deg, rgba(34,211,238,0.18), rgba(59,130,246,0.18))'
+                : 'linear-gradient(135deg, rgba(34,211,238,0.15), rgba(59,130,246,0.15))',
+              border: isDark 
+                ? '1px solid rgba(34,211,238,0.35)' 
+                : '1px solid rgba(34,211,238,0.4)',
+              cursor: 'pointer',
+              boxShadow: isDark 
+                ? '0 4px 12px rgba(0,0,0,0.3)' 
+                : '0 4px 12px rgba(34,211,238,0.15)',
+              transition: 'transform 0.15s ease'
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 6,
+              flexWrap: 'wrap'
+            }}>
+              <span style={{
+                fontSize: 10,
+                fontWeight: 900,
+                color: isDark ? '#22d3ee' : '#0891b2',
+                letterSpacing: 1
+              }}>
+                {ev.city}
+              </span>
+              <span style={{
+                fontSize: 10,
+                fontWeight: 900,
+                color: isDark ? '#22d3ee' : '#0891b2',
+                letterSpacing: 1
+              }}>
+                {formatDate(ev.date)} · {ev.time}H
+              </span>
+            </div>
+            
+            <p style={{
+              fontWeight: 900,
+              fontSize: 14,
+              color: isDark ? '#ffffff' : '#0f172a',
+              marginBottom: ev.localidad ? 4 : 0,
+              letterSpacing: 0.5
+            }}>
+              {ev.title}
+            </p>
+            
+            {ev.localidad && (
+              <p style={{
+                fontSize: 10,
+                color: isDark ? 'rgba(255,255,255,0.65)' : 'rgba(15,23,42,0.65)',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}>
+                📍 {ev.localidad}
+              </p>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  );
+})()}
               >
 
                 <p style={{
