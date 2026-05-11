@@ -1751,9 +1751,7 @@ if (nearbyMode && userCoords) {
         maxZoom={20}
       />
 
-      {publicEvents.map(function(ev) {
-
-  if (!ev.lat || !ev.lng) return null;
+     {publicEvents.map(function(ev) {
 
   const lat = parseFloat(ev.lat);
   const lng = parseFloat(ev.lng);
