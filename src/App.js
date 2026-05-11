@@ -1753,7 +1753,7 @@ if (nearbyMode && userCoords) {
 
       {publicEvents.map(function(ev) {
 
-        if (!ev.lat || !ev.lng) return null;
+          
 
         return (
           <Marker
