@@ -1987,8 +1987,7 @@ if (nearbyMode && userCoords) {
   const d = String(date.getDate()).padStart(2, '0');
   const formatted = y + '-' + m + '-' + d;
   const hasEvents = publicEvents.some(ev => ev.date === formatted);
-});
-    if (!hasEvents) return null;
+  if (!hasEvents) return null;
     return (
       <div style={{
         marginTop: 2,
