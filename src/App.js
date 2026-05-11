@@ -2112,25 +2112,6 @@ if (nearbyMode && userCoords) {
     </div>
   );
 })()}
-              >
-
-                <p style={{
-                  fontWeight: 900,
-                  fontSize: 12
-                }}>
-                  {ev.title}
-                </p>
-
-                <p style={{
-                  fontSize: 10,
-                  color: '#6366f1'
-                }}>
-                  {ev.city} · {ev.time}
-                </p>
-
-              </div>
-
-          ))}
 
         </div>
 
