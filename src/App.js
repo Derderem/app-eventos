@@ -674,6 +674,65 @@ const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
     setTimeout(() => setAnimHeart(null), 700);
   }
 
+  async function geocodeAddress(address, localidad, city) {
+  // Construimos la dirección completa para buscarla
+  const partes = [address, localidad, city, 'España'].filter(Boolean);
+  const direccionCompleta = partes.join(', ');
+  
+  console.log('🌍 Buscando coordenadas para:', direccionCompleta);
+  
+  try {
+    // Llamamos a OpenStreetMap (Nominatim) que es GRATIS
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=es&accept-language=es&q=' 
+                + encodeURIComponent(direccionCompleta);
+    
+    const respuesta = await fetch(url, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!respuesta.ok) {
+      throw new Error('Error en la respuesta del servidor de mapas');
+    }
+    
+    const datos = await respuesta.json();
+    
+    // Si encontró la dirección, devolvemos las coordenadas
+    if (datos && datos.length > 0 && datos[0].lat && datos[0].lon) {
+      const lat = parseFloat(datos[0].lat);
+      const lng = parseFloat(datos[0].lon);
+      console.log('✅ Coordenadas encontradas:', lat, lng);
+      return { lat: lat, lng: lng };
+    }
+    
+    // Si no encontró nada con la dirección completa, intentamos solo con la ciudad
+    console.log('⚠️ No se encontró dirección exacta, probando solo con ciudad...');
+    const urlCiudad = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=es&accept-language=es&q=' 
+                      + encodeURIComponent(city + ', España');
+    
+    const respuesta2 = await fetch(urlCiudad, {
+      headers: { 'Accept': 'application/json' }
+    });
+    
+    const datos2 = await respuesta2.json();
+    
+    if (datos2 && datos2.length > 0 && datos2[0].lat && datos2[0].lon) {
+      const lat = parseFloat(datos2[0].lat);
+      const lng = parseFloat(datos2[0].lon);
+      console.log('✅ Coordenadas de ciudad encontradas:', lat, lng);
+      return { lat: lat, lng: lng };
+    }
+    
+    // Si no encuentra absolutamente nada
+    throw new Error('No se pudieron obtener coordenadas para esta dirección');
+    
+  } catch (error) {
+    console.error('❌ Error en geocodeAddress:', error);
+    throw error;
+  }
+}
+  
 async function uploadImageToStorage(file) {
   if (!file) throw new Error('No hay imagen');
   if (!file.type || file.type.indexOf('image/') !== 0) throw new Error('Selecciona una imagen válida');
