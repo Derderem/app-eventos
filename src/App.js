@@ -2113,14 +2113,10 @@ if (nearbyMode && userCoords) {
   );
 })()}
 
-        </div>
-
-      )}
-
-    </div>
-
-  </div>
+</div>
+</div>
 )}
+
 {view === 'home' && !selectedEvent && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '8px 12px', flexShrink: 0, background: isDark ? '#020617' : '#f8fafc' }}>
