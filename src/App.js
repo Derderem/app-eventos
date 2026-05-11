@@ -1753,14 +1753,19 @@ if (nearbyMode && userCoords) {
 
       {publicEvents.map(function(ev) {
 
-          
+  if (!ev.lat || !ev.lng) return null;
 
-        return (
-          <Marker
-            key={ev.id}
-            position={[ev.lat, ev.lng]}
-            icon={redPinIcon}
-          >
+  const lat = parseFloat(ev.lat);
+  const lng = parseFloat(ev.lng);
+
+  if (isNaN(lat) || isNaN(lng)) return null;
+
+  return (
+    <Marker 
+      key={ev.id} 
+      position={[lat, lng]} 
+      icon={redPinIcon}
+    >
 
             <Popup>
               <div style={{
