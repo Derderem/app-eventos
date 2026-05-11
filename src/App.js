@@ -940,6 +940,25 @@ async function confirmSubmitEvent() {
     setIsSubmitting(false);
   }
 }
+  function startEditEvent(ev) {
+  if (!ev) return;
+  setSelectedEvent(null);
+  setSelectedPendingEvent(null);
+  setEditingEvent(ev);
+  setEditForm({
+    title: ev.title || '',
+    city: ev.city || '',
+    localidad: ev.localidad || '',
+    address: ev.address || '',
+    time: ev.time || '21:00',
+    date: ev.date || '',
+    category: ev.category || 'MUSICA',
+    image_url: ev.image_url || '',
+    featured: ev.featured === true
+  });
+  showToast('Editando: ' + ev.title, 'info');
+}
+  
   function cancelEditEvent() { setEditingEvent(null); setEditForm(INITIAL_FORM); }
 
   function handleSaveEditEvent() {
