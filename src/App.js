@@ -1509,6 +1509,17 @@ if (nearbyMode && userCoords) {
         .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
         .leaflet-container img { max-width:none!important; max-height:none!important; }
         @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+        .leaflet-container {
+  background: #aadaff !important;
+  outline: none !important;
+  border: none !important;
+}
+
+.leaflet-tile {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
         .animate-spin { animation:spin 1s linear infinite; }
         @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
         .pulse-admin { animation:admin-pulse 1.4s infinite; }
