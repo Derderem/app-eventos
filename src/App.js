@@ -802,6 +802,26 @@ async function uploadImageToStorage(file) {
   setShowSubmitConfirm(true);
 }
 
+  async function geocodeAddress(address, localidad, city) {
+  try {
+    var q1 = address + ", " + city;
+    var url = 'https://nominatim.openstreetmap.org/search?format=json&accept-language=es&countrycodes=es&limit=1&q=';
+    
+    var res1 = await fetch(url + encodeURIComponent(q1));
+    var data1 = await res1.json();
+    if (data1 && data1.length > 0) return { lat: parseFloat(data1[0].lat), lng: parseFloat(data1[0].lon) };
+    
+    var res2 = await fetch(url + encodeURIComponent(city));
+    var data2 = await res2.json();
+    if (data2 && data2.length > 0) return { lat: parseFloat(data2[0].lat), lng: parseFloat(data2[0].lon) };
+    
+    // Si falla el GPS, lo manda a Madrid para que NUNCA desaparezca del mapa
+    return { lat: 40.4167, lng: -3.7033 }; 
+  } catch (error) {
+    return { lat: 40.4167, lng: -3.7033 };
+  }
+}
+  
 async function confirmSubmitEvent() {
   if (isSubmitting) return;
 
@@ -1759,11 +1779,7 @@ if (nearbyMode && userCoords) {
   if (isNaN(lat) || isNaN(lng)) return null;
 
   return (
-    <Marker 
-      key={ev.id} 
-      position={[lat, lng]} 
-      icon={redPinIcon}
-    >
+     <Marker key={ev.id} position={[lat, lng]} icon={redPinIcon}>
 
             <Popup>
               <div style={{
