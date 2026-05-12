@@ -29,6 +29,21 @@ const INITIAL_FORM = {
   time: '21:00', date: '', category: 'MUSICA', image_url: '', featured: false
 };
 
+const EVENT_CATEGORIES = [
+  { value: 'MUSICA', label: 'MÚSICA' },
+  { value: 'GASTRONOMIA', label: 'GASTRONOMÍA' },
+  { value: 'TAURINO', label: 'TAURINO' },
+  { value: 'FIESTAS PATRONALES', label: 'FIESTAS PATRONALES' },
+  { value: 'OTROS', label: 'OTROS' }
+];
+
+function getCategoryLabel(value) {
+  const found = EVENT_CATEGORIES.find(function(cat) {
+    return cat.value === value;
+  });
+  return found ? found.label : (value || 'TIPO DE EVENTO');
+}
+
 const categoryEmojis = {
   MUSICA: '🎵', GASTRONOMIA: '🍽️', TAURINO: '🐂',
   'FIESTAS PATRONALES': '🎉', OTROS: '📌'
@@ -2183,13 +2198,7 @@ if (nearbyMode && userCoords) {
       >
         SELECCIONA CATEGORÍA
       </p>
-      {[
-        { value: 'MUSICA', label: 'MÚSICA' },
-        { value: 'GASTRONOMIA', label: 'GASTRONOMÍA' },
-        { value: 'TAURINO', label: 'TAURINO' },
-        { value: 'FIESTAS PATRONALES', label: 'FIESTAS PATRONALES' },
-        { value: 'OTROS', label: 'OTROS' }
-      ].map(function(cat) {
+      {EVENT_CATEGORIES.map(function(cat) {
         var isActive = form.category === cat.value;
         return (
           <button
@@ -2547,7 +2556,7 @@ if (nearbyMode && userCoords) {
       justifyContent: 'space-between'
     }}
   >
-    <span>{form.category || 'TIPO DE EVENTO'}</span>
+    <span>{getCategoryLabel(form.category)}</span>
     <span style={{ fontSize: 10 }}>▼</span>
   </button>
 </div>
