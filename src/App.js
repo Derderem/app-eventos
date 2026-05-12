@@ -459,24 +459,15 @@ const [isLocating, setIsLocating] = useState(false);
     try { return window.location.pathname || '/'; } catch { return '/'; }
   });
 
-  const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
- const [showCategoryPicker, setShowCategoryPicker] = useState(false);
 const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
 const [showCalendar, setShowCalendar] = useState(false);
 const [showCategoryPicker, setShowCategoryPicker] = useState(false);
 const [showFormCategoryPicker, setShowFormCategoryPicker] = useState(false);
 const [showEditCategoryPicker, setShowEditCategoryPicker] = useState(false);
 const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
-  const [photoScale, setPhotoScale] = useState(1);
-  const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
-const [photoScale, setPhotoScale] = useState(1);
 const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
+const [photoScale, setPhotoScale] = useState(1);
 
-  const listRef = useRef(null);
-  const toastTimerRef = useRef(null);
-  const mapSearchTimerRef = useRef(null);
-  const lastNonEventPathRef = useRef(
 const listRef = useRef(null);
 const toastTimerRef = useRef(null);
 const mapSearchTimerRef = useRef(null);
@@ -2536,16 +2527,6 @@ if (nearbyMode && userCoords) {
               <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 14 }}>AÑADIR EVENTO</h2>
               <input name="title" placeholder="TÍTULO" style={INPUT_STYLE} value={form.title} onChange={handleInputChange} />
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 6 }}>
-                <input name="city" placeholder="CIUDAD" style={INPUT_STYLE} value={form.city} onChange={handleInputChange} />
-                <select name="category" style={INPUT_STYLE} value={form.category} onChange={handleInputChange}>
-                  <option value="MUSICA">MUSICA</option>
-                  <option value="GASTRONOMIA">GASTRONOMIA</option>
-                  <option value="TAURINO">TAURINO</option>
-                  <option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option>
-                  <option value="OTROS">OTROS</option>
-                </select>
-              </div>
-   <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 6 }}>
   <input
     name="city"
     placeholder="CIUDAD"
