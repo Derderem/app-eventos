@@ -459,15 +459,24 @@ const [isLocating, setIsLocating] = useState(false);
     try { return window.location.pathname || '/'; } catch { return '/'; }
   });
 
+  const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+ const [showCategoryPicker, setShowCategoryPicker] = useState(false);
 const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
 const [showCalendar, setShowCalendar] = useState(false);
 const [showCategoryPicker, setShowCategoryPicker] = useState(false);
 const [showFormCategoryPicker, setShowFormCategoryPicker] = useState(false);
 const [showEditCategoryPicker, setShowEditCategoryPicker] = useState(false);
 const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
+  const [photoScale, setPhotoScale] = useState(1);
+  const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
 const [photoScale, setPhotoScale] = useState(1);
 const [photoPos, setPhotoPos] = useState({ x: 0, y: 0 });
 
+  const listRef = useRef(null);
+  const toastTimerRef = useRef(null);
+  const mapSearchTimerRef = useRef(null);
+  const lastNonEventPathRef = useRef(
 const listRef = useRef(null);
 const toastTimerRef = useRef(null);
 const mapSearchTimerRef = useRef(null);
@@ -680,26 +689,26 @@ const lastNonEventPathRef = useRef(
   // Construimos la dirección completa para buscarla
   const partes = [address, localidad, city, 'España'].filter(Boolean);
   const direccionCompleta = partes.join(', ');
-  
+
   console.log('🌍 Buscando coordenadas para:', direccionCompleta);
-  
+
   try {
     // Llamamos a OpenStreetMap (Nominatim) que es GRATIS
     const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=es&accept-language=es&q=' 
                 + encodeURIComponent(direccionCompleta);
-    
+
     const respuesta = await fetch(url, {
       headers: {
         'Accept': 'application/json'
       }
     });
-    
+
     if (!respuesta.ok) {
       throw new Error('Error en la respuesta del servidor de mapas');
     }
-    
+
     const datos = await respuesta.json();
-    
+
     // Si encontró la dirección, devolvemos las coordenadas
     if (datos && datos.length > 0 && datos[0].lat && datos[0].lon) {
       const lat = parseFloat(datos[0].lat);
@@ -707,34 +716,34 @@ const lastNonEventPathRef = useRef(
       console.log('✅ Coordenadas encontradas:', lat, lng);
       return { lat: lat, lng: lng };
     }
-    
+
     // Si no encontró nada con la dirección completa, intentamos solo con la ciudad
     console.log('⚠️ No se encontró dirección exacta, probando solo con ciudad...');
     const urlCiudad = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=es&accept-language=es&q=' 
                       + encodeURIComponent(city + ', España');
-    
+
     const respuesta2 = await fetch(urlCiudad, {
       headers: { 'Accept': 'application/json' }
     });
-    
+
     const datos2 = await respuesta2.json();
-    
+
     if (datos2 && datos2.length > 0 && datos2[0].lat && datos2[0].lon) {
       const lat = parseFloat(datos2[0].lat);
       const lng = parseFloat(datos2[0].lon);
       console.log('✅ Coordenadas de ciudad encontradas:', lat, lng);
       return { lat: lat, lng: lng };
     }
-    
+
     // Si no encuentra absolutamente nada
     throw new Error('No se pudieron obtener coordenadas para esta dirección');
-    
+
   } catch (error) {
     console.error('❌ Error en geocodeAddress:', error);
     throw error;
   }
 }
-  
+
 async function uploadImageToStorage(file) {
   if (!file) throw new Error('No hay imagen');
   if (!file.type || file.type.indexOf('image/') !== 0) throw new Error('Selecciona una imagen válida');
@@ -960,7 +969,7 @@ async function confirmSubmitEvent() {
   });
   showToast('Editando: ' + ev.title, 'info');
 }
-  
+
   function cancelEditEvent() { setEditingEvent(null); setEditForm(INITIAL_FORM); }
 
   function handleSaveEditEvent() {
@@ -2029,7 +2038,7 @@ if (nearbyMode && userCoords) {
   const d = String(selectedCalendarDate.getDate()).padStart(2, '0');
   const selectedStr = y + '-' + m + '-' + d;
   const eventosDelDia = publicEvents.filter(ev => ev.date === selectedStr);
-  
+
   return (
     <div style={{ marginTop: 20 }}>
       <h3 style={{
@@ -2040,7 +2049,7 @@ if (nearbyMode && userCoords) {
       }}>
         EVENTOS DEL DÍA ({eventosDelDia.length})
       </h3>
-      
+
       {eventosDelDia.length === 0 ? (
         <div style={{
           padding: 20,
@@ -2104,7 +2113,7 @@ if (nearbyMode && userCoords) {
                 {formatDate(ev.date)} · {ev.time}H
               </span>
             </div>
-            
+
             <p style={{
               fontWeight: 900,
               fontSize: 14,
@@ -2114,7 +2123,7 @@ if (nearbyMode && userCoords) {
             }}>
               {ev.title}
             </p>
-            
+
             {ev.localidad && (
               <p style={{
                 fontSize: 10,
@@ -2230,7 +2239,71 @@ if (nearbyMode && userCoords) {
  </button>
  </div>
 
- {showFormCategoryPicker && (
+ {showCategoryPicker && (
+ <div onClick={function() { setShowCategoryPicker(false); }} style={{
+ position: 'fixed', inset: 0, zIndex: 999998, background: 'rgba(0,0,0,0.6)',
+ display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
+ }}>
+ <div onClick={function(e) { e.stopPropagation(); }} style={{
+ width: '100%', maxWidth: 480,
+ background: isDark ? '#0f172a' : '#ffffff',
+ borderRadius: '24px 24px 0 0',
+ padding: '8px 0 20px',
+ boxShadow: '0 -10px 40px rgba(0,0,0,0.4)'
+ }}>
+ <div style={{ width: 40, height: 4, background: isDark ? '#334155' : '#cbd5e1', borderRadius: 4, margin: '8px auto 16px' }} />
+ <p style={{ textAlign: 'center', fontSize: 13, fontWeight: 900, marginBottom: 14, letterSpacing: 1, color: isDark ? '#94a3b8' : '#64748b' }}>
+ SELECCIONA CATEGORÍA
+ </p>
+ {[
+ { value: 'MUSICA', label: 'MÚSICA' },
+ { value: 'GASTRONOMIA', label: 'GASTRONOMÍA' },
+ { value: 'TAURINO', label: 'TAURINO' },
+ { value: 'FIESTAS PATRONALES', label: 'FIESTAS PATRONALES' },
+ { value: 'OTROS', label: 'OTROS' }
+ ].map(function(cat) {
+ var isActive = selectedCategory === cat.value;
+ return (
+ <button key={cat.value} onClick={function() { handleCategoryChange(cat.value); setShowCategoryPicker(false); }} style={{
+ width: '100%', padding: '16px 22px', border: 'none', cursor: 'pointer',
+ background: isActive ? (isDark ? 'rgba(79,70,229,0.15)' : 'rgba(79,70,229,0.08)') : 'transparent',
+ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+ borderBottom: '1px solid ' + (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'),
+ borderLeft: isActive ? '4px solid #4f46e5' : '4px solid transparent'
+ }}>
+ <span style={{
+ fontSize: 14, fontWeight: isActive ? 900 : 700,
+ color: isActive ? '#4f46e5' : (isDark ? '#94a3b8' : '#64748b'),
+ letterSpacing: 0.5
+ }}>
+ {cat.label}
+ </span>
+ {isActive && (
+ <span style={{
+ width: 24, height: 24, borderRadius: '50%', background: '#4f46e5',
+ display: 'flex', alignItems: 'center', justifyContent: 'center'
+ }}>
+ <Check size={14} color="white" strokeWidth={3} />
+ </span>
+ )}
+ </button>
+ );
+ })}
+ <div style={{ padding: '16px 22px 0' }}>
+ <button onClick={function() { setShowCategoryPicker(false); }} style={{
+ width: '100%', padding: 14, borderRadius: 16, border: 'none',
+ background: isDark ? '#1e293b' : '#f1f5f9',
+ color: isDark ? '#94a3b8' : '#64748b',
+ fontWeight: 900, fontSize: 12, cursor: 'pointer'
+ }}>
+ CERRAR
+ </button>
+ </div>
+ </div>
+ </div>
+ )}
+
+   {showFormCategoryPicker && (
   <div
     onClick={() => setShowFormCategoryPicker(false)}
     style={{
@@ -2337,28 +2410,27 @@ if (nearbyMode && userCoords) {
         );
       })}
       <div style={{ padding: '16px 22px 0' }}>
-      <button
-      onClick={() => setShowFormCategoryPicker(false)}
-      style={{
-      width: '100%',
-      padding: 14,
-      borderRadius: 16,
-      border: 'none',
-      background: isDark ? '#1e293b' : '#f1f5f9',
-      color: isDark ? '#94a3b8' : '#64748b',
-      fontWeight: 900,
-      fontSize: 12,
-      cursor: 'pointer'
-      }}
-      >
-      CERRAR
-      </button>
+        <button
+          onClick={() => setShowFormCategoryPicker(false)}
+          style={{
+            width: '100%',
+            padding: 14,
+            borderRadius: 16,
+            border: 'none',
+            background: isDark ? '#1e293b' : '#f1f5f9',
+            color: isDark ? '#94a3b8' : '#64748b',
+            fontWeight: 900,
+            fontSize: 12,
+            cursor: 'pointer'
+          }}
+        >
+          CERRAR
+        </button>
       </div>
     </div>
   </div>
 )}
-
-
+  
             <div style={{ padding: '4px 12px', fontSize: 9, color: '#6366f1', fontWeight: 800, flexShrink: 0 }}>
               {filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''}
             </div>
@@ -2463,6 +2535,16 @@ if (nearbyMode && userCoords) {
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 15, borderRadius: 20, gap: 8, display: 'flex', flexDirection: 'column' }}>
               <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 14 }}>AÑADIR EVENTO</h2>
               <input name="title" placeholder="TÍTULO" style={INPUT_STYLE} value={form.title} onChange={handleInputChange} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 6 }}>
+                <input name="city" placeholder="CIUDAD" style={INPUT_STYLE} value={form.city} onChange={handleInputChange} />
+                <select name="category" style={INPUT_STYLE} value={form.category} onChange={handleInputChange}>
+                  <option value="MUSICA">MUSICA</option>
+                  <option value="GASTRONOMIA">GASTRONOMIA</option>
+                  <option value="TAURINO">TAURINO</option>
+                  <option value="FIESTAS PATRONALES">FIESTAS PATRONALES</option>
+                  <option value="OTROS">OTROS</option>
+                </select>
+              </div>
    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 6 }}>
   <input
     name="city"
