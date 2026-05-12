@@ -1540,15 +1540,16 @@ if (nearbyMode && userCoords) {
       }}
     >
       <img
-        src={url}
-        alt=""
-        style={{
-          width: '100%',
-          height: 150,
-          objectFit: 'cover',
-          display: 'block'
-        }}
-      />
+  src={url}
+  alt=""
+  style={{
+    width: '100%',
+    height: 'auto',
+    objectFit: 'contain',
+    display: 'block',
+    background: '#0f172a'
+  }}
+/>
       {isSelected && (
         <div style={{
           position: 'absolute',
