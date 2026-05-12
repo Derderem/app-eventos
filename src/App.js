@@ -691,63 +691,56 @@ const lastNonEventPathRef = useRef(
     setTimeout(() => setAnimHeart(null), 700);
   }
 
-  async function geocodeAddress(address, localidad, city) {
-  // Construimos la dirección completa para buscarla
-  const partes = [address, localidad, city, 'España'].filter(Boolean);
-  const direccionCompleta = partes.join(', ');
+ async function geocodeAddress(address, localidad, city) {
+ const intentos = [
+ [address, localidad, city, 'España'].filter(Boolean).join(', '),
+ [address, localidad, 'España'].filter(Boolean).join(', '),
+ [localidad, city, 'España'].filter(Boolean).join(', '),
+ [city, 'España'].filter(Boolean).join(', ')
+ ].filter(function(item, index, arr) {
+ return item && arr.indexOf(item) === index;
+ });
 
-  console.log('🌍 Buscando coordenadas para:', direccionCompleta);
+ for (const direccion of intentos) {
+ try {
+ console.log('Buscando coordenadas para:', direccion);
 
-  try {
-    // Llamamos a OpenStreetMap (Nominatim) que es GRATIS
-    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=es&accept-language=es&q=' 
-                + encodeURIComponent(direccionCompleta);
+ const url =
+ 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=es&accept-language=es&q=' +
+ encodeURIComponent(direccion);
 
-    const respuesta = await fetch(url, {
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
+ const respuesta = await fetch(url, {
+ headers: {
+ Accept: 'application/json'
+ }
+ });
 
-    if (!respuesta.ok) {
-      throw new Error('Error en la respuesta del servidor de mapas');
-    }
+ if (!respuesta.ok) {
+ console.warn('Respuesta no válida buscando:', direccion);
+ continue;
+ }
 
-    const datos = await respuesta.json();
+ const datos = await respuesta.json();
 
-    // Si encontró la dirección, devolvemos las coordenadas
-    if (datos && datos.length > 0 && datos[0].lat && datos[0].lon) {
-      const lat = parseFloat(datos[0].lat);
-      const lng = parseFloat(datos[0].lon);
-      console.log('✅ Coordenadas encontradas:', lat, lng);
-      return { lat: lat, lng: lng };
-    }
+ if (datos && datos.length > 0 && datos[0].lat && datos[0].lon) {
+ const lat = parseFloat(datos[0].lat);
+ const lng = parseFloat(datos[0].lon);
 
-    // Si no encontró nada con la dirección completa, intentamos solo con la ciudad
-    console.log('⚠️ No se encontró dirección exacta, probando solo con ciudad...');
-    const urlCiudad = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=es&accept-language=es&q=' 
-                      + encodeURIComponent(city + ', España');
+ console.log('Coordenadas encontradas:', lat, lng);
 
-    const respuesta2 = await fetch(urlCiudad, {
-      headers: { 'Accept': 'application/json' }
-    });
+ return { lat: lat, lng: lng };
+ }
 
-    const datos2 = await respuesta2.json();
+ await new Promise(function(resolve) {
+ setTimeout(resolve, 1000);
+ });
 
-    if (datos2 && datos2.length > 0 && datos2[0].lat && datos2[0].lon) {
-      const lat = parseFloat(datos2[0].lat);
-      const lng = parseFloat(datos2[0].lon);
-      console.log('✅ Coordenadas de ciudad encontradas:', lat, lng);
-      return { lat: lat, lng: lng };
-    }
+ } catch (error) {
+ console.warn('No se pudo buscar:', direccion, error);
+ }
+ }
 
-    // Si no encuentra absolutamente nada
-    throw new Error('No se pudieron obtener coordenadas para esta dirección');
-
-  } catch (error) {
-    console.error('❌ Error en geocodeAddress:', error);
-    throw error;
-  }
+ throw new Error('No se pudieron obtener coordenadas para esta dirección');
 }
 
 async function uploadImageToStorage(file) {
@@ -986,13 +979,14 @@ async function confirmSubmitEvent() {
     setIsSubmitting(true);
     showToast('Guardando cambios...', 'info');
 
-    const addressChanged = editForm.address !== (editingEvent.address || '') ||
-      editForm.city !== (editingEvent.city || '') ||
-      editForm.localidad !== (editingEvent.localidad || '');
-
-    const coordsPromise = addressChanged
-      ? geocodeAddress(editForm.address, editForm.localidad, editForm.city)
-      : Promise.resolve({ lat: editingEvent.lat || null, lng: editingEvent.lng || null });
+    const coordsPromise = geocodeAddress(
+  editForm.address,
+  editForm.localidad,
+  editForm.city
+).catch(() => ({
+  lat: editingEvent.lat || null,
+  lng: editingEvent.lng || null
+}));
 
     coordsPromise.then((coords) => {
       const updateData = {
