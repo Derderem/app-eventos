@@ -1539,26 +1539,17 @@ if (nearbyMode && userCoords) {
         transition: 'all 0.25s ease'
       }}
     >
-      <div style={{
-  width: '100%',
-  aspectRatio: '1 / 1',
-  background: '#0f172a',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  overflow: 'hidden'
-}}>
-  <img
-    src={url}
-    alt=""
-    style={{
-      width: '100%',
-      height: '100%',
-      objectFit: 'contain',
-      display: 'block'
-    }}
-  />
-</div>
+      <img
+  src={url}
+  alt=""
+  style={{
+    width: '100%',
+    height: 'auto',
+    objectFit: 'contain',
+    display: 'block',
+    background: '#0f172a'
+  }}
+/>
       {isSelected && (
         <div style={{
           position: 'absolute',
