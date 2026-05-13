@@ -2280,13 +2280,13 @@ if (nearbyMode && userCoords) {
               </div>
             </div>
 
-  <div
-className="no-scrollbar"
+  <div style={{ flexShrink: 0 }}>
+ <div
+ className="no-scrollbar"
  style={{
  display: 'flex',
  gap: 8,
  padding: '8px 12px 4px',
- flexShrink: 0,
  overflowX: 'auto',
  alignItems: 'center'
  }}
@@ -2346,47 +2346,13 @@ className="no-scrollbar"
  </button>
 </div>
 
- <button
- onClick={() => {
- if (!nearbyMode) {
- requestUserLocation();
- } else {
- setNearbyMode(false);
- setUserCoords(null);
- showToast('Filtro "Cerca de mí" desactivado', 'info');
- }
- }}
- disabled={isLocating}
- style={{
- height: 34,
- padding: '0 14px',
- borderRadius: 999,
- border: nearbyMode ? 'none' : '1px solid rgba(34,197,94,0.35)',
- background: nearbyMode
- ? '#22c55e'
- : (isDark ? 'rgba(30,41,59,0.9)' : '#e2e8f0'),
- color: nearbyMode ? 'white' : '#22c55e',
- fontSize: 10,
- fontWeight: 900,
- cursor: isLocating ? 'not-allowed' : 'pointer',
- opacity: isLocating ? 0.6 : 1,
- whiteSpace: 'nowrap',
- flexShrink: 0,
- boxShadow: nearbyMode ? '0 6px 16px rgba(34,197,94,0.35)' : 'none'
- }}
->
-  {isLocating ? '📍 Buscando GPS...' : '📍 CERCA DE MI'}
-</button>
-</div>
-
-             <div
+ <div
  className="no-scrollbar"
  style={{
  display: 'flex',
  gap: 8,
  padding: '4px 12px 8px',
  overflowX: 'auto',
- flexShrink: 0,
  alignItems: 'center'
  }}
 >
@@ -2471,9 +2437,9 @@ className="no-scrollbar"
  flexShrink: 0,
  boxShadow: nearbyMode ? '0 6px 16px rgba(34,197,94,0.35)' : 'none'
  }}
->
+ >
  {isLocating ? 'BUSCANDO...' : 'CERCA DE MÍ'}
-</button>
+ </button>
 </div>
 
  {showCategoryPicker && (
