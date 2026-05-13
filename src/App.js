@@ -3024,7 +3024,6 @@ if (nearbyMode && userCoords) {
         ) : (
           <button onClick={handleLogout} style={{ background: '#ef4444', color: 'white', fontSize: 10, padding: '8px 15px', borderRadius: 8, border: 'none', fontWeight: 900, cursor: 'pointer' }}>CERRAR SESIÓN</button>
         )}
-      </div>
 </div>
 </div>  
 }}
