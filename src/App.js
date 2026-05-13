@@ -2280,76 +2280,99 @@ if (nearbyMode && userCoords) {
               </div>
             </div>
 
-  <div style={{
-  display: 'flex',
-  gap: 8,
-  padding: '8px 12px',
-  flexWrap: 'wrap'
-}}>
-
-{[
-  { k: 'today', l: 'HOY' },
-  { k: 'week', l: 'SEMANA' },
-  { k: 'weekend', l: 'FINDE' }
-].map(function(f) {
-  const active = dateFilter === f.k;
-
-  return (
-    <button
-      key={f.k}
-      onClick={() => setDateFilter(f.k)}
-      style={{
-        padding: '8px 14px',
-        borderRadius: 999,
-        border: active ? 'none' : '1px solid rgba(99,102,241,0.4)',
-        background: active ? '#4f46e5' : 'transparent',
-        color: active ? 'white' : '#6366f1',
-        fontSize: 11,
-        fontWeight: 800,
-        cursor: 'pointer'
-      }}
-    >
-      {f.l}
-    </button>
-  );
-})}
-
-<button
-  onClick={() => setShowCalendar(true)}
-  style={{
-    padding: '8px 14px',
-    borderRadius: 999,
-    border: '1px solid rgba(99,102,241,0.4)',
-    background: 'transparent',
-    color: '#6366f1',
-    fontSize: 11,
-    fontWeight: 800,
-    cursor: 'pointer'
-  }}
+  <div
+ className="no-scrollbar"
+ style={{
+ display: 'flex',
+ gap: 8,
+ padding: '8px 12px',
+ flexShrink: 0,
+ overflowX: 'auto',
+ alignItems: 'center'
+ }}
 >
-  📅 CALENDARIO
-</button>
+ {[
+ { k: 'today', l: 'HOY' },
+ { k: 'week', l: 'SEMANA' },
+ { k: 'weekend', l: 'FINDE' }
+ ].map(function(f) {
+ const active = dateFilter === f.k;
 
-<button
-  onClick={() => {
-    if (!nearbyMode) {
-      requestUserLocation();
-    } else {
-      setNearbyMode(false);
-      setUserCoords(null);
-      showToast('Filtro desactivado', 'info');
-    }
-  }}
-  style={{
-    padding: '8px 14px',
-    borderRadius: 999,
-    border: nearbyMode ? 'none' : '1px solid rgba(34,197,94,0.4)',
-    background: nearbyMode ? '#22c55e' : 'transparent',
-    color: nearbyMode ? 'white' : '#22c55e',
-    fontSize: 11,
-    fontWeight: 800,
-    cursor: 'pointer'
-  }}
+ return (
+ <button
+ key={f.k}
+ onClick={function() {
+ setDateFilter(f.k);
+ }}
+ style={{
+ height: 34,
+ padding: '0 14px',
+ borderRadius: 999,
+ border: active ? 'none' : '1px solid rgba(99,102,241,0.35)',
+ background: active
+ ? '#4f46e5'
+ : (isDark ? 'rgba(30,41,59,0.9)' : '#e2e8f0'),
+ color: active ? 'white' : '#818cf8',
+ fontSize: 10,
+ fontWeight: 900,
+ cursor: 'pointer',
+ whiteSpace: 'nowrap',
+ flexShrink: 0,
+ boxShadow: active ? '0 6px 16px rgba(79,70,229,0.35)' : 'none'
+ }}
+ >
+ {f.l}
+ </button>
+ );
+ })}
+
+ <button
+ onClick={() => setShowCalendar(true)}
+ style={{
+ height: 34,
+ padding: '0 14px',
+ borderRadius: 999,
+ border: '1px solid rgba(99,102,241,0.35)',
+ background: isDark ? 'rgba(30,41,59,0.9)' : '#e2e8f0',
+ color: '#818cf8',
+ fontSize: 10,
+ fontWeight: 900,
+ cursor: 'pointer',
+ whiteSpace: 'nowrap',
+ flexShrink: 0
+ }}
+ >
+ CALENDARIO
+ </button>
+
+ <button
+ onClick={() => {
+ if (!nearbyMode) {
+ requestUserLocation();
+ } else {
+ setNearbyMode(false);
+ setUserCoords(null);
+ showToast('Filtro "Cerca de mí" desactivado', 'info');
+ }
+ }}
+ disabled={isLocating}
+ style={{
+ height: 34,
+ padding: '0 14px',
+ borderRadius: 999,
+ border: nearbyMode ? 'none' : '1px solid rgba(34,197,94,0.35)',
+ background: nearbyMode
+ ? '#22c55e'
+ : (isDark ? 'rgba(30,41,59,0.9)' : '#e2e8f0'),
+ color: nearbyMode ? 'white' : '#22c55e',
+ fontSize: 10,
+ fontWeight: 900,
+ cursor: isLocating ? 'not-allowed' : 'pointer',
+ opacity: isLocating ? 0.6 : 1,
+ whiteSpace: 'nowrap',
+ flexShrink: 0,
+ boxShadow: nearbyMode ? '0 6px 16px rgba(34,197,94,0.35)' : 'none'
+ }}
 >
   {isLocating ? '📍 Buscando GPS...' : '📍 CERCA DE MI'}
 </button>
