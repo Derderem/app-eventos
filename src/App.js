@@ -1527,28 +1527,33 @@ if (nearbyMode && userCoords) {
         setTimeout(() => handleSelectPickerImage(url), 200);
       }}
       style={{
-        position: 'relative',
-        borderRadius: 14,
-        overflow: 'hidden',
-        cursor: 'pointer',
-        border: isSelected ? '4px solid #bef264' : '3px solid transparent',
-        boxShadow: isSelected
-          ? '0 0 0 4px rgba(190,242,100,0.35), 0 8px 20px rgba(0,0,0,0.4)'
-          : '0 4px 12px rgba(0,0,0,0.3)',
-        transform: isSelected ? 'scale(0.96)' : 'scale(1)',
-        transition: 'all 0.25s ease'
-      }}
+ position: 'relative',
+ borderRadius: 14,
+ overflow: 'hidden',
+ cursor: 'pointer',
+ border: isSelected ? '4px solid #bef264' : '3px solid transparent',
+ boxShadow: isSelected
+ ? '0 0 0 4px rgba(190,242,100,0.35), 0 8px 20px rgba(0,0,0,0.4)'
+ : '0 4px 12px rgba(0,0,0,0.3)',
+ transform: isSelected ? 'scale(0.96)' : 'scale(1)',
+ transition: 'all 0.25s ease',
+ aspectRatio: '1 / 1',
+ background: '#020617',
+ display: 'flex',
+ alignItems: 'center',
+ justifyContent: 'center',
+ padding: 6
+}}
     >
       <img
-  src={url}
-  alt=""
-  style={{
-    width: '100%',
-    height: 'auto',
-    objectFit: 'contain',
-    display: 'block',
-    background: '#0f172a'
-  }}
+ src={url}
+ alt=""
+ style={{
+ width: '100%',
+ height: '100%',
+ objectFit: 'contain',
+ display: 'block'
+ }}
 />
       {isSelected && (
         <div style={{
