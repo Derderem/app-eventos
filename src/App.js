@@ -3005,28 +3005,89 @@ if (nearbyMode && userCoords) {
 </div>
 )}
 
-        {view === 'profile' && (
-          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 22, borderRadius: 35, width: '100%', maxWidth: 300, textAlign: 'center' }}>
-              <h2 style={{ fontWeight: 900, marginBottom: 12, fontSize: 16 }}>SOPORTE</h2>
-              {userEmail && <p style={{ fontSize: 9, opacity: 0.6, marginBottom: 8 }}>Conectado: {userEmail}</p>}
+        {view === 'profile' ? (
+ <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+ <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 22, borderRadius: 35, width: '100%', maxWidth: 300, textAlign: 'center' }}>
+ <h2 style={{ fontWeight: 900, marginBottom: 12, fontSize: 16 }}>SOPORTE</h2>
 
-              <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                <a href="https://ko-fi.com/eventora" target="_blank" rel="noreferrer" style={{ background: '#29abe0', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>
-                  ☕ INVITAR A UN CAFÉ (KO-FI)
-                </a>
-                <a href="https://paypal.me/EVENTORA" target="_blank" rel="noreferrer" style={{ background: '#003087', color: 'white', padding: 14, borderRadius: 12, textDecoration: 'none', fontWeight: 900, fontSize: 11 }}>
-                  💙 APOYAR EN PAYPAL
-                </a>
-              </div>
-              {!userEmail ? (
-          <button onClick={handleLogin} style={{ background: '#4f46e5', color: 'white', fontSize: 10, padding: '8px 15px', borderRadius: 8, border: 'none', fontWeight: 900, cursor: 'pointer' }}>LOGIN</button>
-        ) : (
-          <button onClick={handleLogout} style={{ background: '#ef4444', color: 'white', fontSize: 10, padding: '8px 15px', borderRadius: 8, border: 'none', fontWeight: 900, cursor: 'pointer' }}>CERRAR SESIÓN</button>
-        )}
-</div>
-</div>  
-}}
+ {userEmail && (
+ <p style={{ fontSize: 9, opacity: 0.6, marginBottom: 8 }}>
+ Conectado: {userEmail}
+ </p>
+ )}
+
+ <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+ <a
+ href="https://ko-fi.com/eventora"
+ target="_blank"
+ rel="noreferrer"
+ style={{
+ background: '#29abe0',
+ color: 'white',
+ padding: 14,
+ borderRadius: 12,
+ textDecoration: 'none',
+ fontWeight: 900,
+ fontSize: 11
+ }}
+ >
+ INVITAR A UN CAFÉ (KO-FI)
+ </a>
+
+ <a
+ href="https://paypal.me/EVENTORA"
+ target="_blank"
+ rel="noreferrer"
+ style={{
+ background: '#003087',
+ color: 'white',
+ padding: 14,
+ borderRadius: 12,
+ textDecoration: 'none',
+ fontWeight: 900,
+ fontSize: 11
+ }}
+ >
+ APOYAR EN PAYPAL
+ </a>
+ </div>
+
+ {!userEmail ? (
+ <button
+ onClick={handleLogin}
+ style={{
+ background: '#4f46e5',
+ color: 'white',
+ fontSize: 10,
+ padding: '8px 15px',
+ borderRadius: 8,
+ border: 'none',
+ fontWeight: 900,
+ cursor: 'pointer'
+ }}
+ >
+ LOGIN
+ </button>
+ ) : (
+ <button
+ onClick={handleLogout}
+ style={{
+ background: '#ef4444',
+ color: 'white',
+ fontSize: 10,
+ padding: '8px 15px',
+ borderRadius: 8,
+ border: 'none',
+ fontWeight: 900,
+ cursor: 'pointer'
+ }}
+ >
+ CERRAR SESIÓN
+ </button>
+ )}
+ </div>
+ </div>
+) : null}
 </main>
 
       <nav style={{ position: 'fixed', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: '88%', maxWidth: 360, height: 55, borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-around', boxShadow: '0 8px 25px rgba(0,0,0,.4)', zIndex: 3000, background: isDark ? 'rgba(15,23,42,.95)' : 'rgba(255,255,255,.95)' }}>
