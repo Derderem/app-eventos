@@ -2281,11 +2281,11 @@ if (nearbyMode && userCoords) {
             </div>
 
   <div
- className="no-scrollbar"
+className="no-scrollbar"
  style={{
  display: 'flex',
  gap: 8,
- padding: '8px 12px',
+ padding: '8px 12px 4px',
  flexShrink: 0,
  overflowX: 'auto',
  alignItems: 'center'
@@ -2344,6 +2344,7 @@ if (nearbyMode && userCoords) {
  >
  CALENDARIO
  </button>
+</div>
 
  <button
  onClick={() => {
@@ -2378,15 +2379,102 @@ if (nearbyMode && userCoords) {
 </button>
 </div>
 
-             <div className="no-scrollbar" style={{ display: 'flex', gap: 8, padding: '8px 12px', overflowX: 'auto', flexShrink: 0, alignItems: 'center' }}>
- <button onClick={function() { handleCategoryChange('TODOS'); setShowCategoryPicker(false); }} style={{ padding: '7px 15px', borderRadius: 25, border: 'none', background: selectedCategory === 'TODOS' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory === 'TODOS' ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>
+             <div
+ className="no-scrollbar"
+ style={{
+ display: 'flex',
+ gap: 8,
+ padding: '4px 12px 8px',
+ overflowX: 'auto',
+ flexShrink: 0,
+ alignItems: 'center'
+ }}
+>
+ <button
+ onClick={function() {
+ handleCategoryChange('TODOS');
+ setShowCategoryPicker(false);
+ }}
+ style={{
+ height: 34,
+ padding: '0 16px',
+ borderRadius: 999,
+ border: selectedCategory === 'TODOS' ? 'none' : '1px solid rgba(99,102,241,0.35)',
+ background: selectedCategory === 'TODOS'
+ ? '#4f46e5'
+ : (isDark ? 'rgba(30,41,59,0.9)' : '#e2e8f0'),
+ color: selectedCategory === 'TODOS' ? 'white' : '#818cf8',
+ fontSize: 10,
+ fontWeight: 900,
+ whiteSpace: 'nowrap',
+ cursor: 'pointer',
+ flexShrink: 0,
+ boxShadow: selectedCategory === 'TODOS' ? '0 6px 16px rgba(79,70,229,0.35)' : 'none'
+ }}
+ >
  TODOS
  </button>
- <button onClick={function() { setShowCategoryPicker(true); }} style={{ padding: '7px 15px', borderRadius: 25, border: selectedCategory !== 'TODOS' ? '2px solid #4f46e5' : 'none', background: selectedCategory !== 'TODOS' ? '#4f46e5' : (isDark ? '#1e293b' : '#e2e8f0'), color: selectedCategory !== 'TODOS' ? 'white' : 'inherit', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
- {selectedCategory !== 'TODOS' ? selectedCategory : 'TIPO DE EVENTO'}
- <span style={{ fontSize: 8 }}>▾</span>
+
+ <button
+ onClick={function() {
+ setShowCategoryPicker(true);
+ }}
+ style={{
+ height: 34,
+ padding: '0 16px',
+ borderRadius: 999,
+ border: selectedCategory !== 'TODOS' ? 'none' : '1px solid rgba(99,102,241,0.35)',
+ background: selectedCategory !== 'TODOS'
+ ? '#4f46e5'
+ : (isDark ? 'rgba(30,41,59,0.9)' : '#e2e8f0'),
+ color: selectedCategory !== 'TODOS' ? 'white' : '#818cf8',
+ fontSize: 10,
+ fontWeight: 900,
+ whiteSpace: 'nowrap',
+ cursor: 'pointer',
+ flexShrink: 0,
+ display: 'flex',
+ alignItems: 'center',
+ gap: 6,
+ boxShadow: selectedCategory !== 'TODOS' ? '0 6px 16px rgba(79,70,229,0.35)' : 'none'
+ }}
+ >
+ {selectedCategory !== 'TODOS' ? getCategoryLabel(selectedCategory) : 'TIPO DE EVENTO'}
+ <span style={{ fontSize: 8 }}>▼</span>
  </button>
- </div>
+
+ <button
+ onClick={() => {
+ if (!nearbyMode) {
+ requestUserLocation();
+ } else {
+ setNearbyMode(false);
+ setUserCoords(null);
+ showToast('Filtro "Cerca de mí" desactivado', 'info');
+ }
+ }}
+ disabled={isLocating}
+ style={{
+ height: 34,
+ padding: '0 16px',
+ borderRadius: 999,
+ border: nearbyMode ? 'none' : '1px solid rgba(34,197,94,0.35)',
+ background: nearbyMode
+ ? '#22c55e'
+ : (isDark ? 'rgba(30,41,59,0.9)' : '#e2e8f0'),
+ color: nearbyMode ? 'white' : '#22c55e',
+ fontSize: 10,
+ fontWeight: 900,
+ cursor: isLocating ? 'not-allowed' : 'pointer',
+ opacity: isLocating ? 0.6 : 1,
+ whiteSpace: 'nowrap',
+ flexShrink: 0,
+ boxShadow: nearbyMode ? '0 6px 16px rgba(34,197,94,0.35)' : 'none'
+ }}
+>
+ {isLocating ? 'BUSCANDO...' : 'CERCA DE MÍ'}
+</button>
+</div>
 
  {showCategoryPicker && (
  <div onClick={function() { setShowCategoryPicker(false); }} style={{
