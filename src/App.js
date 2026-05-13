@@ -2441,6 +2441,7 @@ if (nearbyMode && userCoords) {
  {isLocating ? 'BUSCANDO...' : 'CERCA DE MÍ'}
  </button>
 </div>
+</div>
 
  {showCategoryPicker && (
  <div onClick={function() { setShowCategoryPicker(false); }} style={{
