@@ -169,8 +169,9 @@ function cleanImageUrl(url) {
 }
 
 async function compressImage(file, options = {}) {
-  const maxSize = options.maxSize || 1600;
-  const quality = options.quality || 0.82;
+  const maxSize = options.maxSize || 1080;      // ✅ Mejor para web
+  const quality = options.quality || 0.75;      // ✅ Balance perfecto
+  const maxSizeKB = options.maxSizeKB || 400;   // ✅ NUEVO: Límite en KB
 
   if (!file || !file.type || file.type.indexOf('image/') !== 0) {
     throw new Error('Archivo no válido');
@@ -191,6 +192,7 @@ async function compressImage(file, options = {}) {
   let targetWidth = img.width;
   let targetHeight = img.height;
 
+  // Reducir tamaño si es muy grande
   if (img.width > maxSize || img.height > maxSize) {
     if (img.width > img.height) {
       targetWidth = maxSize;
@@ -207,17 +209,49 @@ async function compressImage(file, options = {}) {
   const ctx = canvas.getContext('2d');
   ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-  const webpBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', quality));
-  if (webpBlob && webpBlob.size > 0) {
-    return { blob: webpBlob, extension: 'webp', type: 'image/webp', originalSize: file.size, compressedSize: webpBlob.size };
+  // ✅ MEJORADO: Intentar WebP primero (mejor compresión)
+  let blob = null;
+  let extension = 'webp';
+  let type = 'image/webp';
+  let currentQuality = quality;
+
+  // Intentar WebP
+  blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', currentQuality));
+  
+  // Si WebP es demasiado grande o no funciona, usar JPEG
+  if (!blob || blob.size > maxSizeKB * 1024) {
+    extension = 'jpg';
+    type = 'image/jpeg';
+    blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', currentQuality));
   }
 
-  const jpegBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
-  if (jpegBlob && jpegBlob.size > 0) {
-    return { blob: jpegBlob, extension: 'jpg', type: 'image/jpeg', originalSize: file.size, compressedSize: jpegBlob.size };
+  // ✅ NUEVO: Si sigue siendo muy grande, reducir calidad progresivamente
+  let attempts = 0;
+  while (blob && blob.size > maxSizeKB * 1024 && attempts < 5) {
+    currentQuality -= 0.1;
+    if (currentQuality < 0.4) break;
+    
+    blob = await new Promise((resolve) => {
+      canvas.toBlob(resolve, type, currentQuality);
+    });
+    
+    attempts++;
   }
 
-  return { blob: file, extension: file.name.split('.').pop() || 'jpg', type: file.type, originalSize: file.size, compressedSize: file.size };
+  // Si aún es grande, usar PNG como último recurso
+  if (!blob || blob.size === 0) {
+    blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  }
+
+  return {
+    blob: blob || file,
+    extension: extension,
+    type: type,
+    originalSize: file.size,
+    compressedSize: blob ? blob.size : file.size,
+    quality: currentQuality,
+    dimensions: { width: targetWidth, height: targetHeight }
+  };
 }
 
 function Toast({ toast }) {
