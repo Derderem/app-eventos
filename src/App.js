@@ -347,6 +347,7 @@ function SafeImg({ src, alt, style, onClick }) {
       alt={alt || ''}
       style={style}
       onClick={onClick}
+      loading="lazy"  // ✅ NUEVO: Lazy loading
       onError={() => {
         if (!tried.current) {
           tried.current = true;
