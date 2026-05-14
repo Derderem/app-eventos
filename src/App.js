@@ -432,6 +432,7 @@ function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onV
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [events, setEvents] = useState([]);
   const [favorites, setFavorites] = useState(() => {
     try {
