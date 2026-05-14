@@ -1052,6 +1052,24 @@ async function confirmSubmitEvent() {
     return;
   }
 
+  // ✅ NUEVO: Verificar si hay coords en caché
+  const cached = localStorage.getItem('eventora_user_coords');
+  if (cached) {
+    try {
+      const { coords, timestamp } = JSON.parse(cached);
+      // Si el caché tiene menos de 24 horas, usarlo
+      if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+        setUserCoords(coords);
+        setNearbyMode(true);
+        showToast('✓ Usando ubicación guardada', 'success');
+        return;
+      }
+    } catch {
+      // Si hay error al parsear, ignorar y pedir coords nuevas
+    }
+  }
+
+  // Si no hay caché o expiró, pedir coords nuevas
   setIsLocating(true);
   showToast('Obteniendo tu ubicación...', 'info');
 
@@ -1062,9 +1080,15 @@ async function confirmSubmitEvent() {
         lng: pos.coords.longitude
       };
 
+      // ✅ NUEVO: Guardar en caché con timestamp
+      localStorage.setItem('eventora_user_coords', JSON.stringify({
+        coords: coords,
+        timestamp: Date.now()
+      }));
+
       setUserCoords(coords);
       setNearbyMode(true);
-      showToast('Ubicación detectada. Mostrando eventos cercanos', 'success');
+      showToast('✓ Ubicación detectada. Mostrando eventos cercanos', 'success');
       setIsLocating(false);
     },
     (error) => {
@@ -1075,7 +1099,7 @@ async function confirmSubmitEvent() {
     { 
       enableHighAccuracy: true, 
       timeout: 10000, 
-      maximumAge: 30000 
+      maximumAge: 30000
     }
   );
 }
