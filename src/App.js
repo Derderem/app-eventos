@@ -879,74 +879,73 @@ async function confirmSubmitEvent() {
   showToast('Enviando evento a revisión...', 'info');
 
   try {
-    // 1. Preparamos las coordenadas con valores nulos por defecto.
     let coords = { lat: null, lng: null };
 
-    // 2. Intentamos obtener las coordenadas GPS de forma segura.
+    // Intentar obtener coordenadas con timeout de seguridad
     try {
-      showToast('Obteniendo coordenadas GPS...', 'info'); // Avisamos al usuario que estamos en ello
-
+      showToast('Obteniendo ubicación...', 'info');
+      
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout')), 10000); // 10 segundos de timeout
+        setTimeout(() => reject(new Error('Timeout')), 8000);
       });
 
-      // Comprobamos si la función de geolocalización existe para evitar cuelgues
-      if (typeof geocodeAddress === 'function') {
-        const result = await Promise.race([
-          geocodeAddress(form.address, form.localidad, form.city),
-          timeoutPromise
-        ]);
-        // Si llegamos aquí, la promesa de geocodificación se resolvió con éxito
-        coords = result;
-        showToast('Coordenadas GPS obtenidas', 'success');
-      } else {
-        // Si la función no existe, lanzamos un error para que el catch lo maneje
-        throw new Error('La función de geocodificación no está disponible.');
-      }
+      const result = await Promise.race([
+        geocodeAddress(form.address, form.localidad, form.city),
+        timeoutPromise
+      ]);
+      
+      coords = result;
+      showToast('✓ Ubicación obtenida', 'success');
+      
     } catch (gpsError) {
-      // 3. Si algo falla, lo capturamos aquí.
-      console.warn("Aviso de geocodificación:", gpsError.message);
+      // Si falla la geo, continuamos sin coordenadas
+      console.warn('Geocodificación fallida:', gpsError.message);
       showToast('Se guardará sin ubicación exacta', 'warning');
-      // No hacemos 'return', la ejecución continúa con coords como { lat: null, lng: null }
     }
 
-    // 4. Preparamos los datos del evento para insertar en la base de datos.
+    // Preparar datos del evento
     const eventToInsert = {
-      title: form.title.trim(),
-      category: form.category,
-      city: form.city.trim(),
-      localidad: form.localidad ? form.localidad.trim() : null,
-      address: form.address.trim(),
-      date: form.date,
+      title: (form.title || '').trim(),
+      category: form.category || 'MUSICA',
+      city: (form.city || '').trim(),
+      localidad: form.localidad ? (form.localidad || '').trim() : null,
+      address: (form.address || '').trim(),
+      date: form.date || '',
       time: form.time || '21:00',
       image_url: cleanImageUrl(form.image_url),
       status: 'pending',
-      lat: coords.lat, // Será null si falló el GPS
-      lng: coords.lng, // Será null si falló el GPS
+      lat: coords.lat,
+      lng: coords.lng,
       featured: false
     };
 
-    // 5. Enviamos a Supabase
-    const { error } = await supabase.from('events').insert([eventToInsert]);
-
-    if (error) {
-      console.error("Error de Supabase:", error);
-      showToast(error.message || 'No se pudo guardar el evento', 'error');
-      // El finally se encargará de desbloquear el botón
-      return; 
+    // Validar datos antes de enviar
+    if (!eventToInsert.title || !eventToInsert.city || !eventToInsert.address || !eventToInsert.date) {
+      showToast('❌ Faltan campos obligatorios', 'error');
+      setIsSubmitting(false);
+      return;
     }
 
-    // 6. Si todo va bien
-    showToast('Evento enviado a revisión correctamente', 'success');
+    // Enviar a Supabase
+    const { error, data } = await supabase.from('events').insert([eventToInsert]);
+
+    if (error) {
+      console.error('Error Supabase:', error);
+      showToast(`❌ ${error.message || 'Error al guardar'}`, 'error');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // ✅ Éxito
+    showToast('✅ Evento enviado correctamente', 'success');
     setForm(INITIAL_FORM);
     goHome();
     fetchEvents();
 
   } catch (err) {
-    console.error('Error catastrófico al enviar evento:', err);
-    showToast('Error inesperado al enviar. Revisa tu conexión.', 'error');
+    console.error('Error general:', err);
+    showToast('❌ Error inesperado. Revisa tu conexión.', 'error');
   } finally {
-    // 7. PASE LO QUE PASE, apagamos el estado "Enviando..."
     setIsSubmitting(false);
   }
 }
