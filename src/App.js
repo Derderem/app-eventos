@@ -641,28 +641,53 @@ const lastNonEventPathRef = useRef(
   }, [currentPath, events, hasAdmin]);
 
   function fetchEvents() {
-    try {
-      const cached = localStorage.getItem('eventora_cache_events_v1');
-      if (cached) setEvents(JSON.parse(cached));
-    } catch {}
-
-    if (!navigator.onLine) {
-      showToast('Sin conexión. Mostrando eventos guardados', 'warning');
-      return;
+  // ✅ Mostrar que está cargando
+  setIsLoadingEvents(true);
+  
+  try {
+    // Intentar cargar desde caché primero
+    const cached = localStorage.getItem('eventora_cache_events_v1');
+    if (cached) {
+      setEvents(JSON.parse(cached));
     }
+  } catch {}
 
-    supabase.from('events').select('*').order('date', { ascending: true }).then((res) => {
-      if (res.error) { console.error('Error cargando eventos:', res.error); return; }
+  if (!navigator.onLine) {
+    showToast('Sin conexión. Mostrando eventos guardados', 'warning');
+    setIsLoadingEvents(false);  // ✅ Dejar de mostrar que carga
+    return;
+  }
+
+  supabase
+    .from('events')
+    .select('*')
+    .order('date', { ascending: true })
+    .then((res) => {
+      if (res.error) {
+        console.error('Error cargando eventos:', res.error);
+        setIsLoadingEvents(false);  // ✅ Dejar de cargar
+        return;
+      }
+
       const data = res.data || [];
       setEvents(data);
-      try { localStorage.setItem('eventora_cache_events_v1', JSON.stringify(data)); } catch {}
+
+      try {
+        localStorage.setItem('eventora_cache_events_v1', JSON.stringify(data));
+      } catch {}
+
       const validIds = data.map((e) => e.id);
       setFavorites((prev) => prev.filter((id) => validIds.indexOf(id) !== -1));
-    }).catch((err) => {
+
+      // ✅ Dejar de mostrar que carga
+      setIsLoadingEvents(false);
+    })
+    .catch((err) => {
       console.error('Error de red:', err);
       showToast('Problemas de conexión. Usando datos guardados', 'warning');
+      setIsLoadingEvents(false);  // ✅ Dejar de cargar
     });
-  }
+}
 
   function handleInputChange(e) {
     const name = e.target.name;
