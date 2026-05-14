@@ -432,7 +432,6 @@ function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onV
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
-  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [events, setEvents] = useState([]);
   const [favorites, setFavorites] = useState(() => {
     try {
@@ -642,53 +641,28 @@ const lastNonEventPathRef = useRef(
   }, [currentPath, events, hasAdmin]);
 
   function fetchEvents() {
-  // ✅ Mostrar que está cargando
-  setIsLoadingEvents(true);
-  
-  try {
-    // Intentar cargar desde caché primero
-    const cached = localStorage.getItem('eventora_cache_events_v1');
-    if (cached) {
-      setEvents(JSON.parse(cached));
+    try {
+      const cached = localStorage.getItem('eventora_cache_events_v1');
+      if (cached) setEvents(JSON.parse(cached));
+    } catch {}
+
+    if (!navigator.onLine) {
+      showToast('Sin conexión. Mostrando eventos guardados', 'warning');
+      return;
     }
-  } catch {}
 
-  if (!navigator.onLine) {
-    showToast('Sin conexión. Mostrando eventos guardados', 'warning');
-    setIsLoadingEvents(false);  // ✅ Dejar de mostrar que carga
-    return;
-  }
-
-  supabase
-    .from('events')
-    .select('*')
-    .order('date', { ascending: true })
-    .then((res) => {
-      if (res.error) {
-        console.error('Error cargando eventos:', res.error);
-        setIsLoadingEvents(false);  // ✅ Dejar de cargar
-        return;
-      }
-
+    supabase.from('events').select('*').order('date', { ascending: true }).then((res) => {
+      if (res.error) { console.error('Error cargando eventos:', res.error); return; }
       const data = res.data || [];
       setEvents(data);
-
-      try {
-        localStorage.setItem('eventora_cache_events_v1', JSON.stringify(data));
-      } catch {}
-
+      try { localStorage.setItem('eventora_cache_events_v1', JSON.stringify(data)); } catch {}
       const validIds = data.map((e) => e.id);
       setFavorites((prev) => prev.filter((id) => validIds.indexOf(id) !== -1));
-
-      // ✅ Dejar de mostrar que carga
-      setIsLoadingEvents(false);
-    })
-    .catch((err) => {
+    }).catch((err) => {
       console.error('Error de red:', err);
       showToast('Problemas de conexión. Usando datos guardados', 'warning');
-      setIsLoadingEvents(false);  // ✅ Dejar de cargar
     });
-}
+  }
 
   function handleInputChange(e) {
     const name = e.target.name;
@@ -905,73 +879,74 @@ async function confirmSubmitEvent() {
   showToast('Enviando evento a revisión...', 'info');
 
   try {
+    // 1. Preparamos las coordenadas con valores nulos por defecto.
     let coords = { lat: null, lng: null };
 
-    // Intentar obtener coordenadas con timeout de seguridad
+    // 2. Intentamos obtener las coordenadas GPS de forma segura.
     try {
-      showToast('Obteniendo ubicación...', 'info');
-      
+      showToast('Obteniendo coordenadas GPS...', 'info'); // Avisamos al usuario que estamos en ello
+
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout')), 8000);
+        setTimeout(() => reject(new Error('Timeout')), 10000); // 10 segundos de timeout
       });
 
-      const result = await Promise.race([
-        geocodeAddress(form.address, form.localidad, form.city),
-        timeoutPromise
-      ]);
-      
-      coords = result;
-      showToast('✓ Ubicación obtenida', 'success');
-      
+      // Comprobamos si la función de geolocalización existe para evitar cuelgues
+      if (typeof geocodeAddress === 'function') {
+        const result = await Promise.race([
+          geocodeAddress(form.address, form.localidad, form.city),
+          timeoutPromise
+        ]);
+        // Si llegamos aquí, la promesa de geocodificación se resolvió con éxito
+        coords = result;
+        showToast('Coordenadas GPS obtenidas', 'success');
+      } else {
+        // Si la función no existe, lanzamos un error para que el catch lo maneje
+        throw new Error('La función de geocodificación no está disponible.');
+      }
     } catch (gpsError) {
-      // Si falla la geo, continuamos sin coordenadas
-      console.warn('Geocodificación fallida:', gpsError.message);
+      // 3. Si algo falla, lo capturamos aquí.
+      console.warn("Aviso de geocodificación:", gpsError.message);
       showToast('Se guardará sin ubicación exacta', 'warning');
+      // No hacemos 'return', la ejecución continúa con coords como { lat: null, lng: null }
     }
 
-    // Preparar datos del evento
+    // 4. Preparamos los datos del evento para insertar en la base de datos.
     const eventToInsert = {
-      title: (form.title || '').trim(),
-      category: form.category || 'MUSICA',
-      city: (form.city || '').trim(),
-      localidad: form.localidad ? (form.localidad || '').trim() : null,
-      address: (form.address || '').trim(),
-      date: form.date || '',
+      title: form.title.trim(),
+      category: form.category,
+      city: form.city.trim(),
+      localidad: form.localidad ? form.localidad.trim() : null,
+      address: form.address.trim(),
+      date: form.date,
       time: form.time || '21:00',
       image_url: cleanImageUrl(form.image_url),
       status: 'pending',
-      lat: coords.lat,
-      lng: coords.lng,
+      lat: coords.lat, // Será null si falló el GPS
+      lng: coords.lng, // Será null si falló el GPS
       featured: false
     };
 
-    // Validar datos antes de enviar
-    if (!eventToInsert.title || !eventToInsert.city || !eventToInsert.address || !eventToInsert.date) {
-      showToast('❌ Faltan campos obligatorios', 'error');
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Enviar a Supabase
-    const { error, data } = await supabase.from('events').insert([eventToInsert]);
+    // 5. Enviamos a Supabase
+    const { error } = await supabase.from('events').insert([eventToInsert]);
 
     if (error) {
-      console.error('Error Supabase:', error);
-      showToast(`❌ ${error.message || 'Error al guardar'}`, 'error');
-      setIsSubmitting(false);
-      return;
+      console.error("Error de Supabase:", error);
+      showToast(error.message || 'No se pudo guardar el evento', 'error');
+      // El finally se encargará de desbloquear el botón
+      return; 
     }
 
-    // ✅ Éxito
-    showToast('✅ Evento enviado correctamente', 'success');
+    // 6. Si todo va bien
+    showToast('Evento enviado a revisión correctamente', 'success');
     setForm(INITIAL_FORM);
     goHome();
     fetchEvents();
 
   } catch (err) {
-    console.error('Error general:', err);
-    showToast('❌ Error inesperado. Revisa tu conexión.', 'error');
+    console.error('Error catastrófico al enviar evento:', err);
+    showToast('Error inesperado al enviar. Revisa tu conexión.', 'error');
   } finally {
+    // 7. PASE LO QUE PASE, apagamos el estado "Enviando..."
     setIsSubmitting(false);
   }
 }
