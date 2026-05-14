@@ -655,6 +655,12 @@ const lastNonEventPathRef = useRef(
       if (res.error) { console.error('Error cargando eventos:', res.error); return; }
       const data = res.data || [];
       setEvents(data);
+
+      // Comprobar eventos cercanos tras cargar
+setTimeout(function() {
+  checkNearbyEventsNotification();
+}, 2000);
+      
       try { localStorage.setItem('eventora_cache_events_v1', JSON.stringify(data)); } catch {}
       const validIds = data.map((e) => e.id);
       setFavorites((prev) => prev.filter((id) => validIds.indexOf(id) !== -1));
@@ -1071,6 +1077,53 @@ async function confirmSubmitEvent() {
       timeout: 10000, 
       maximumAge: 30000 
     }
+  );
+}
+
+  function checkNearbyEventsNotification() {
+  if (!navigator.geolocation) return;
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const userLat = pos.coords.latitude;
+      const userLng = pos.coords.longitude;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const in3Days = new Date(today);
+      in3Days.setDate(in3Days.getDate() + 3);
+
+      const nearbyUpcoming = events.filter(function(ev) {
+        if (ev.status !== 'approved') return false;
+        if (!ev.lat || !ev.lng) return false;
+
+        var eventDate = parseLocalDate(ev.date);
+        if (!eventDate) return false;
+        if (eventDate < today || eventDate > in3Days) return false;
+
+        var dist = getDistanceKm(userLat, userLng, ev.lat, ev.lng);
+        return dist <= NEARBY_RADIUS_KM;
+      });
+
+      if (nearbyUpcoming.length > 0) {
+        var closest = nearbyUpcoming[0];
+        var dist = Math.round(getDistanceKm(userLat, userLng, closest.lat, closest.lng));
+
+        if (nearbyUpcoming.length === 1) {
+          showToast(
+            '📍 "' + closest.title + '" está a ' + dist + 'km de ti (' + formatDate(closest.date) + ')',
+            'success'
+          );
+        } else {
+          showToast(
+            '📍 ' + nearbyUpcoming.length + ' eventos cerca de ti en los próximos 3 días. ¡El más cercano a ' + dist + 'km!',
+            'success'
+          );
+        }
+      }
+    },
+    () => {}, // Si falla silenciosamente no hacemos nada
+    { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
   );
 }
 
