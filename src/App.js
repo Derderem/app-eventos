@@ -1748,6 +1748,18 @@ var INPUT_STYLE = {
   outline: none !important;
   box-shadow: none !important;
 }
+
+.leaflet-popup-content button {
+  background: #4f46e5 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 10px !important;
+  font-weight: 900 !important;
+  padding: 10px 16px !important;
+  width: 100% !important;
+  font-size: 11px !important;
+  cursor: pointer !important;
+}
         @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
         .animate-spin { animation:spin 1s linear infinite; }
         @keyframes admin-pulse { 0%{transform:scale(1);color:#818cf8;} 50%{transform:scale(1.2);color:#ef4444;} 100%{transform:scale(1);color:#818cf8;} }
@@ -2035,14 +2047,33 @@ var INPUT_STYLE = {
     </p>
 
     <button
-      onClick={function(e) { 
-  e.stopPropagation();
-  setView('home');
-  setTimeout(function() { openEvent(ev); }, 100);
-}}
-    >
-      VER DETALLES
-    </button>
+  onClick={function(e) { 
+    e.stopPropagation();
+    setView('home');
+    setTimeout(function() { openEvent(ev); }, 100);
+  }}
+  style={{
+    width: '100%',
+    padding: '10px 16px',
+    background: '#4f46e5',
+    color: 'white',
+    border: 'none',
+    borderRadius: 10,
+    fontWeight: 900,
+    fontSize: 11,
+    cursor: 'pointer',
+    display: 'block',
+    textAlign: 'center',
+    marginTop: 4,
+    WebkitAppearance: 'none',
+    appearance: 'none',
+    outline: 'none',
+    boxShadow: 'none',
+    letterSpacing: 0.5
+  }}
+>
+  VER DETALLES
+</button>
 
   </div>
 </Popup>
