@@ -631,6 +631,24 @@ const lastNonEventPathRef = useRef(
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  useEffect(function() {
+  var listEl = listRef.current;
+  if (!listEl || view !== 'home') return;
+
+  function handleScroll() {
+    var scrollTop = listEl.scrollTop;
+    var scrollHeight = listEl.scrollHeight;
+    var clientHeight = listEl.clientHeight;
+
+    if (scrollHeight - scrollTop - clientHeight < 300) {
+      setVisibleCount(function(prev) { return prev + 20; });
+    }
+  }
+
+  listEl.addEventListener('scroll', handleScroll);
+  return function() { listEl.removeEventListener('scroll', handleScroll); };
+}, [view]);
+
   useEffect(() => {
     if (currentPath.startsWith('/evento/')) return;
     routeEventLookupRef.current = '';
