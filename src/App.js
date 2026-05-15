@@ -1160,50 +1160,89 @@ async function confirmSubmitEvent() {
 }
 
   function checkNearbyEventsNotification() {
+  // Si ya tenemos coordenadas guardadas, usarlas directamente
+  if (userCoords) {
+    checkNearbyWithCoords(userCoords.lat, userCoords.lng);
+    return;
+  }
+
+  // Si no, intentar recuperar del localStorage
+  try {
+    var cached = localStorage.getItem('eventora_user_coords');
+    if (cached) {
+      var parsed = JSON.parse(cached);
+      var age = Date.now() - (parsed.timestamp || 0);
+      // Si tiene menos de 30 minutos, reutilizar
+      if (age < 30 * 60 * 1000) {
+        setUserCoords({ lat: parsed.lat, lng: parsed.lng });
+        checkNearbyWithCoords(parsed.lat, parsed.lng);
+        return;
+      }
+    }
+  } catch (e) {}
+
+  // Si no hay caché, pedir GPS
   if (!navigator.geolocation) return;
 
   navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const userLat = pos.coords.latitude;
-      const userLng = pos.coords.longitude;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    function(pos) {
+      var coords = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude
+      };
+      setUserCoords(coords);
 
-      const in3Days = new Date(today);
-      in3Days.setDate(in3Days.getDate() + 3);
+      // Guardar en localStorage con timestamp
+      try {
+        localStorage.setItem('eventora_user_coords', JSON.stringify({
+          lat: coords.lat,
+          lng: coords.lng,
+          timestamp: Date.now()
+        }));
+      } catch (e) {}
 
-      const nearbyUpcoming = events.filter(function(ev) {
-        if (ev.status !== 'approved') return false;
-        if (!ev.lat || !ev.lng) return false;
-
-        var eventDate = parseLocalDate(ev.date);
-        if (!eventDate) return false;
-        if (eventDate < today || eventDate > in3Days) return false;
-
-        var dist = getDistanceKm(userLat, userLng, ev.lat, ev.lng);
-        return dist <= NEARBY_RADIUS_KM;
-      });
-
-      if (nearbyUpcoming.length > 0) {
-        var closest = nearbyUpcoming[0];
-        var dist = Math.round(getDistanceKm(userLat, userLng, closest.lat, closest.lng));
-
-        if (nearbyUpcoming.length === 1) {
-          showToast(
-            '📍 "' + closest.title + '" está a ' + dist + 'km de ti (' + formatDate(closest.date) + ')',
-            'success'
-          );
-        } else {
-          showToast(
-            '📍 ' + nearbyUpcoming.length + ' eventos cerca de ti en los próximos 3 días. ¡El más cercano a ' + dist + 'km!',
-            'success'
-          );
-        }
-      }
+      checkNearbyWithCoords(coords.lat, coords.lng);
     },
-    () => {}, // Si falla silenciosamente no hacemos nada
+    function() {},
     { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
   );
+}
+
+function checkNearbyWithCoords(userLat, userLng) {
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  var in3Days = new Date(today);
+  in3Days.setDate(in3Days.getDate() + 3);
+
+  var nearbyUpcoming = events.filter(function(ev) {
+    if (ev.status !== 'approved') return false;
+    if (!ev.lat || !ev.lng) return false;
+
+    var eventDate = parseLocalDate(ev.date);
+    if (!eventDate) return false;
+    if (eventDate < today || eventDate > in3Days) return false;
+
+    var dist = getDistanceKm(userLat, userLng, ev.lat, ev.lng);
+    return dist <= NEARBY_RADIUS_KM;
+  });
+
+  if (nearbyUpcoming.length > 0) {
+    var closest = nearbyUpcoming[0];
+    var dist = Math.round(getDistanceKm(userLat, userLng, closest.lat, closest.lng));
+
+    if (nearbyUpcoming.length === 1) {
+      showToast(
+        '📍 "' + closest.title + '" está a ' + dist + 'km de ti (' + formatDate(closest.date) + ')',
+        'success'
+      );
+    } else {
+      showToast(
+        '📍 ' + nearbyUpcoming.length + ' eventos cerca de ti en los próximos 3 días. ¡El más cercano a ' + dist + 'km!',
+        'success'
+      );
+    }
+  }
 }
 
   function handleLogout() {
