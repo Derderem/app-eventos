@@ -469,6 +469,7 @@ function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onV
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [events, setEvents] = useState([]);
+  const [visibleCount, setVisibleCount] = useState(20);
   const [favorites, setFavorites] = useState(() => {
     try {
       const saved = localStorage.getItem('eventora_favs_v5');
