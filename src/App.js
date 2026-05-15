@@ -359,6 +359,40 @@ function SafeImg({ src, alt, style, onClick }) {
   );
 }
 
+function EventSkeleton({ isDark }) {
+  return (
+    <div className={isDark ? 'card-dark' : 'card-light'} style={{
+      borderRadius: 25, overflow: 'hidden', marginBottom: 15
+    }}>
+      <div style={{
+        height: 160,
+        background: isDark
+          ? 'linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%)'
+          : 'linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%)',
+        backgroundSize: '200% 100%',
+        animation: 'shimmer 1.5s infinite'
+      }} />
+      <div style={{ padding: 15 }}>
+        <div style={{
+          height: 10, width: '50%', margin: '0 auto 8px',
+          borderRadius: 6,
+          background: isDark ? '#1e293b' : '#e2e8f0'
+        }} />
+        <div style={{
+          height: 16, width: '70%', margin: '0 auto 10px',
+          borderRadius: 6,
+          background: isDark ? '#1e293b' : '#e2e8f0'
+        }} />
+        <div style={{
+          height: 40, width: '100%',
+          borderRadius: 14,
+          background: isDark ? '#1e293b' : '#e2e8f0'
+        }} />
+      </div>
+    </div>
+  );
+}
+
 function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, setSelectedEvent }) {
   const dl = getDaysLabel(ev.date);
   const isReallyFeatured = ev.featured === true;
@@ -470,6 +504,7 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [events, setEvents] = useState([]);
   const [visibleCount, setVisibleCount] = useState(20);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [favorites, setFavorites] = useState(() => {
     try {
       const saved = localStorage.getItem('eventora_favs_v5');
@@ -696,20 +731,23 @@ const lastNonEventPathRef = useRef(
   }, [currentPath, events, hasAdmin]);
 
   function fetchEvents() {
-    try {
-      const cached = localStorage.getItem('eventora_cache_events_v1');
+  setIsLoadingEvents(true);
+  try {
+    const cached = localStorage.getItem('eventora_cache_events_v1');
       if (cached) setEvents(JSON.parse(cached));
     } catch {}
 
     if (!navigator.onLine) {
-      showToast('Sin conexión. Mostrando eventos guardados', 'warning');
-      return;
-    }
+  showToast('Sin conexión. Mostrando eventos guardados', 'warning');
+  setIsLoadingEvents(false);
+  return;
+}
 
     supabase.from('events').select('*').order('date', { ascending: true }).then((res) => {
       if (res.error) { console.error('Error cargando eventos:', res.error); return; }
       const data = res.data || [];
       setEvents(data);
+      setIsLoadingEvents(false);
 
       // Comprobar eventos cercanos tras cargar
 setTimeout(function() {
@@ -720,10 +758,10 @@ setTimeout(function() {
       const validIds = data.map((e) => e.id);
       setFavorites((prev) => prev.filter((id) => validIds.indexOf(id) !== -1));
     }).catch((err) => {
-      console.error('Error de red:', err);
-      showToast('Problemas de conexión. Usando datos guardados', 'warning');
-    });
-  }
+  console.error('Error de red:', err);
+  showToast('Problemas de conexión. Usando datos guardados', 'warning');
+  setIsLoadingEvents(false);
+});
 
   function handleInputChange(e) {
     const name = e.target.name;
@@ -1816,6 +1854,10 @@ var INPUT_STYLE = {
         @keyframes viewFadeIn {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 .view-animated {
   animation: viewFadeIn 0.3s ease-out;
