@@ -1397,11 +1397,13 @@ if (nearbyMode && userCoords) {
     return dateA - dateB;
   });
 
-  var featuredEvent = sortedFiltered.length ? sortedFiltered[0] : null;
-  var restEvents = sortedFiltered.length ? sortedFiltered.slice(1) : [];
-  var adminFiltersActive = adminSearch.trim() || adminCityFilter !== 'TODAS';
+var featuredEvent = sortedFiltered.length ? sortedFiltered[0] : null;
+var allRestEvents = sortedFiltered.length ? sortedFiltered.slice(1) : [];
+var restEvents = allRestEvents.slice(0, visibleCount);
+var hasMoreEvents = allRestEvents.length > visibleCount;
+var adminFiltersActive = adminSearch.trim() || adminCityFilter !== 'TODAS';
 
-  var INPUT_STYLE = {
+var INPUT_STYLE = {
     width: '100%', padding: 12, borderRadius: 10, border: 'none',
     background: 'rgba(128,128,128,0.1)', color: 'inherit', fontWeight: 700
   };
