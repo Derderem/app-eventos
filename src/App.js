@@ -2641,6 +2641,30 @@ var INPUT_STYLE = {
               )}
               {featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />}
               {restEvents.map(function(ev) { return <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />; })}
+{hasMoreEvents && (
+  <button
+    onClick={function() { setVisibleCount(function(prev) { return prev + 20; }); }}
+    style={{
+      width: '100%',
+      padding: 14,
+      borderRadius: 16,
+      border: '2px dashed rgba(99,102,241,0.4)',
+      background: isDark ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.05)',
+      color: '#6366f1',
+      fontWeight: 900,
+      fontSize: 11,
+      cursor: 'pointer',
+      marginTop: 10,
+      marginBottom: 20,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8
+    }}
+  >
+    CARGAR MÁS ({allRestEvents.length - visibleCount} restantes)
+  </button>
+)}
             </div>
           </div>
         )}
