@@ -2788,7 +2788,7 @@ var INPUT_STYLE = {
       <EventSkeleton isDark={isDark} />
     </>
   )}
-  {!isLoadingEvents && filteredEvents.length === 0 && (
+ {!isLoadingEvents && filteredEvents.length === 0 && (
                 <div style={{ textAlign: 'center', marginTop: 60, opacity: 0.5 }}>
                   <Search size={40} style={{ margin: '0 auto 15px' }} />
                   <p style={{ fontWeight: 900, fontSize: 14 }}>NO SE ENCONTRARON EVENTOS</p>
