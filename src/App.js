@@ -2003,39 +2003,56 @@ var INPUT_STYLE = {
           >
 
             <Popup>
-              <div style={{
-                minWidth: 200,
-                padding: 5
-              }}>
+  <div style={{
+    minWidth: 200,
+    padding: 5
+  }}>
 
-                <p style={{
-                  fontWeight: 900,
-                  fontSize: 14,
-                  marginBottom: 6,
-                  color: '#0f172a'
-                }}>
-                  {ev.title}
-                </p>
+    <p style={{
+      fontWeight: 900,
+      fontSize: 14,
+      marginBottom: 6,
+      color: '#0f172a'
+    }}>
+      {ev.title}
+    </p>
 
-                <p style={{
-                  fontSize: 11,
-                  marginBottom: 4,
-                  color: '#334155'
-                }}>
-                  {ev.city}
-                </p>
+    <p style={{
+      fontSize: 11,
+      marginBottom: 4,
+      color: '#334155'
+    }}>
+      {ev.city}
+    </p>
 
-                <p style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: '#6366f1'
-                }}>
-                  {formatDate(ev.date)}
-                </p>
+    <p style={{
+      fontSize: 11,
+      fontWeight: 700,
+      color: '#6366f1',
+      marginBottom: 8
+    }}>
+      {formatDate(ev.date)} · {ev.time}H
+    </p>
 
-              </div>
-            </Popup>
+    <button
+      onClick={function() { openEvent(ev); }}
+      style={{
+        width: '100%',
+        padding: 8,
+        background: '#4f46e5',
+        color: 'white',
+        border: 'none',
+        borderRadius: 8,
+        fontWeight: 900,
+        fontSize: 10,
+        cursor: 'pointer'
+      }}
+    >
+      VER DETALLES
+    </button>
 
+  </div>
+</Popup>
           </Marker>
         );
 
