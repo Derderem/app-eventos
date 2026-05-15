@@ -2035,18 +2035,11 @@ var INPUT_STYLE = {
     </p>
 
     <button
-      onClick={function() { openEvent(ev); }}
-      style={{
-        width: '100%',
-        padding: 8,
-        background: '#4f46e5',
-        color: 'white',
-        border: 'none',
-        borderRadius: 8,
-        fontWeight: 900,
-        fontSize: 10,
-        cursor: 'pointer'
-      }}
+      onClick={function(e) { 
+  e.stopPropagation();
+  setView('home');
+  setTimeout(function() { openEvent(ev); }, 100);
+}}
     >
       VER DETALLES
     </button>
