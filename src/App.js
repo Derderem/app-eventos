@@ -1271,15 +1271,15 @@ async function confirmSubmitEvent() {
   }
 
   function handleCategoryChange(cat) {
- setSelectedCategory(cat);
+  setSelectedCategory(cat);
+  setVisibleCount(20);
 
- if (cat === 'TODOS') {
-  setDateFilter('all');
- }
+  if (cat === 'TODOS') {
+    setDateFilter('all');
+  }
 
- if (listRef.current) listRef.current.scrollTop = 0;
+  if (listRef.current) listRef.current.scrollTop = 0;
 }
-
   function enterPhotoZoom() { setIsPhotoZoomed(true); setPhotoScale(1); setPhotoPos({ x: 0, y: 0 }); }
   function exitPhotoZoom() { setIsPhotoZoomed(false); setPhotoScale(1); setPhotoPos({ x: 0, y: 0 }); }
 
@@ -2395,7 +2395,7 @@ var INPUT_STYLE = {
             <div style={{ padding: '8px 12px', flexShrink: 0, background: isDark ? '#020617' : '#f8fafc' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 12, padding: '6px 12px' }}>
                 <Search size={16} color="#6366f1" />
-                <input value={searchQuery} onChange={function(e) { setSearchQuery(e.target.value); }} placeholder="Buscar evento, ciudad, localidad..." style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontWeight: 700, fontSize: 11, color: 'inherit' }} />
+                <input value={searchQuery} onChange={function(e) { setSearchQuery(e.target.value); setVisibleCount(20); }} placeholder="Buscar evento, ciudad, localidad..." style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontWeight: 700, fontSize: 11, color: 'inherit' }} />
                 {searchQuery && <button onClick={function() { setSearchQuery(''); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer' }}>X</button>}
               </div>
             </div>
@@ -2422,8 +2422,9 @@ var INPUT_STYLE = {
  <button
  key={f.k}
  onClick={function() {
- setDateFilter(f.k);
- }}
+  setDateFilter(f.k);
+  setVisibleCount(20);
+}}
  style={{
  height: 34,
  padding: '0 14px',
