@@ -2497,7 +2497,7 @@ var INPUT_STYLE = {
 )}
 
 {view === 'home' && !selectedEvent && (
-          <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+  <div className="view-animated" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '8px 12px', flexShrink: 0, background: isDark ? '#020617' : '#f8fafc' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 12, padding: '6px 12px' }}>
                 <Search size={16} color="#6366f1" />
@@ -2790,9 +2790,9 @@ var INPUT_STYLE = {
                 </div>
               </div>
             ) : (
-              <div className="no-scrollbar" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
-                  <button onClick={closeSelectedEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
+             <div className="no-scrollbar view-animated" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+  <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
+    <button onClick={closeSelectedEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
                     <ArrowLeft size={14} /> VOLVER
                   </button>
                 </div>
@@ -2858,7 +2858,7 @@ var INPUT_STYLE = {
         )}
 
         {view === 'create' && (
-          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
+  <div className="no-scrollbar view-animated" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 15, borderRadius: 20, gap: 8, display: 'flex', flexDirection: 'column' }}>
               <h2 style={{ textAlign: 'center', fontWeight: 900, fontSize: 14 }}>AÑADIR EVENTO</h2>
               <input name="title" placeholder="TÍTULO" style={INPUT_STYLE} value={form.title} onChange={handleInputChange} />
@@ -3231,7 +3231,7 @@ var INPUT_STYLE = {
         )}
 
         {view === 'favorites' && (
-          <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
+  <div className="no-scrollbar view-animated" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16 }}>MIS GUARDADOS ({favoriteEvents.length})</h2>
             {favoriteEvents.length === 0 ? (
               <p style={{ textAlign: 'center', opacity: 0.7, marginTop: 50, fontWeight: 700 }}>NO HAY EVENTOS GUARDADOS</p>
@@ -3257,7 +3257,7 @@ var INPUT_STYLE = {
 )}
 
         {view === 'profile' ? (
- <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+  <div className="view-animated" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
  <div className={isDark ? 'card-dark' : 'card-light'} style={{ padding: 22, borderRadius: 35, width: '100%', maxWidth: 300, textAlign: 'center' }}>
  <h2 style={{ fontWeight: 900, marginBottom: 12, fontSize: 16 }}>SOPORTE</h2>
 
