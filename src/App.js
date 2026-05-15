@@ -2781,7 +2781,14 @@ var INPUT_STYLE = {
             </div>
 
             <div ref={listRef} className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: 15, paddingBottom: 120 }}>
-              {filteredEvents.length === 0 && (
+  {isLoadingEvents && filteredEvents.length === 0 && (
+    <>
+      <EventSkeleton isDark={isDark} />
+      <EventSkeleton isDark={isDark} />
+      <EventSkeleton isDark={isDark} />
+    </>
+  )}
+  {!isLoadingEvents && filteredEvents.length === 0 && (
                 <div style={{ textAlign: 'center', marginTop: 60, opacity: 0.5 }}>
                   <Search size={40} style={{ margin: '0 auto 15px' }} />
                   <p style={{ fontWeight: 900, fontSize: 14 }}>NO SE ENCONTRARON EVENTOS</p>
