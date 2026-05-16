@@ -2846,7 +2846,7 @@ var INPUT_STYLE = {
                   </button>
                 </div>
 
-                <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
+                D
                   <div onClick={enterPhotoZoom} style={{ position: 'relative', width: '100%', height: 220, cursor: 'zoom-in', overflow: 'hidden', flexShrink: 0 }}>
                     <SafeImg src={selectedEvent.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.6)', color: 'white', padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900, pointerEvents: 'none' }}>
@@ -3407,6 +3407,9 @@ var INPUT_STYLE = {
           <MapIcon size={22} />
         </button>
       </nav>
-</div>
+    </div>
+  </main>
 );
 }
+
+export default App;
