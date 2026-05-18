@@ -1506,6 +1506,7 @@ var INPUT_STYLE = {
   if (showSplash) return <Splash onDone={function() { setShowSplash(false); }} />;
 
   return (
+    <>  
     <div className={isDark ? 'dark-theme' : 'light-theme'} style={{ width: '100vw', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Toast toast={toast} />
   {showSubmitConfirm && (
@@ -2898,12 +2899,11 @@ var INPUT_STYLE = {
                       </button>
                     </div>
 
-                  </div>
-                </div>
-              </div>
-)}
-</>
-)}
+                 </div>
+          </div>
+       </>
+       )}
+   
 
         {view === 'create' && (
   <div className="no-scrollbar view-animated" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
@@ -3405,9 +3405,9 @@ var INPUT_STYLE = {
         <button onClick={goMap} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <MapIcon size={22} />
         </button>
-      </nav>
-    </div>
-  </main>
+       </nav>
+  </div>
+  </>
 );
 }
 
