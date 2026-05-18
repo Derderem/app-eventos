@@ -2839,7 +2839,7 @@ var INPUT_STYLE = {
                   Usa dos dedos para zoom
                 </div>
               </div>
-            ) : (
+           ) : ( <>
              <div className="no-scrollbar view-animated" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
   <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
     <button onClick={closeSelectedEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
@@ -2902,8 +2902,8 @@ var INPUT_STYLE = {
                  </div>
           </div>
        </>
-       )}
-   
+       </>
+   )}
 
         {view === 'create' && (
   <div className="no-scrollbar view-animated" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
