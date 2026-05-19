@@ -1159,7 +1159,7 @@ async function confirmSubmitEvent() {
   );
 }
 
-  function checkNearbyEventsNotification() {
+ function checkNearbyEventsNotification() {
   // Si ya tenemos coordenadas guardadas, usarlas directamente
   if (userCoords) {
     checkNearbyWithCoords(userCoords.lat, userCoords.lng);
@@ -1172,10 +1172,15 @@ async function confirmSubmitEvent() {
     if (cached) {
       var parsed = JSON.parse(cached);
       var age = Date.now() - (parsed.timestamp || 0);
+
+      // Acepta ambos formatos de guardado para evitar errores
+      var lat = parsed && parsed.coords ? parsed.coords.lat : parsed.lat;
+      var lng = parsed && parsed.coords ? parsed.coords.lng : parsed.lng;
+
       // Si tiene menos de 30 minutos, reutilizar
-      if (age < 30 * 60 * 1000) {
-        setUserCoords({ lat: parsed.lat, lng: parsed.lng });
-        checkNearbyWithCoords(parsed.lat, parsed.lng);
+      if (age < 30 * 60 * 1000 && lat && lng) {
+        setUserCoords({ lat: lat, lng: lng });
+        checkNearbyWithCoords(lat, lng);
         return;
       }
     }
@@ -1192,11 +1197,10 @@ async function confirmSubmitEvent() {
       };
       setUserCoords(coords);
 
-      // Guardar en localStorage con timestamp
+      // Guardar en localStorage con timestamp (FORMATO UNIFICADO)
       try {
         localStorage.setItem('eventora_user_coords', JSON.stringify({
-          lat: coords.lat,
-          lng: coords.lng,
+          coords: { lat: coords.lat, lng: coords.lng },
           timestamp: Date.now()
         }));
       } catch (e) {}
