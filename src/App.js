@@ -384,18 +384,19 @@ function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite,
   return (
     <div className={isDark ? 'card-dark' : 'card-light'} style={{
       borderRadius: 25, overflow: 'hidden', marginBottom: 15,
-      border: (featured || isReallyFeatured) && !hideFeaturedBadge ? '2px solid #22c55e' : undefined
+      border: (featured || isReallyFeatured) && !hideFeaturedBadge ? '2px solid #facc15' : undefined
     }}>
       <div style={{ position: 'relative' }}>
-        {(featured || isReallyFeatured) && !hideFeaturedBadge && (
-          <div style={{
-            position: 'absolute', top: 10, left: 10, zIndex: 5, background: '#22c55e', color: 'white',
-            padding: '4px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900,
-            display: 'flex', alignItems: 'center', gap: 4
-          }}>
-            <Star size={12} fill="white" /> DESTACADO
-          </div>
-        )}
+       {(featured || isReallyFeatured) && !hideFeaturedBadge && (
+  <div style={{
+    position: 'absolute', top: 10, left: 10, zIndex: 5, background: '#facc15', color: '#000',
+    padding: '4px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900,
+    display: 'flex', alignItems: 'center', gap: 4,
+    boxShadow: '0 4px 12px rgba(250,204,21,0.5)'
+  }}>
+    <Star size={12} fill="#000" /> DESTACADO
+  </div>
+)}
 
         <div style={{ position: 'relative', height: featured ? 200 : 160 }}>
           <SafeImg src={ev.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
