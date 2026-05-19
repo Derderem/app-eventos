@@ -1817,17 +1817,19 @@ var INPUT_STYLE = {
         .heart-pop { animation:heartPop .6s ease-out; }
         @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
         @keyframes pulsePin {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+          100% { transform: scale(1); }
+        }
+
         @keyframes viewFadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.view-animated {
-  animation: viewFadeIn 0.3s ease-out;
-}
-  0% { transform: scale(1); }
-  50% { transform: scale(1.15); }
-  100% { transform: scale(1); }
-}
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .view-animated {
+          animation: viewFadeIn 0.3s ease-out;
+        }
       .react-calendar {
  width: 100% !important;
  max-width: 100%;
