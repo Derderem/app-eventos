@@ -359,40 +359,6 @@ function SafeImg({ src, alt, style, onClick }) {
   );
 }
 
-function EventSkeleton({ isDark }) {
-  return (
-    <div className={isDark ? 'card-dark' : 'card-light'} style={{
-      borderRadius: 25, overflow: 'hidden', marginBottom: 15
-    }}>
-      <div style={{
-        height: 160,
-        background: isDark
-          ? 'linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%)'
-          : 'linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%)',
-        backgroundSize: '200% 100%',
-        animation: 'shimmer 1.5s infinite'
-      }} />
-      <div style={{ padding: 15 }}>
-        <div style={{
-          height: 10, width: '50%', margin: '0 auto 8px',
-          borderRadius: 6,
-          background: isDark ? '#1e293b' : '#e2e8f0'
-        }} />
-        <div style={{
-          height: 16, width: '70%', margin: '0 auto 10px',
-          borderRadius: 6,
-          background: isDark ? '#1e293b' : '#e2e8f0'
-        }} />
-        <div style={{
-          height: 40, width: '100%',
-          borderRadius: 14,
-          background: isDark ? '#1e293b' : '#e2e8f0'
-        }} />
-      </div>
-    </div>
-  );
-}
-
 function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, setSelectedEvent }) {
   const dl = getDaysLabel(ev.date);
   const isReallyFeatured = ev.featured === true;
@@ -504,7 +470,6 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [events, setEvents] = useState([]);
   const [visibleCount, setVisibleCount] = useState(20);
-  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [favorites, setFavorites] = useState(() => {
     try {
       const saved = localStorage.getItem('eventora_favs_v5');
@@ -731,23 +696,20 @@ const lastNonEventPathRef = useRef(
   }, [currentPath, events, hasAdmin]);
 
   function fetchEvents() {
-  setIsLoadingEvents(true);
-  try {
-    const cached = localStorage.getItem('eventora_cache_events_v1');
+    try {
+      const cached = localStorage.getItem('eventora_cache_events_v1');
       if (cached) setEvents(JSON.parse(cached));
     } catch {}
 
     if (!navigator.onLine) {
-  showToast('Sin conexión. Mostrando eventos guardados', 'warning');
-  setIsLoadingEvents(false);
-  return;
-}
+      showToast('Sin conexión. Mostrando eventos guardados', 'warning');
+      return;
+    }
 
     supabase.from('events').select('*').order('date', { ascending: true }).then((res) => {
       if (res.error) { console.error('Error cargando eventos:', res.error); return; }
       const data = res.data || [];
       setEvents(data);
-      setIsLoadingEvents(false);
 
       // Comprobar eventos cercanos tras cargar
 setTimeout(function() {
@@ -758,10 +720,10 @@ setTimeout(function() {
       const validIds = data.map((e) => e.id);
       setFavorites((prev) => prev.filter((id) => validIds.indexOf(id) !== -1));
     }).catch((err) => {
-  console.error('Error de red:', err);
-  showToast('Problemas de conexión. Usando datos guardados', 'warning');
-  setIsLoadingEvents(false);
-});
+      console.error('Error de red:', err);
+      showToast('Problemas de conexión. Usando datos guardados', 'warning');
+    });
+  }
 
   function handleInputChange(e) {
     const name = e.target.name;
@@ -1506,7 +1468,6 @@ var INPUT_STYLE = {
   if (showSplash) return <Splash onDone={function() { setShowSplash(false); }} />;
 
   return (
-    <>  
     <div className={isDark ? 'dark-theme' : 'light-theme'} style={{ width: '100vw', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Toast toast={toast} />
   {showSubmitConfirm && (
@@ -1855,10 +1816,6 @@ var INPUT_STYLE = {
         @keyframes viewFadeIn {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
-}
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
 }
 .view-animated {
   animation: viewFadeIn 0.3s ease-out;
@@ -2782,14 +2739,7 @@ var INPUT_STYLE = {
             </div>
 
             <div ref={listRef} className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: 15, paddingBottom: 120 }}>
-  {isLoadingEvents && filteredEvents.length === 0 && (
-    <>
-      <EventSkeleton isDark={isDark} />
-      <EventSkeleton isDark={isDark} />
-      <EventSkeleton isDark={isDark} />
-    </>
-  )}
- {!isLoadingEvents && filteredEvents.length === 0 && (
+              {filteredEvents.length === 0 && (
                 <div style={{ textAlign: 'center', marginTop: 60, opacity: 0.5 }}>
                   <Search size={40} style={{ margin: '0 auto 15px' }} />
                   <p style={{ fontWeight: 900, fontSize: 14 }}>NO SE ENCONTRARON EVENTOS</p>
@@ -2839,7 +2789,7 @@ var INPUT_STYLE = {
                   Usa dos dedos para zoom
                 </div>
               </div>
-           ) : ( <>
+            ) : (
              <div className="no-scrollbar view-animated" style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
   <div style={{ padding: '6px 10px 0', flexShrink: 0 }}>
     <button onClick={closeSelectedEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 4, cursor: 'pointer', fontSize: 11 }}>
@@ -2847,6 +2797,7 @@ var INPUT_STYLE = {
                   </button>
                 </div>
 
+                <div className={isDark ? 'card-dark' : 'card-light'} style={{ borderRadius: '15px 15px 0 0', overflow: 'hidden', padding: 0, flex: 1, display: 'flex', flexDirection: 'column', margin: '0 8px', overflowY: 'auto' }}>
                   <div onClick={enterPhotoZoom} style={{ position: 'relative', width: '100%', height: 220, cursor: 'zoom-in', overflow: 'hidden', flexShrink: 0 }}>
                     <SafeImg src={selectedEvent.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.6)', color: 'white', padding: '4px 8px', borderRadius: 8, fontSize: 9, fontWeight: 900, pointerEvents: 'none' }}>
@@ -2899,11 +2850,12 @@ var INPUT_STYLE = {
                       </button>
                     </div>
 
-</div>
-</div>
+                  </div>
+                </div>
+              </div>
+            )}
 </>
-</>
-)}
+        )}
 
         {view === 'create' && (
   <div className="no-scrollbar view-animated" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
@@ -3405,10 +3357,7 @@ var INPUT_STYLE = {
         <button onClick={goMap} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <MapIcon size={22} />
         </button>
-       </nav>
-  </div>
-  </>
+      </nav>
+</div>
 );
 }
-
-export default App;
