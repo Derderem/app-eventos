@@ -359,6 +359,24 @@ function SafeImg({ src, alt, style, onClick }) {
   );
 }
 
+function SkeletonCard({ isDark }) {
+  return (
+    <div className={isDark ? 'card-dark' : 'card-light'} style={{
+      borderRadius: 25,
+      overflow: 'hidden',
+      marginBottom: 15,
+      padding: 0
+    }}>
+      <div className="skeleton-box skeleton-img" />
+      <div style={{ padding: 15, textAlign: 'center' }}>
+        <div className="skeleton-box skeleton-title" />
+        <div className="skeleton-box skeleton-text" />
+        <div className="skeleton-box skeleton-btn" />
+      </div>
+    </div>
+  );
+}
+
 function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, setSelectedEvent }) {
   const dl = getDaysLabel(ev.date);
   const isReallyFeatured = ev.featured === true;
@@ -468,6 +486,7 @@ function AdminMiniCard({ ev, isDark, onClick, onApprove, onReject, onDelete, onV
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [events, setEvents] = useState([]);
   const [visibleCount, setVisibleCount] = useState(20);
   const [favorites, setFavorites] = useState(() => {
@@ -697,24 +716,28 @@ const lastNonEventPathRef = useRef(
 
   function fetchEvents() {
     try {
-      const cached = localStorage.getItem('eventora_cache_events_v1');
-      if (cached) setEvents(JSON.parse(cached));
-    } catch {}
+  const cached = localStorage.getItem('eventora_cache_events_v1');
+  if (cached) {
+    setEvents(JSON.parse(cached));
+    setIsLoading(false);
+  }
+} catch {}
 
     if (!navigator.onLine) {
-      showToast('Sin conexión. Mostrando eventos guardados', 'warning');
-      return;
-    }
+  showToast('Sin conexión. Mostrando eventos guardados', 'warning');
+  setIsLoading(false);
+  return;
+}
 
     supabase.from('events').select('*').order('date', { ascending: true }).then((res) => {
-      if (res.error) { console.error('Error cargando eventos:', res.error); return; }
+      if (res.error) {
+  console.error('Error cargando eventos:', res.error);
+  setIsLoading(false);
+  return;
+}
       const data = res.data || [];
       setEvents(data);
-
-      // Comprobar eventos cercanos tras cargar
-setTimeout(function() {
-  checkNearbyEventsNotification();
-}, 2000);
+      setIsLoading(false);
       
       try { localStorage.setItem('eventora_cache_events_v1', JSON.stringify(data)); } catch {}
       const validIds = data.map((e) => e.id);
@@ -722,6 +745,7 @@ setTimeout(function() {
     }).catch((err) => {
       console.error('Error de red:', err);
       showToast('Problemas de conexión. Usando datos guardados', 'warning');
+      setIsLoading(false);
     });
   }
 
@@ -1827,6 +1851,52 @@ var INPUT_STYLE = {
           to { opacity: 1; transform: translateY(0); }
         }
 
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-box {
+  background: linear-gradient(
+    90deg,
+    rgba(128, 128, 128, 0.1) 0%,
+    rgba(128, 128, 128, 0.2) 50%,
+    rgba(128, 128, 128, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 12px;
+}
+
+.skeleton-img {
+  height: 160px;
+  width: 100%;
+  border-radius: 25px 25px 0 0;
+}
+
+.skeleton-title {
+  height: 20px;
+  width: 80%;
+  margin: 12px auto;
+}
+
+.skeleton-text {
+  height: 12px;
+  width: 60%;
+  margin: 8px auto;
+}
+
+.skeleton-btn {
+  height: 40px;
+  width: 90%;
+  margin: 12px auto;
+  border-radius: 14px;
+}
+
         .view-animated {
           animation: viewFadeIn 0.3s ease-out;
         }
@@ -2745,16 +2815,25 @@ var INPUT_STYLE = {
             </div>
 
             <div ref={listRef} className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: 15, paddingBottom: 120 }}>
-              {filteredEvents.length === 0 && (
+  {isLoading && (
+  <>
+    <SkeletonCard isDark={isDark} />
+    <SkeletonCard isDark={isDark} />
+    <SkeletonCard isDark={isDark} />
+    <SkeletonCard isDark={isDark} />
+    <SkeletonCard isDark={isDark} />
+  </>
+)}
+              {!isLoading && filteredEvents.length === 0 && (
                 <div style={{ textAlign: 'center', marginTop: 60, opacity: 0.5 }}>
                   <Search size={40} style={{ margin: '0 auto 15px' }} />
                   <p style={{ fontWeight: 900, fontSize: 14 }}>NO SE ENCONTRARON EVENTOS</p>
                   <p style={{ fontSize: 10, marginTop: 8 }}>Prueba con otra búsqueda o categoría</p>
                 </div>
               )}
-              {featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />}
-              {restEvents.map(function(ev) { return <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />; })}
-{hasMoreEvents && (
+              {!isLoading && featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />}
+              {!isLoading && restEvents.map(function(ev) { return <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />; })}
+{!isLoading && hasMoreEvents && (
   <button
     onClick={function() { setVisibleCount(function(prev) { return prev + 20; }); }}
     style={{
