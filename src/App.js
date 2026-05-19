@@ -500,6 +500,7 @@ export default function App() {
 
   const [profile, setProfile] = useState(null);
   const [view, setView] = useState('home');
+  const [viewFeatured, setViewFeatured] = useState(false);
   const [isDark, setIsDark] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('TODOS');
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -607,6 +608,7 @@ const lastNonEventPathRef = useRef(
 
   function goHome() { setView('home'); clearSelections(); setSearchQuery(''); navigateTo('/'); }
   function goFavorites() { setView('favorites'); clearSelections(); navigateTo('/favoritos'); }
+  function goFeatured() { setView('featured'); clearSelections(); navigateTo('/destacados'); }
   function goCreate() { setView('create'); clearSelections(); navigateTo('/crear'); }
   function goMap() { setView('map'); clearSelections(); navigateTo('/mapa'); }
   function goProfile() { setView('profile'); clearSelections(); navigateTo('/perfil'); }
@@ -673,6 +675,7 @@ const lastNonEventPathRef = useRef(
     routeEventLookupRef.current = '';
     if (currentPath === '/') { setView('home'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); resetDetailUi(); return; }
     if (currentPath === '/favoritos') { setView('favorites'); clearSelections(); return; }
+    if (currentPath === '/destacados') { setView('featured'); clearSelections(); return; }
     if (currentPath === '/crear') { setView('create'); clearSelections(); return; }
     if (currentPath === '/mapa') { setView('map'); clearSelections(); return; }
     if (currentPath === '/perfil') { setView('profile'); clearSelections(); return; }
@@ -1467,6 +1470,8 @@ if (nearbyMode && userCoords) {
 }
 
   var favoriteEvents = publicEvents.filter(function(e) { return favorites.indexOf(e.id) !== -1; });
+  var rawFeatured = publicEvents.filter(function(e) { return e.featured === true; });
+  var featuredEventsList = rawFeatured.slice().sort(function(a, b) { return getDaysLeft(a.date) - getDaysLeft(b.date); });
   var rawPendingEvents = hasAdmin ? events.filter(function(e) { return e.status === 'pending'; }) : [];
   var rawApprovedEvents = hasAdmin ? events.filter(function(e) { return e.status === 'approved'; }) : [];
   var pendingEvents = rawPendingEvents.filter(eventMatchesAdminFilters);
@@ -3315,7 +3320,52 @@ var INPUT_STYLE = {
           </div>
         )}
 
-        {view === 'favorites' && (
+{view === 'featured' && (
+  <div className="no-scrollbar view-animated" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
+    <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16, color: '#facc15' }}>
+      ⭐ EVENTOS DESTACADOS
+    </h2>
+    <p style={{ textAlign: 'center', fontSize: 10, color: '#64748b', fontWeight: 700, marginBottom: 15 }}>
+      {featuredEventsList.length} evento{featuredEventsList.length !== 1 ? 's' : ''} seleccionado{featuredEventsList.length !== 1 ? 's' : ''}
+    </p>
+    
+    {featuredEventsList.length === 0 ? (
+      <div style={{ textAlign: 'center', marginTop: 60, opacity: 0.5 }}>
+        <Star size={50} style={{ margin: '0 auto 15px', color: '#facc15' }} />
+        <p style={{ fontWeight: 900, fontSize: 14 }}>SIN EVENTOS DESTACADOS</p>
+        <p style={{ fontSize: 10, marginTop: 8 }}>Los administradores尚未 marcar ningún evento como destacado</p>
+      </div>
+    ) : (
+      featuredEventsList.map(function(ev) {
+        var dl = getDaysLabel(ev.date);
+        return (
+          <div key={ev.id} style={{ position: 'relative', marginBottom: 15 }}>
+            <div style={{
+              position: 'absolute',
+              top: -8,
+              left: -8,
+              background: '#facc15',
+              color: '#000',
+              padding: '4px 10px',
+              borderRadius: 999,
+              fontSize: 9,
+              fontWeight: 900,
+              zIndex: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              boxShadow: '0 4px 12px rgba(250,204,21,0.5)'
+            }}>
+              <Star size={12} fill="#000" /> DESTACADO
+            </div>
+            <EventCard ev={ev} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />
+          </div>
+        );
+      })
+    )}
+  </div>
+)}        
+{view === 'favorites' && (
   <div className="no-scrollbar view-animated" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <h2 style={{ textAlign: 'center', fontWeight: 900, marginBottom: 12, fontSize: 16 }}>MIS GUARDADOS ({favoriteEvents.length})</h2>
             {favoriteEvents.length === 0 ? (
@@ -3431,14 +3481,22 @@ var INPUT_STYLE = {
           <LayoutList size={22} />
         </button>
         <button onClick={goFavorites} style={{ background: 'none', border: 'none', color: view === 'favorites' ? '#ef4444' : '#64748b', cursor: 'pointer', position: 'relative' }}>
-          <Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} />
-          {favoriteEvents.length > 0 && (
-            <span style={{ position: 'absolute', top: -4, right: -8, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px', minWidth: 14, textAlign: 'center' }}>{favoriteEvents.length}</span>
-          )}
-        </button>
-        <button onClick={goCreate} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
-          <PlusCircle size={22} />
-       </button>
+  <Heart size={22} fill={view === 'favorites' ? '#ef4444' : 'none'} />
+  {favoriteEvents.length > 0 && (
+    <span style={{ position: 'absolute', top: -4, right: -8, background: '#ef4444', color: 'white', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px', minWidth: 14, textAlign: 'center' }}>{favoriteEvents.length}</span>
+  )}
+</button>
+
+<button onClick={goFeatured} style={{ background: 'none', border: 'none', color: view === 'featured' ? '#facc15' : '#64748b', cursor: 'pointer', position: 'relative' }}>
+  <Star size={22} fill={view === 'featured' ? '#facc15' : 'none'} />
+  {featuredEventsList.length > 0 && (
+    <span style={{ position: 'absolute', top: -4, right: -8, background: '#facc15', color: '#000', fontSize: 8, fontWeight: 900, borderRadius: 10, padding: '1px 5px', minWidth: 14, textAlign: 'center' }}>{featuredEventsList.length}</span>
+  )}
+</button>
+
+<button onClick={goCreate} style={{ background: 'none', border: 'none', color: view === 'create' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
+  <PlusCircle size={22} />
+</button>
         <button onClick={goMap} style={{ background: 'none', border: 'none', color: view === 'map' ? '#4f46e5' : '#64748b', cursor: 'pointer' }}>
           <MapIcon size={22} />
         </button>
