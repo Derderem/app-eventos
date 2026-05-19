@@ -342,21 +342,24 @@ function SafeImg({ src, alt, style, onClick }) {
   }, [src]);
 
   return (
-    <img
-      src={imgSrc}
-      alt={alt || ''}
-      style={style}
-      onClick={onClick}
-      loading="lazy"
-      decoding="async"
-      onError={() => {
-        if (!tried.current) {
-          tried.current = true;
-          setImgSrc(FALLBACK_IMG);
-        }
-      }}
-    />
-  );
+  <img
+    src={imgSrc}
+    alt={alt || ''}
+    style={{
+      backgroundColor: '#e2e8f0',
+      ...style
+    }}
+    onClick={onClick}
+    loading="lazy"
+    decoding="async"
+    onError={() => {
+      if (!tried.current) {
+        tried.current = true;
+        setImgSrc(FALLBACK_IMG);
+      }
+    }}
+  />
+);
 }
 
 function SkeletonCard({ isDark }) {
@@ -1751,17 +1754,15 @@ var INPUT_STYLE = {
  padding: 6
 }}
     >
-      <img
- src={url}
- alt=""
- loading="lazy"
- decoding="async"
- style={{
- width: '100%',
- height: '100%',
- objectFit: 'contain',
- display: 'block'
- }}
+      <SafeImg
+  src={url}
+  alt=""
+  style={{
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+    display: 'block'
+  }}
 />
       {isSelected && (
         <div style={{
