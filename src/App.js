@@ -372,22 +372,22 @@ function SkeletonCard({ isDark }) {
         <div className="skeleton-box skeleton-title" />
         <div className="skeleton-box skeleton-text" />
         <div className="skeleton-box skeleton-btn" />
-      </div>
+  </div>
     </div>
   );
 }
 
-function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, setSelectedEvent }) {
+function EventCard({ ev, featured, isDark, favorites, animHeart, toggleFavorite, setSelectedEvent, hideFeaturedBadge }) {
   const dl = getDaysLabel(ev.date);
   const isReallyFeatured = ev.featured === true;
 
   return (
     <div className={isDark ? 'card-dark' : 'card-light'} style={{
       borderRadius: 25, overflow: 'hidden', marginBottom: 15,
-      border: (featured || isReallyFeatured) ? '2px solid #22c55e' : undefined
+      border: (featured || isReallyFeatured) && !hideFeaturedBadge ? '2px solid #22c55e' : undefined
     }}>
       <div style={{ position: 'relative' }}>
-        {(featured || isReallyFeatured) && (
+        {(featured || isReallyFeatured) && !hideFeaturedBadge && (
           <div style={{
             position: 'absolute', top: 10, left: 10, zIndex: 5, background: '#22c55e', color: 'white',
             padding: '4px 10px', borderRadius: 8, fontSize: 9, fontWeight: 900,
@@ -3358,7 +3358,7 @@ var INPUT_STYLE = {
             }}>
               <Star size={12} fill="#000" /> DESTACADO
             </div>
-           <EventCard ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />
+           <EventCard ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} hideFeaturedBadge={true} />
           </div>
         );
       })
