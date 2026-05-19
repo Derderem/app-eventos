@@ -2902,7 +2902,6 @@ var INPUT_STYLE = {
                  </div>
           </div>
        </>
-       </>
    )}
 
         {view === 'create' && (
