@@ -3358,7 +3358,7 @@ var INPUT_STYLE = {
             }}>
               <Star size={12} fill="#000" /> DESTACADO
             </div>
-            <EventCard ev={ev} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />
+           <EventCard ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />
           </div>
         );
       })
