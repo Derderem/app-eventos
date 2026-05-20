@@ -2967,10 +2967,10 @@ var INPUT_STYLE = {
 
                   </div>
                 </div>
-              </div>
-            )}
-</>
-        )}
+            </div>
+          )}
+        </>
+      )}
 
         {view === 'create' && (
   <div className="no-scrollbar view-animated" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
