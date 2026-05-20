@@ -617,10 +617,17 @@ const lastNonEventPathRef = useRef(
   function goMap() { setView('map'); clearSelections(); navigateTo('/mapa'); }
   function goProfile() { setView('profile'); clearSelections(); navigateTo('/perfil'); }
   function goAdmin() {
-    if (!hasAdmin) return;
-    setView('admin'); clearSelections(); setAdminTab('pending'); fetchEvents(); navigateTo('/admin');
+  if (!hasAdmin || !userEmail) {
+    showToast('Acceso denegado. Solo administradores pueden entrar.', 'error');
+    navigateTo('/', true);
+    return;
   }
-
+  setView('admin'); 
+  clearSelections(); 
+  setAdminTab('pending'); 
+  fetchEvents(); 
+  navigateTo('/admin');
+}
   useEffect(() => {
     fetchEvents();
     return () => {
@@ -684,10 +691,17 @@ const lastNonEventPathRef = useRef(
     if (currentPath === '/mapa') { setView('map'); clearSelections(); return; }
     if (currentPath === '/perfil') { setView('profile'); clearSelections(); return; }
     if (currentPath === '/admin') {
-      if (hasAdmin) { setView('admin'); setSelectedEvent(null); setSelectedPendingEvent(null); setEditingEvent(null); resetDetailUi(); }
-      else navigateTo('/', true);
-      return;
-    }
+  if (!hasAdmin || !userEmail) {
+    showToast('Acceso denegado. Solo administradores pueden entrar.', 'error');
+    navigateTo('/', true);
+    return;
+  }
+  setView('admin'); 
+  clearSelections(); 
+  setAdminTab('pending'); 
+  fetchEvents();
+  return;
+}
     navigateTo('/', true);
   }, [currentPath, hasAdmin]);
 
@@ -735,6 +749,13 @@ const lastNonEventPathRef = useRef(
   setIsLoading(false);
   return;
 }
+     // Protección de seguridad: solo admin puede ver el panel completo
+  if (view === 'admin' && (!hasAdmin || !userEmail)) {
+    showToast('Acceso denegado. Solo administradores pueden entrar.', 'error');
+    navigateTo('/', true);
+    setIsLoading(false);
+    return;
+  }
 
     supabase.from('events').select('*').order('date', { ascending: true }).then((res) => {
       if (res.error) {
@@ -3106,7 +3127,7 @@ var INPUT_STYLE = {
           </div>
         )}
 
-        {view === 'admin' && editingEvent && (
+        {view === 'admin' && hasAdmin && editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={cancelEditEvent} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
               <ArrowLeft size={16} /> CANCELAR EDICIÓN
@@ -3218,7 +3239,7 @@ var INPUT_STYLE = {
           </div>
         )}
 
-        {view === 'admin' && !selectedPendingEvent && !editingEvent && (
+        {view === 'admin' && hasAdmin && !selectedPendingEvent && !editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={goHome} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
               <ArrowLeft size={16} /> VOLVER
@@ -3297,7 +3318,7 @@ var INPUT_STYLE = {
           </div>
         )}
 
-        {view === 'admin' && selectedPendingEvent && !editingEvent && (
+        {view === 'admin' && hasAdmin && selectedPendingEvent && !editingEvent && (
           <div className="no-scrollbar" style={{ padding: 12, height: '100%', overflowY: 'auto', paddingBottom: 120 }}>
             <button onClick={function() { setSelectedPendingEvent(null); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 900, display: 'flex', gap: 6, marginBottom: 12, cursor: 'pointer', fontSize: 12 }}>
               <ArrowLeft size={16} /> VOLVER A LISTA
