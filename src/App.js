@@ -2928,12 +2928,36 @@ var INPUT_STYLE = {
   </>
 )}
               {!isLoading && filteredEvents.length === 0 && (
-                <div style={{ textAlign: 'center', marginTop: 60, opacity: 0.5 }}>
-                  <Search size={40} style={{ margin: '0 auto 15px' }} />
-                  <p style={{ fontWeight: 900, fontSize: 14 }}>NO SE ENCONTRARON EVENTOS</p>
-                  <p style={{ fontSize: 10, marginTop: 8 }}>Prueba con otra búsqueda o categoría</p>
-                </div>
-              )}
+  <div style={{ textAlign: 'center', marginTop: 60, padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <Search size={50} style={{ margin: '0 auto 15px', color: '#6366f1', opacity: 0.6 }} />
+    <p style={{ fontWeight: 900, fontSize: 15, marginBottom: 8 }}>NO SE ENCONTRARON EVENTOS</p>
+    <p style={{ fontSize: 11, opacity: 0.7, marginBottom: 25, maxWidth: 250 }}>
+      Prueba a cambiar los filtros o la búsqueda para encontrar lo que buscas.
+    </p>
+    <button 
+      onClick={() => {
+        setSearchQuery('');
+        setSelectedCategory('TODOS');
+        setNearbyMode(false);
+        setDateFilter('all');
+        showToast('Filtros reiniciados', 'info');
+      }}
+      style={{
+        padding: '12px 24px',
+        background: '#4f46e5',
+        color: 'white',
+        borderRadius: 14,
+        border: 'none',
+        fontWeight: 900,
+        fontSize: 12,
+        cursor: 'pointer',
+        boxShadow: '0 4px 12px rgba(79,70,229,0.3)'
+      }}
+    >
+      LIMPIAR FILTROS Y VER TODOS
+    </button>
+  </div>
+)}
               {!isLoading && featuredEvent && <EventCard ev={featuredEvent} featured={true} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />}
               {!isLoading && restEvents.map(function(ev) { return <EventCard key={ev.id} ev={ev} featured={false} isDark={isDark} favorites={favorites} animHeart={animHeart} toggleFavorite={toggleFavorite} setSelectedEvent={openEvent} />; })}
 {!isLoading && hasMoreEvents && (
