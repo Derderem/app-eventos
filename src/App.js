@@ -641,13 +641,35 @@ const lastNonEventPathRef = useRef(
   }, [favorites]);
 
   useEffect(() => {
-    function isAdminUser(user) { return !!(user && user.email && ADMIN_EMAILS.indexOf(user.email) !== -1); }
+    function isAdminUser(user) { 
+  if (!user || !user.email) return false;
+  const emailLimpio = user.email.toLowerCase().trim().replace(/\s+/g, '');
+  return ADMIN_EMAILS.some(adminEmail => adminEmail === emailLimpio);
+}
     function handleSession(session) {
-      const user = session && session.user;
-      setUserEmail(user ? user.email : '');
-      setProfile(isAdminUser(user) ? { role: 'admin', email: user.email } : null);
-      fetchEvents();
+  const user = session && session.user;
+
+  if (user && user.email) {
+    const emailLimpio = user.email.toLowerCase().trim().replace(/\s+/g, '');
+    const esAdmin = ADMIN_EMAILS.some(adminEmail => adminEmail === emailLimpio);
+
+    if (!esAdmin) {
+      supabase.auth.signOut();
+      setUserEmail('');
+      setProfile(null);
+      showToast('Acceso denegado. Solo administradores.', 'error');
+      return;
     }
+
+    setUserEmail(user.email);
+    setProfile({ role: 'admin', email: user.email });
+  } else {
+    setUserEmail('');
+    setProfile(null);
+  }
+
+  fetchEvents();
+}
     supabase.auth.getSession().then((res) => handleSession(res.data && res.data.session));
     const sub = supabase.auth.onAuthStateChange((event, session) => handleSession(session));
     return () => { if (sub && sub.data && sub.data.subscription) sub.data.subscription.unsubscribe(); };
@@ -1147,12 +1169,14 @@ async function confirmSubmitEvent() {
   const email = prompt('Escribe tu email:');
   if (!email) return;
 
-  // ✅ COMPROBAR SI ES EMAIL DE ADMIN ANTES DE ENVIAR
-  const emailLimpio = String(email).toLowerCase().trim();
-  const esAdmin = ADMIN_EMAILS.indexOf(emailLimpio) !== -1;
+  // ✅ VALIDACIÓN SUPER ESTRICTA (solo emails EXACTOS)
+  const emailLimpio = String(email).toLowerCase().trim().replace(/\s+/g, '');
+  
+  // ✅ Comprobación EXACTA (no parcial)
+  const esAdmin = ADMIN_EMAILS.some(adminEmail => adminEmail === emailLimpio);
 
   if (!esAdmin) {
-    showToast('Este login es solo para administradores de EVENTORA', 'error');
+    showToast('❌ Este login es solo para administradores de EVENTORA', 'error');
     return;
   }
 
@@ -1164,10 +1188,10 @@ async function confirmSubmitEvent() {
   }).then((res) => {
     if (res.error) { 
       console.error(res.error); 
-      showToast('Error enviando login', 'error'); 
+      showToast('Error enviando login: ' + res.error.message, 'error'); 
       return; 
     }
-    showToast('Revisa tu email y pulsa el enlace', 'success');
+    showToast('✅ Revisa tu email y pulsa el enlace', 'success');
   });
 }
 
