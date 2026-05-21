@@ -563,11 +563,11 @@ const lastNonEventPathRef = useRef(
 
   const hasAdmin = profile && profile.role === 'admin';
 
-  function showToast(message, type = 'info') {
+  function showToast(message, type = 'info', duration = 3600) {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ message, type });
-    toastTimerRef.current = setTimeout(() => setToast(null), 5000);
-  }
+    toastTimerRef.current = setTimeout(() => setToast(null), duration);
+}
 
   function navigateTo(path, replace = false) {
     const target = path || '/';
