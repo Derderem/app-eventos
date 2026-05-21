@@ -1144,14 +1144,32 @@ async function confirmSubmitEvent() {
   }
 
   function handleLogin() {
-    const email = prompt('Escribe tu email:');
-    if (!email) return;
-    const redirectUrl = APP_URL + (currentPath || '/');
-    supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectUrl } }).then((res) => {
-      if (res.error) { console.error(res.error); showToast('Error enviando login', 'error'); return; }
-      showToast('Revisa tu email y pulsa el enlace', 'success');
-    });
+  const email = prompt('Escribe tu email:');
+  if (!email) return;
+
+  // ✅ COMPROBAR SI ES EMAIL DE ADMIN ANTES DE ENVIAR
+  const emailLimpio = String(email).toLowerCase().trim();
+  const esAdmin = ADMIN_EMAILS.indexOf(emailLimpio) !== -1;
+
+  if (!esAdmin) {
+    showToast('Este login es solo para administradores de EVENTORA', 'error');
+    return;
   }
+
+  // ✅ Si es admin, enviar email de login
+  const redirectUrl = APP_URL + (currentPath || '/');
+  supabase.auth.signInWithOtp({ 
+    email: emailLimpio, 
+    options: { emailRedirectTo: redirectUrl } 
+  }).then((res) => {
+    if (res.error) { 
+      console.error(res.error); 
+      showToast('Error enviando login', 'error'); 
+      return; 
+    }
+    showToast('Revisa tu email y pulsa el enlace', 'success');
+  });
+}
 
   function requestUserLocation() {
   if (!navigator.geolocation) {
