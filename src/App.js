@@ -566,7 +566,7 @@ const lastNonEventPathRef = useRef(
   function showToast(message, type = 'info') {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ message, type });
-    toastTimerRef.current = setTimeout(() => setToast(null), 3600);
+    toastTimerRef.current = setTimeout(() => setToast(null), 5000);
   }
 
   function navigateTo(path, replace = false) {
@@ -1361,6 +1361,7 @@ function checkNearbyWithCoords(userLat, userLng) {
   showToast(
     `📍 ¡Hay ${eventsToNotify.length} evento(s) cerca! El más cercano a ${dist}km: ${closest.title}`,
     'success'
+    5000
   );
 
   const newNotifiedIds = [...notifiedEventIds, ...eventsToNotify.map(e => e.id)];
