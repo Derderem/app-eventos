@@ -636,6 +636,26 @@ const lastNonEventPathRef = useRef(
     };
   }, []);
 
+  // ✅ Comprobar eventos cercanos al abrir la app
+useEffect(() => {
+  if (showSplash) return;
+
+  const todayString = new Date().toISOString().slice(0, 10); // Ej: "2025-05-21"
+  const lastNotified = localStorage.getItem('eventora_last_nearby_notification');
+
+  // Si ya se notificó hoy, no hacemos nada
+  if (lastNotified === todayString) return;
+
+  const timer = setTimeout(() => {
+    checkNearbyEventsNotification();
+
+    // Guardamos que ya notificamos hoy
+    localStorage.setItem('eventora_last_nearby_notification', todayString);
+  }, 2200);
+
+  return () => clearTimeout(timer);
+}, [showSplash]);
+  
   useEffect(() => {
     localStorage.setItem('eventora_favs_v5', JSON.stringify(favorites));
   }, [favorites]);
@@ -1254,95 +1274,105 @@ async function confirmSubmitEvent() {
 }
 
  function checkNearbyEventsNotification() {
-  // Si ya tenemos coordenadas guardadas, usarlas directamente
-  if (userCoords) {
+  // Si ya tenemos coords, usarlas
+  if (userCoords?.lat && userCoords?.lng) {
     checkNearbyWithCoords(userCoords.lat, userCoords.lng);
     return;
   }
 
-  // Si no, intentar recuperar del localStorage
+  // Intentar recuperar ubicación guardada (últimas 24h)
   try {
-    var cached = localStorage.getItem('eventora_user_coords');
+    const cached = localStorage.getItem('eventora_user_coords');
     if (cached) {
-      var parsed = JSON.parse(cached);
-      var age = Date.now() - (parsed.timestamp || 0);
-
-      // Acepta ambos formatos de guardado para evitar errores
-      var lat = parsed && parsed.coords ? parsed.coords.lat : parsed.lat;
-      var lng = parsed && parsed.coords ? parsed.coords.lng : parsed.lng;
-
-      // Si tiene menos de 30 minutos, reutilizar
-      if (age < 30 * 60 * 1000 && lat && lng) {
-        setUserCoords({ lat: lat, lng: lng });
-        checkNearbyWithCoords(lat, lng);
-        return;
+      const parsed = JSON.parse(cached);
+      const age = Date.now() - (parsed.timestamp || 0);
+      
+      if (age < 24 * 60 * 60 * 1000) {
+        const lat = parsed.coords ? parsed.coords.lat : parsed.lat;
+        const lng = parsed.coords ? parsed.coords.lng : parsed.lng;
+        
+        if (lat && lng) {
+          setUserCoords({ lat, lng });
+          checkNearbyWithCoords(lat, lng);
+          return;
+        }
       }
     }
   } catch (e) {}
 
-  // Si no hay caché, pedir GPS
-  if (!navigator.geolocation) return;
-
-  navigator.geolocation.getCurrentPosition(
-    function(pos) {
-      var coords = {
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude
-      };
-      setUserCoords(coords);
-
-      // Guardar en localStorage con timestamp (FORMATO UNIFICADO)
-      try {
+  // Si no hay caché, pedir ubicación (sin molestar mucho)
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        
         localStorage.setItem('eventora_user_coords', JSON.stringify({
-          coords: { lat: coords.lat, lng: coords.lng },
+          coords,
           timestamp: Date.now()
         }));
-      } catch (e) {}
 
-      checkNearbyWithCoords(coords.lat, coords.lng);
-    },
-    function() {},
-    { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-  );
+        setUserCoords(coords);
+        checkNearbyWithCoords(coords.lat, coords.lng);
+      },
+      () => {}, // Usuario no da permiso → no hacemos nada
+      { enableHighAccuracy: false, timeout: 7000, maximumAge: 3600000 }
+    );
+  }
 }
-
+  
 function checkNearbyWithCoords(userLat, userLng) {
-  var today = new Date();
+  const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  var in3Days = new Date(today);
+  const in3Days = new Date(today);
   in3Days.setDate(in3Days.getDate() + 3);
 
-  var nearbyUpcoming = events.filter(function(ev) {
+  const todayString = today.toISOString().slice(0, 10); // Ej: "2025-05-21"
+
+  let notifiedEventIds = [];
+  try {
+    const saved = localStorage.getItem(`eventora_notified_nearby_${todayString}`);
+    if (saved) notifiedEventIds = JSON.parse(saved);
+  } catch (e) {}
+
+  const nearbyUpcoming = events.filter((ev) => {
     if (ev.status !== 'approved') return false;
     if (!ev.lat || !ev.lng) return false;
 
-    var eventDate = parseLocalDate(ev.date);
+    const eventDate = parseLocalDate(ev.date);
     if (!eventDate) return false;
+
     if (eventDate < today || eventDate > in3Days) return false;
 
-    var dist = getDistanceKm(userLat, userLng, ev.lat, ev.lng);
+    const dist = getDistanceKm(userLat, userLng, ev.lat, ev.lng);
     return dist <= NEARBY_RADIUS_KM;
   });
 
-  if (nearbyUpcoming.length > 0) {
-    var closest = nearbyUpcoming[0];
-    var dist = Math.round(getDistanceKm(userLat, userLng, closest.lat, closest.lng));
+  const eventsToNotify = nearbyUpcoming.filter(ev => !notifiedEventIds.includes(ev.id));
 
-    if (nearbyUpcoming.length === 1) {
-      showToast(
-        '📍 "' + closest.title + '" está a ' + dist + 'km de ti (' + formatDate(closest.date) + ')',
-        'success'
-      );
-    } else {
-      showToast(
-        '📍 ' + nearbyUpcoming.length + ' eventos cerca de ti en los próximos 3 días. ¡El más cercano a ' + dist + 'km!',
-        'success'
-      );
-    }
-  }
+  if (eventsToNotify.length === 0) return;
+
+  const closest = eventsToNotify.sort((a, b) => 
+    getDistanceKm(userLat, userLng, a.lat, a.lng) - getDistanceKm(userLat, userLng, b.lat, b.lng)
+  )[0];
+
+  const dist = Math.round(getDistanceKm(userLat, userLng, closest.lat, closest.lng));
+
+  showToast(
+    `📍 ¡Hay ${eventsToNotify.length} evento(s) cerca! El más cercano a ${dist}km: ${closest.title}`,
+    'success'
+  );
+
+  const newNotifiedIds = [...notifiedEventIds, ...eventsToNotify.map(e => e.id)];
+  
+  try {
+    localStorage.setItem(
+      `eventora_notified_nearby_${todayString}`,
+      JSON.stringify(newNotifiedIds)
+    );
+  } catch (e) {}
 }
-
+  
   function handleLogout() {
     supabase.auth.signOut().then(() => {
       setUserEmail(''); setProfile(null); fetchEvents(); goHome(); setEditingEvent(null);
