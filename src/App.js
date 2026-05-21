@@ -1360,7 +1360,7 @@ function checkNearbyWithCoords(userLat, userLng) {
 
   showToast(
     `📍 ¡Hay ${eventsToNotify.length} evento(s) cerca! El más cercano a ${dist}km: ${closest.title}`,
-    'success'
+    'success',
     5000
   );
 
