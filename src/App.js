@@ -779,7 +779,7 @@ useEffect(() => {
 
   function fetchEvents() {
     try {
-  const cached = localStorage.getItem('eventora_cache_events_v1');
+  const cached = localStorage.getItem('eventora_cache_events_v2');
   if (cached) {
     setEvents(JSON.parse(cached));
     setIsLoading(false);
@@ -799,7 +799,7 @@ useEffect(() => {
     return;
   }
 
-    supabase.from('events').select('*').order('date', { ascending: true }).then((res) => {
+    supabase.from('events').select('*').order('created_at', { ascending: true }).then((res) => {
       if (res.error) {
   console.error('Error cargando eventos:', res.error);
   setIsLoading(false);
@@ -809,7 +809,7 @@ useEffect(() => {
       setEvents(data);
       setIsLoading(false);
       
-      try { localStorage.setItem('eventora_cache_events_v1', JSON.stringify(data)); } catch {}
+      try { localStorage.setItem('eventora_cache_events_v2', JSON.stringify(data)); } catch {}
       const validIds = data.map((e) => e.id);
       setFavorites((prev) => prev.filter((id) => validIds.indexOf(id) !== -1));
     }).catch((err) => {
