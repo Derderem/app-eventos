@@ -1,56 +1,70 @@
-const CACHE_NAME = 'eventora-cache-v3';
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
-];
+importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.6.1/workbox-sw.js');
 
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(STATIC_ASSETS))
-  );
-  self.skipWaiting();
-});
+if (workbox) {
 
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys.filter(key => key !== CACHE_NAME)
-           .map(key => caches.delete(key))
-      );
+  console.log('✅ Workbox cargado correctamente');
+
+  workbox.setConfig({
+    debug: false
+  });
+
+  // Precarga archivos esenciales
+  workbox.precaching.precacheAndRoute([
+    { url: '/', revision: null },
+    { url: '/index.html', revision: null },
+    { url: '/manifest.json', revision: null },
+    { url: '/icon-192.png', revision: null },
+    { url: '/icon-512.png', revision: null },
+  ]);
+
+  // Cache para JS, CSS e imágenes
+  workbox.routing.registerRoute(
+    ({ request }) =>
+      request.destination === 'script' ||
+      request.destination === 'style' ||
+      request.destination === 'image',
+    new workbox.strategies.StaleWhileRevalidate({
+      cacheName: 'assets-cache',
     })
   );
-  self.clients.claim();
-});
 
-self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-
-  event.respondWith(
-    caches.match(event.request)
-      .then(cachedResponse => {
-        if (cachedResponse) return cachedResponse;
-
-        return fetch(event.request)
-          .then(networkResponse => {
-            if (!networkResponse || networkResponse.status !== 200) {
-              return networkResponse;
-            }
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME)
-              .then(cache => cache.put(event.request, responseToCache));
-            return networkResponse;
-          })
-          .catch(() => {
-            if (event.request.destination === 'document') {
-              return caches.match('/index.html');
-            }
-            return null;
-          });
-      })
+  // Cache especial para Leaflet y recursos externos
+  workbox.routing.registerRoute(
+    ({ url }) =>
+      url.href.includes('leaflet') ||
+      url.href.includes('unpkg.com'),
+    new workbox.strategies.CacheFirst({
+      cacheName: 'leaflet-cache',
+      plugins: [
+        new workbox.expiration.ExpirationPlugin({
+          maxEntries: 50,
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 días
+        }),
+      ],
+    })
   );
-});
+
+  // Navegación SPA para React
+  workbox.routing.registerRoute(
+    ({ request }) => request.mode === 'navigate',
+    new workbox.strategies.StaleWhileRevalidate({
+      cacheName: 'pages-cache',
+    })
+  );
+
+  // Activar inmediatamente el nuevo SW
+  self.addEventListener('install', () => {
+    self.skipWaiting();
+  });
+
+  self.addEventListener('activate', () => {
+    self.clients.claim();
+  });
+
+  console.log('✅ Eventora PWA - Service Worker activo');
+
+} else {
+
+  console.log('❌ Workbox no pudo cargarse');
+
+}
