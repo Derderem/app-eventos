@@ -1,70 +1,41 @@
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.6.1/workbox-sw.js');
 
 if (workbox) {
+  console.log('Workbox cargado. Versión optimizada para PWABuilder.');
 
-  console.log('✅ Workbox cargado correctamente');
+  // Forzar actualización al detectar cambios
+  self.skipWaiting();
+  workbox.core.clientsClaim();
 
-  workbox.setConfig({
-    debug: false
-  });
-
-  // Precarga archivos esenciales
-  workbox.precaching.precacheAndRoute([
-    { url: '/', revision: null },
-    { url: '/index.html', revision: null },
-    { url: '/manifest.json', revision: null },
-    { url: '/icon-192.png', revision: null },
-    { url: '/icon-512.png', revision: null },
-  ]);
-
-  // Cache para JS, CSS e imágenes
+  // 1. Caché para CSS, JS e Imágenes (Seguro, no bloquea al robot)
   workbox.routing.registerRoute(
     ({ request }) =>
-      request.destination === 'script' ||
       request.destination === 'style' ||
+      request.destination === 'script' ||
       request.destination === 'image',
     new workbox.strategies.StaleWhileRevalidate({
-      cacheName: 'assets-cache',
+      cacheName: 'recursos-estaticos',
     })
   );
 
-  // Cache especial para Leaflet y recursos externos
+  // 2. Caché específico para mapas de Leaflet (Vital para tu app)
   workbox.routing.registerRoute(
-    ({ url }) =>
-      url.href.includes('leaflet') ||
-      url.href.includes('unpkg.com'),
+    ({ url }) => url.href.includes('leaflet') || url.href.includes('unpkg.com'),
     new workbox.strategies.CacheFirst({
-      cacheName: 'leaflet-cache',
-      plugins: [
-        new workbox.expiration.ExpirationPlugin({
-          maxEntries: 50,
-          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 días
-        }),
-      ],
+      cacheName: 'mapas-leaflet',
     })
   );
 
-  // Navegación SPA para React
+  // 3. Estrategia para la navegación (HTML)
+  // Ignoramos peticiones raras de robots, solo cacheamos navegación real de usuarios
   workbox.routing.registerRoute(
     ({ request }) => request.mode === 'navigate',
-    new workbox.strategies.StaleWhileRevalidate({
-      cacheName: 'pages-cache',
+    new workbox.strategies.NetworkFirst({
+      cacheName: 'paginas-html',
+      networkTimeoutSeconds: 5,
     })
   );
 
-  // Activar inmediatamente el nuevo SW
-  self.addEventListener('install', () => {
-    self.skipWaiting();
-  });
-
-  self.addEventListener('activate', () => {
-    self.clients.claim();
-  });
-
-  console.log('✅ Eventora PWA - Service Worker activo');
-
 } else {
-
-  console.log('❌ Workbox no pudo cargarse');
-
+  console.error('Workbox falló al cargar');
 }
