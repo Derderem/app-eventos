@@ -55,5 +55,19 @@
 <body>
   <noscript>Necesitas activar JavaScript para usar Eventora.</noscript>
   <div id="root"></div>
+
+  <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then(function(reg) {
+          console.log('Eventora SW registrado correctamente');
+        })
+        .catch(function(err) {
+          console.log('Eventora SW error:', err);
+        });
+    });
+  }
+</script>
 </body>
 </html>
