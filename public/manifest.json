@@ -1,28 +1,38 @@
 {
-  "id": "/?source=pwa",
   "short_name": "Eventora",
-  "name": "Eventora - Eventos en vivo",
+  "name": "Eventora",
   "description": "Descubre eventos de música, gastronomía, toros y fiestas en España",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ],
-  "start_url": "/?source=pwa",
-  "scope": "/",
+  "screenshots": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Escritorio"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Móvil"
+    }
+  ],
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#4f46e5",
-  "background_color": "#020617",
-  "orientation": "portrait-primary",
-  "categories": ["events", "entertainment", "lifestyle"],
-  "lang": "es"
+  "theme_color": "#020617",
+  "background_color": "#020617"
 }
