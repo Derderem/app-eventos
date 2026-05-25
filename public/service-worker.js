@@ -1,56 +1,56 @@
-// Service Worker de Eventora - PWA Instalable
-const CACHE_NAME = 'eventora-cache-v1';
-
-// Archivos que se guardarán para funcionar sin internet
-const ASSETS_TO_CACHE = [
+const CACHE_NAME = 'eventora-cache-v3';
+const STATIC_ASSETS = [
   '/',
   '/index.html',
+  '/manifest.json',
   '/icon-192.png',
-  '/icon-512.png',
-  '/manifest.json'
+  '/icon-512.png'
 ];
 
-// Cuando se instala el Service Worker
-self.addEventListener('install', function(event) {
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(function(cache) {
-      console.log('Eventora: Guardando archivos en caché');
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
 
-// Cuando se activa
-self.addEventListener('activate', function(event) {
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(function(cacheNames) {
+    caches.keys().then(keys => {
       return Promise.all(
-        cacheNames
-          .filter(function(name) { return name !== CACHE_NAME; })
-          .map(function(name) { return caches.delete(name); })
+        keys.filter(key => key !== CACHE_NAME)
+           .map(key => caches.delete(key))
       );
     })
   );
   self.clients.claim();
 });
 
-// Cuando la app pide un recurso (internet o caché)
-self.addEventListener('fetch', function(event) {
-  // Solo cachear peticiones GET
+self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    fetch(event.request)
-      .then(function(response) {
-        // Si hay internet, usar la respuesta de internet
-        return response;
-      })
-      .catch(function() {
-        // Si NO hay internet, buscar en caché
-        return caches.match(event.request).then(function(cached) {
-          return cached || caches.match('/index.html');
-        });
+    caches.match(event.request)
+      .then(cachedResponse => {
+        if (cachedResponse) return cachedResponse;
+
+        return fetch(event.request)
+          .then(networkResponse => {
+            if (!networkResponse || networkResponse.status !== 200) {
+              return networkResponse;
+            }
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME)
+              .then(cache => cache.put(event.request, responseToCache));
+            return networkResponse;
+          })
+          .catch(() => {
+            if (event.request.destination === 'document') {
+              return caches.match('/index.html');
+            }
+            return null;
+          });
       })
   );
 });
