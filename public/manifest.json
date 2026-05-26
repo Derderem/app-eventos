@@ -1,51 +1,62 @@
 {
+  "id": "com.eventora.app",
   "short_name": "Eventora",
-  "name": "Eventora - Encuentra Eventos",
+  "name": "Eventora - Eventos cerca de ti",
   "description": "Descubre los mejores eventos de música, gastronomía, fiestas patronales y más cerca de ti.",
+  "lang": "es-ES",
   "start_url": "/",
-"scope": "/",
-"display": "standalone",
-"display_override": ["standalone", "minimal-ui"],
-"theme_color": "#4f46e5",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "orientation": "portrait",
+  "theme_color": "#020617",
   "background_color": "#020617",
-  "orientation": "any",
-  "id": "/?source=pwa",
-  "categories": ["lifestyle", "entertainment", "social"],
+  "categories": ["entertainment", "lifestyle", "social"],
+  "iarc_rating_id": "e8402096-1d37-4148-8f85-055963e6e872",
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-512.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-maskable-512.png",
+      "src": "/icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     }
   ],
   "screenshots": [
-  {
-    "src": "screenshot-wide.png",
-    "sizes": "2188x1080",
-    "type": "image/png",
-    "form_factor": "wide",
-    "label": "Vista de escritorio de Eventora"
-  },
-  {
-    "src": "screenshot-narrow.png",
-    "sizes": "919x1920",
-    "type": "image/png",
-    "form_factor": "narrow",
-    "label": "Vista móvil de Eventora"
-  }
-]
+    {
+      "src": "/screenshot-narrow.png",
+      "sizes": "919x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Vista móvil de Eventora"
+    },
+    {
+      "src": "/screenshot-wide.png",
+      "sizes": "2188x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Vista escritorio de Eventora"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ver eventos",
+      "short_name": "Eventos",
+      "description": "Abrir lista de eventos",
+      "url": "/",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
 }
