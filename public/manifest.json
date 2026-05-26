@@ -1,38 +1,48 @@
 {
   "short_name": "Eventora",
-  "name": "Eventora",
-  "description": "Descubre eventos de música, gastronomía, toros y fiestas en España",
+  "name": "Eventora - Encuentra Eventos",
+  "description": "Descubre los mejores eventos de música, gastronomía, fiestas patronales y más cerca de ti.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#4f46e5",
+  "background_color": "#020617",
+  "orientation": "any",
+  "id": "/?source=pwa",
+  "categories": ["lifestyle", "entertainment", "social"],
   "icons": [
     {
       "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "screenshots": [
     {
-      "src": "icon-512.png",
-      "sizes": "512x512",
+      "src": "screenshot-wide.png",
+      "sizes": "1920x1080",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Escritorio"
+      "label": "Vista de escritorio de Eventora"
     },
     {
-      "src": "icon-512.png",
-      "sizes": "512x512",
+      "src": "screenshot-narrow.png",
+      "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Móvil"
+      "label": "Vista móvil de Eventora"
     }
-  ],
-  "start_url": "/",
-  "display": "standalone",
-  "theme_color": "#020617",
-  "background_color": "#020617"
+  ]
 }
