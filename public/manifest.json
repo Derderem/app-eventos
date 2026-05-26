@@ -4,6 +4,7 @@
   "name": "Eventora - Eventos cerca de ti",
   "description": "Descubre los mejores eventos de música, gastronomía, fiestas patronales y más cerca de ti.",
   "lang": "es-ES",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
