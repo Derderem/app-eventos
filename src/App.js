@@ -3455,7 +3455,7 @@ var INPUT_STYLE = {
       <div style={{ textAlign: 'center', marginTop: 60, opacity: 0.5 }}>
         <Star size={50} style={{ margin: '0 auto 15px', color: '#facc15' }} />
         <p style={{ fontWeight: 900, fontSize: 14 }}>SIN EVENTOS DESTACADOS</p>
-        <p style={{ fontSize: 10, marginTop: 8 }}>Los administradores尚未 marcar ningún evento como destacado</p>
+        <p style={{ fontSize: 10, marginTop: 8 }}>Pronto mostraremos eventos destacados aquí</p>
       </div>
     ) : (
       featuredEventsList.map(function(ev) {
