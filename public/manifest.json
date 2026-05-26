@@ -3,12 +3,15 @@
   "name": "Eventora - Encuentra Eventos",
   "description": "Descubre los mejores eventos de música, gastronomía, fiestas patronales y más cerca de ti.",
   "start_url": "/",
-  "display": "standalone",
-  "theme_color": "#4f46e5",
+"scope": "/",
+"display": "standalone",
+"display_override": ["standalone", "minimal-ui"],
+"theme_color": "#4f46e5",
   "background_color": "#020617",
   "orientation": "any",
   "id": "/?source=pwa",
   "categories": ["lifestyle", "entertainment", "social"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "icon-192.png",
