@@ -526,7 +526,10 @@ const [isLocating, setIsLocating] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [editForm, setEditForm] = useState(INITIAL_FORM);
   const [adminTab, setAdminTab] = useState('pending');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => {
+  const shared = readShareTarget();
+  return shared ? shared.value : '';
+});
   const [dateFilter, setDateFilter] = useState('all');
   const [animHeart, setAnimHeart] = useState(null);
   const [toast, setToast] = useState(null);
@@ -547,6 +550,22 @@ const [photoScale, setPhotoScale] = useState(1);
 
 const listRef = useRef(null);
 const toastTimerRef = useRef(null);
+useEffect(() => {
+  function applySharedData() {
+    const shared = readShareTarget();
+    if (!shared) return;
+    setSearchQuery(shared.value);
+    clearShareTargetParams();
+  }
+
+  applySharedData();
+
+  window.addEventListener('focus', applySharedData);
+
+  return () => {
+    window.removeEventListener('focus', applySharedData);
+  };
+}, []);
 const mapSearchTimerRef = useRef(null);
 const lastNonEventPathRef = useRef(
     (() => {
